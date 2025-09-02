@@ -1,6 +1,120 @@
 <!DOCTYPE html>
 <html lang="tr" class="scroll-smooth">
 <head>
+<!-- === Theme Upgrade: Dark/Light + Contrast === -->
+<style>
+:root {
+  --bg:#0b1220; --panel:#0f172a; --muted:#a8b3c7; --text:#f1f5f9;
+  --brand:#cd6928; --brand-2:#de7a39; --border:#253043; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
+  --card:#0f172a; --radius:14px;
+  --input-bg:#0c1526; --input-bd:#334155; --input-tx:#e7eef8; --placeholder:#8aa0bb;
+  --btn-bg:#1b2740; --btn-bd:#3a4a66; --btn-tx:#ffffff;
+}
+:root[data-theme="light"]{
+  --bg:#f6f7fb; --panel:#ffffff; --muted:#475569; --text:#0f172a;
+  --brand:#cd6928; --brand-2:#de7a39; --border:#e2e8f0;
+  --card:#ffffff;
+  --input-bg:#ffffff; --input-bd:#cbd5e1; --input-tx:#0f172a; --placeholder:#64748b;
+  --btn-bg:#ffffff; --btn-bd:#cbd5e1; --btn-tx:#0f172a;
+}
+html,body{height:100%}
+body{
+  background:
+   radial-gradient(1200px 800px at 10% -20%, rgba(205,105,40,.10), transparent 55%),
+   radial-gradient(900px 600px at 120% 10%, rgba(222,122,57,.08), transparent 60%),
+   var(--bg);
+  color:var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  margin:0;
+}
+header.appbar{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  max-width:min(1100px,94vw); margin:18px auto 10px; padding:10px 14px;
+  border:1px solid var(--border); border-radius:calc(var(--radius) - 6px);
+  background:linear-gradient(180deg, color-mix(in oklab, var(--card) 85%, transparent), color-mix(in oklab, var(--card) 55%, transparent));
+  backdrop-filter: blur(6px);
+}
+.brand{ display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.2px; }
+.brand .logo{
+  width:28px; height:28px; border-radius:8px; display:grid; place-items:center;
+  background:linear-gradient(135deg, var(--brand), var(--brand-2)); color:white; font-weight:800;
+}
+.status-badge{
+  font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); color:var(--muted);
+}
+.appbar-actions{ display:flex; align-items:center; gap:8px; }
+
+main.container{
+  max-width:min(1100px,94vw); margin:8px auto 24px; padding:12px 14px;
+  background:linear-gradient(180deg, color-mix(in oklab, var(--card) 90%, transparent), color-mix(in oklab, var(--card) 70%, transparent));
+  border:1px solid var(--border); border-radius:var(--radius);
+}
+
+/* Inputs & Buttons with higher contrast */
+input[type=text], input[type=number], input[type=password], select, textarea {
+  background:var(--input-bg); color:var(--input-tx);
+  border:1px solid var(--input-bd); border-radius:12px; padding:12px 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+input::placeholder, textarea::placeholder { color:var(--placeholder); }
+input:focus, select:focus, textarea:focus {
+  outline:2px solid color-mix(in oklab, var(--brand) 55%, transparent);
+  border-color: color-mix(in oklab, var(--brand) 55%, var(--input-bd));
+}
+
+/* Buttons */
+button, .btn {
+  appearance:none; border:1px solid var(--btn-bd); color:var(--btn-tx);
+  background:var(--btn-bg); border-radius:12px;
+  padding:10px 14px; cursor:pointer; transition:.15s transform ease, .15s background ease, .15s opacity ease;
+}
+button:hover{ transform: translateY(-1px); opacity:.95; }
+button.primary{ border-color:#cc7a44; background:linear-gradient(120deg, var(--brand), var(--brand-2)); color:#fff; }
+button.danger{ border-color:#7a2e2e; background:linear-gradient(120deg, #b91c1c, #ef4444); color:#fff; }
+
+/* Tables */
+table{ width:100%; border-collapse: collapse; margin: 8px 0; }
+thead th{ text-align:left; font-size:13px; color:var(--muted); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--border); }
+tbody td{ padding:10px; border-bottom:1px dashed var(--border); }
+tbody tr:hover{ background:color-mix(in oklab, var(--card) 85%, transparent); }
+
+/* Modal backdrop */
+.modal, .dialog, .overlay{ background: color-mix(in oklab, #000 60%, transparent); }
+
+/* Login overlay polish */
+#authGate {
+  position: fixed; inset: 0; display: none; place-items: center; z-index: 99999;
+  background:
+   radial-gradient(800px 500px at 15% 10%, rgba(205,105,40,.12), transparent 60%),
+   radial-gradient(700px 500px at 90% 10%, rgba(222,122,57,.10), transparent 60%),
+   var(--bg);
+}
+#authCard {
+  width: min(420px, 94vw); background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 24px 22px 20px; box-shadow: 0 10px 40px rgba(0,0,0,.35);
+}
+#authCard h2 { margin: 0 0 6px; font-size: 20px; color: var(--text); }
+#authCard p  { margin: 0 0 16px; font-size: 13px; color: var(--muted); }
+.row { display: grid; gap: 8px; margin: 10px 0 12px; }
+.row label { font-size: 12px; color: var(--muted); }
+.row input { font: 14px/1.2 system-ui; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--input-bd); background:var(--input-bg); color:var(--input-tx); }
+#authBtn { width:100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cc7a44;
+  background: linear-gradient(120deg, var(--brand), var(--brand-2)); color: white; font-weight: 700; cursor: pointer; }
+#authErr { min-height: 18px; color: #fca5a5; font-size: 12px; margin-top: 8px; }
+#logoutBtn { position: fixed; right: 12px; top: 12px; z-index: 1000; display:none; padding: 8px 12px; border-radius: 10px;
+  border: 1px solid var(--btn-bd); background:var(--btn-bg); color:var(--btn-tx); cursor:pointer; }
+.login-brand{ display:flex; align-items:center; gap:10px; margin:0 0 12px; }
+.login-logo{ width:32px; height:32px; border-radius:8px; display:grid; place-items:center; font-weight:800; color:#fff;
+  background:linear-gradient(135deg, var(--brand), var(--brand-2)); }
+
+.theme-toggle { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);
+  border:1px solid var(--border); border-radius:999px; padding:6px 10px; cursor:pointer; }
+.theme-toggle input { accent-color: var(--brand); }
+.footer-hint{ opacity:.7; font-size:12px; text-align:center; margin:12px 0 0; color:var(--muted); }
+</style>
+<!-- === /Theme Upgrade === -->
+
 
 <!-- === Visual Theme (Global) === -->
 <style>
@@ -488,5 +602,39 @@ button.danger{ border-color:#7a2e2e; background:linear-gradient(120deg, #b91c1c,
     window.addEventListener('storage',e=>{ if(e.key===LS_KEY){ load(); render(); } });
   })();
   </script>
+<!-- === UI Controller: Theme + Reliable Logout === -->
+<script>
+(function(){
+  const LS_THEME = "hm.theme";
+  const root = document.documentElement;
+  const sw = document.getElementById("themeSwitch");
+  const current = localStorage.getItem(LS_THEME) || "dark";
+  root.setAttribute("data-theme", current);
+  if (sw) sw.checked = (current === "dark");
+  if (sw) sw.addEventListener("change", ()=>{
+    const mode = sw.checked ? "dark" : "light";
+    root.setAttribute("data-theme", mode);
+    localStorage.setItem(LS_THEME, mode);
+  });
+
+  function doLogout(){
+    try {
+      sessionStorage.removeItem("auth_ok");
+      sessionStorage.removeItem("auth_user");
+      sessionStorage.removeItem("role");
+    } catch {}
+    const gate = document.getElementById("authGate");
+    if (gate) gate.style.display = "grid";
+    location.reload();
+  }
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) logoutBtn.addEventListener("click", doLogout);
+  document.addEventListener("click", (e)=>{
+    const t = (e.target.textContent || "").toLowerCase().trim();
+    if (t === "çıkış" || t === "cikis") doLogout();
+  });
+})();
+</script>
+<!-- === /UI Controller === -->
 </body>
 </html>
