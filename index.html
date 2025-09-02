@@ -18,6 +18,105 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
+
+<!-- === Simple Login Gate (user: hertz / pass: hertz) === -->
+<style>
+  #authGate {
+    position: fixed; inset: 0; display: none; place-items: center; z-index: 99999;
+    background: radial-gradient(1000px 600px at 30% 20%, rgba(205,105,40,.08), transparent 60%) , #0b1220;
+    color: #e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  }
+  #authCard {
+    width: min(380px, 92vw); background: #111827; border: 1px solid #1f2937; border-radius: 14px;
+    padding: 22px 22px 16px; box-shadow: 0 10px 40px rgba(0,0,0,.35);
+  }
+  #authCard h2 { margin: 0 0 8px; font-size: 18px; color: #f3f4f6; }
+  #authCard p  { margin: 0 0 16px; font-size: 13px; color: #94a3b8; }
+  .row { display: grid; gap: 8px; margin: 10px 0 12px; }
+  .row label { font-size: 12px; color: #cbd5e1; }
+  .row input {
+    font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    padding: 10px 12px; border-radius: 10px; border: 1px solid #303a4a; background:#0f172a; color:#e5e7eb;
+  }
+  #authBtn {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cc7a44;
+    background: linear-gradient(120deg, #cd6928, #de7a39); color: white; font-weight: 600; cursor: pointer;
+  }
+  #authErr { min-height: 18px; color: #fca5a5; font-size: 12px; margin-top: 8px; }
+  #logoutBtn {
+    position: fixed; right: 10px; top: 10px; z-index: 1000; display:none;
+    padding: 6px 10px; border-radius: 10px; border: 1px solid #cbd5e1; background:#ffffff; color:#0f172a; cursor:pointer;
+  }
+</style>
+<div id="authGate">
+  <div id="authCard">
+    <h2>Giriş yap</h2>
+    <p>Devam etmek için kullanıcı adı ve şifre girin.</p>
+    <form id="authForm">
+      <div class="row">
+        <label for="authUser">Kullanıcı adı</label>
+        <input id="authUser" name="u" autocomplete="username" placeholder="hertz" required>
+      </div>
+      <div class="row">
+        <label for="authPass">Şifre</label>
+        <input id="authPass" name="p" type="password" autocomplete="current-password" placeholder="hertz" required>
+      </div>
+      <button id="authBtn" type="submit">Giriş</button>
+      <div id="authErr"></div>
+    </form>
+  </div>
+</div>
+<button id="logoutBtn" title="Oturumu kapat">Çıkış</button>
+<script>
+(function(){
+  const USER = "hertz";
+  const PASS = "hertz";
+  const KEY  = "auth_ok"; // sessionStorage
+  const gate = document.getElementById("authGate");
+  const form = document.getElementById("authForm");
+  const err  = document.getElementById("authErr");
+  const out  = document.getElementById("logoutBtn");
+  let fails = 0;
+
+  function openGate(){ gate.style.display = "grid"; }
+  function closeGate(){
+    gate.style.display = "none";
+    out.style.display = "inline-block";
+    document.dispatchEvent(new Event("auth_ok"));
+  }
+
+  // Persist only per-tab (sessionStorage). If you want persistent, switch to localStorage.
+  if (sessionStorage.getItem(KEY) === "1") { closeGate(); }
+  else { openGate(); }
+
+  form.addEventListener("submit", (e)=>{
+    e.preventDefault();
+    const u = (form.u.value || "").trim();
+    const p = form.p.value || "";
+    if (u === USER && p === PASS){
+      sessionStorage.setItem(KEY, "1");
+      closeGate();
+    } else {
+      fails++;
+      err.textContent = "Hatalı kullanıcı adı/şifre";
+      form.p.value = "";
+      if (fails >= 5){
+        err.textContent = "5 başarısız deneme. Lütfen 60 sn sonra tekrar deneyin.";
+        form.querySelector("button[type=submit]").disabled = true;
+        setTimeout(()=>{ form.querySelector("button[type=submit]").disabled = false; err.textContent=""; fails=0; }, 60000);
+      }
+    }
+  });
+
+  out.addEventListener("click", ()=>{
+    sessionStorage.removeItem(KEY);
+    location.reload();
+  });
+})();
+</script>
+<!-- === /Login Gate === -->
+
+
   <header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200">
     <div class="mx-auto max-w-7xl px-3 md:px-4 py-3 flex items-center gap-3">
       <div class="shrink-0 w-10 h-10 grid place-items-center rounded-2xl text-white font-bold" style="background: rgb(var(--brand))">HM</div>
@@ -448,11 +547,12 @@
   })();
   </script>
 
-<!-- === Firebase Live Sync (Sync-Fix v3: LS set/remove/clear + save() hook) === -->
+<!-- === Firebase Live Sync (guarded by login) === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
+  // Config
   const firebaseConfig = {
     apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
     authDomain: "hertz-stok-takip.firebaseapp.com",
@@ -463,110 +563,85 @@
     appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const db  = getDatabase(app);
+  function startSync(){
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
 
-  const urlDoc = new URLSearchParams(location.search).get("doc");
-  const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
-  const rootRef = ref(db, `docs/${DOC_ID}`);
-  const presRef = ref(db, `docs/${DOC_ID}/presence`);
-  const meId    = crypto.randomUUID();
-  const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
-  set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
-  onDisconnect(meRef).remove();
+    const urlDoc = new URLSearchParams(location.search).get("doc");
+    const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
+    const rootRef = ref(db, `docs/${DOC_ID}`);
+    const presRef = ref(db, `docs/${DOC_ID}/presence`);
+    const meId    = crypto.randomUUID();
+    const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
+    set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
+    onDisconnect(meRef).remove();
 
-  const APP_LS_KEY = "stokTakip.v1";
-  const EMPTY_DATA = { products: [], logs: [], updatedAt: Date.now() };
+    const APP_LS_KEY = "stokTakip.v1";
+    const EMPTY_DATA = { products: [], logs: [], updatedAt: Date.now() };
+    const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
+    const push = (obj)=> update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now() })
+                          .catch(err => console.error("Buluta yazma hatası:", err));
 
-  const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
-  const push = (obj)=> update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now() })
-                        .catch(err => console.error("Buluta yazma hatası:", err));
+    // Hook LS
+    const _setItem    = localStorage.setItem.bind(localStorage);
+    const _removeItem = localStorage.removeItem.bind(localStorage);
+    const _clear      = localStorage.clear.bind(localStorage);
 
-  // ---- Hook localStorage.setItem/removeItem/clear ----
-  const _setItem    = localStorage.setItem.bind(localStorage);
-  const _removeItem = localStorage.removeItem.bind(localStorage);
-  const _clear      = localStorage.clear.bind(localStorage);
-
-  localStorage.setItem = function(k, v){
-    _setItem(k, v);
-    if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) {
-      const obj = safeParse(v) || {};
-      push(obj);
-    }
-  };
-
-  localStorage.removeItem = function(k){
-    _removeItem(k);
-    if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) {
-      // Veriyi bulutta da sıfırla
-      push(EMPTY_DATA);
-    }
-  };
-
-  localStorage.clear = function(){
-    _clear();
-    // Uygulama "tüm veriyi sil" yaptığında clear kullanabilir → bulutta da sil
-    push(EMPTY_DATA);
-  };
-
-  // ---- save() hook (varsa) ----
-  if (typeof window.save === "function") {
-    const __orig = window.save;
-    window.save = function(){
-      try { __orig(); } catch(e) { console.error("save() orijinal hata:", e); }
-      try {
-        const raw = localStorage.getItem(APP_LS_KEY);
-        if (raw) push(safeParse(raw) || {});
-        else push(EMPTY_DATA);
-      } catch {}
+    localStorage.setItem = function(k, v){
+      _setItem(k, v);
+      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(safeParse(v)||{});
     };
+    localStorage.removeItem = function(k){
+      _removeItem(k);
+      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(EMPTY_DATA);
+    };
+    localStorage.clear = function(){ _clear(); push(EMPTY_DATA); };
+
+    if (typeof window.save === "function") {
+      const __orig = window.save;
+      window.save = function(){ try{ __orig(); }catch(e){ console.error(e); } 
+        const raw = localStorage.getItem(APP_LS_KEY);
+        if (raw) push(safeParse(raw)||{}); else push(EMPTY_DATA);
+      };
+    }
+
+    let lastSent = null;
+    setInterval(() => {
+      const now = localStorage.getItem(APP_LS_KEY);
+      if (now !== lastSent) { lastSent = now; if (now) push(safeParse(now)||{}); else push(EMPTY_DATA); }
+    }, 1000);
+
+    onValue(rootRef, (snap) => {
+      const v = snap.val();
+      if(!v || typeof v !== "object") return;
+      const { products = [], logs = [] } = v;
+      const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
+      if (JSON.stringify(local.products||[]) === JSON.stringify(products) &&
+          JSON.stringify(local.logs||[])     === JSON.stringify(logs)) return;
+      localStorage.setItem(APP_LS_KEY, JSON.stringify({ products, logs }));
+      try { if (typeof render === "function") render(); } catch(e){ console.warn("render() çağrısı hata:", e); }
+    });
+
+    setTimeout(() => {
+      onValue(rootRef, (snap) => {
+        if(!snap.exists()){
+          const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
+          set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now() }).catch(console.error);
+        }
+      }, { onlyOnce: true });
+    }, 300);
+
+    onValue(presRef, (snap) => {
+      const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
+      const el = document.getElementById("statusOnline");
+      if (el) el.textContent = `Çevrimiçi: ${n}`;
+    });
   }
 
-  // ---- Periodic flush (fallback) ----
-  let lastSent = null;
-  setInterval(() => {
-    const now = localStorage.getItem(APP_LS_KEY);
-    if (now !== lastSent) {
-      lastSent = now;
-      if (now) push(safeParse(now) || {});
-      else push(EMPTY_DATA);
-    }
-  }, 1000);
-
-  // ---- Remote -> UI ----
-  onValue(rootRef, (snap) => {
-    const v = snap.val();
-    if(!v || typeof v !== "object") return;
-    const { products = [], logs = [] } = v;
-
-    const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-    if (JSON.stringify(local.products||[]) === JSON.stringify(products) &&
-        JSON.stringify(local.logs||[])     === JSON.stringify(logs)) return;
-
-    const merged = JSON.stringify({ products, logs });
-    localStorage.setItem(APP_LS_KEY, merged);
-    try { if (typeof render === "function") render(); } catch(e){ console.warn("render() çağrısı hata:", e); }
-  }, (err)=> console.error("RTDB dinleme hatası:", err));
-
-  // ---- İlk seed ----
-  setTimeout(() => {
-    onValue(rootRef, (snap) => {
-      if(!snap.exists()){
-        const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-        const data = { products: local.products||[], logs: local.logs||[], updatedAt: Date.now() };
-        set(rootRef, data).catch(console.error);
-      }
-    }, { onlyOnce: true });
-  }, 300);
-
-  // ---- Presence ----
-  onValue(presRef, (snap) => {
-    const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
-    const el = document.getElementById("statusOnline");
-    if (el) el.textContent = `Çevrimiçi: ${n}`;
-  });
+  if (sessionStorage.getItem("auth_ok") === "1") startSync();
+  else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
-<!-- === /Sync-Fix v3 === -->
+<!-- === /Firebase Live Sync (guarded) === -->
 
 </body>
 </html>
