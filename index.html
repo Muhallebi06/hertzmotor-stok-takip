@@ -448,28 +448,27 @@
   })();
   </script>
 
-<!-- === Firebase Realtime Database Live Sync (Integrated) === -->
+<!-- === Firebase Live Sync (Sync-Fix: LS watcher + periodic flush) === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
-    authDomain: "hertz-stok-takip.firebaseapp.com",
+    authDomain: "muhallebi06.firebaseapp.com",
     databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
     projectId: "hertz-stok-takip",
     storageBucket: "hertz-stok-takip.appspot.com",
     messagingSenderId: "512663727455",
-    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea",
-    measurementId: "G-00WN8FD5K9"
+    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
   };
 
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
+  // DOC (room) id from URL or default
   const urlDoc = new URLSearchParams(location.search).get("doc");
   const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
-
   const rootRef = ref(db, `docs/${DOC_ID}`);
   const presRef = ref(db, `docs/${DOC_ID}/presence`);
   const meId    = crypto.randomUUID();
@@ -477,54 +476,69 @@
   set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
   onDisconnect(meRef).remove();
 
-  const hasSave = typeof window.save === "function";
-  if (hasSave) {
-    window.__saveOriginal = window.save;
-    window.save = function() {
-      try { window.__saveOriginal(); } catch(e) { console.error("save() orijinal hata:", e); }
-      const data = { products: state.products, logs: state.logs, updatedAt: Date.now() };
-      update(rootRef, data).catch(e => console.error("Buluta yazma hatası:", e));
-    };
-  } else {
-    window.save = function() {
-      try { localStorage.setItem(LS_KEY, JSON.stringify({products:state.products, logs:state.logs})); } catch {}
-      const data = { products: state.products, logs: state.logs, updatedAt: Date.now() };
-      update(rootRef, data).catch(console.error);
-    }
-  }
+  // Helper to safely parse LS
+  function safeParse(x){ try { return JSON.parse(x); } catch { return null; } }
 
+  // 1) Mirror LocalStorage writes for LS_KEY into RTDB
+  const _setItem = localStorage.setItem.bind(localStorage);
+  window.LS_KEY = window.LS_KEY || "stok-uyg";
+  localStorage.setItem = function(k, v){
+    _setItem(k, v);
+    if(k === window.LS_KEY){
+      const obj = safeParse(v) || {};
+      const data = { products: obj.products || [], logs: obj.logs || [], updatedAt: Date.now() };
+      update(rootRef, data).catch(err => console.error("Buluta yazma hatası:", err));
+    }
+  };
+
+  // 2) Periodic flush (fallback): her 1 sn'de bir LS'deki ile son gönderileni kıyasla
+  let lastSent = "";
+  setInterval(() => {
+    const now = localStorage.getItem(window.LS_KEY) || "";
+    if(now && now !== lastSent){
+      lastSent = now;
+      const obj = safeParse(now) || {};
+      const data = { products: obj.products || [], logs: obj.logs || [], updatedAt: Date.now() };
+      update(rootRef, data).catch(err => console.error("Buluta yazma hatası:", err));
+    }
+  }, 1000);
+
+  // 3) Remote -> UI: anlık dinle ve uygula
   onValue(rootRef, (snap) => {
     const v = snap.val();
     if(!v || typeof v !== "object") return;
     const { products = [], logs = [] } = v;
-    try {
-      const sameP = JSON.stringify(products) === JSON.stringify(state.products);
-      const sameL = JSON.stringify(logs) === JSON.stringify(state.logs);
-      if (sameP && sameL) return;
-    } catch {}
-    window.state = window.state || { products: [], logs: [] };
-    state.products = Array.isArray(products) ? products : [];
-    state.logs     = Array.isArray(logs) ? logs : [];
-    try { localStorage.setItem(LS_KEY, JSON.stringify({products:state.products, logs:state.logs})); } catch {}
-    try { if (typeof render === "function") render(); } catch(e){ console.error("render() hatası:", e); }
-  });
 
+    // Yerel ile aynı ise atla
+    const local = safeParse(localStorage.getItem(window.LS_KEY) || "null") || {products:[], logs:[]};
+    if (JSON.stringify(local.products||[]) === JSON.stringify(products) &&
+        JSON.stringify(local.logs||[])     === JSON.stringify(logs)) return;
+
+    // LS'yi güncelle → uygulamanın kendi akışı render'ı tetikleyecek
+    const merged = JSON.stringify({ products, logs });
+    localStorage.setItem(window.LS_KEY, merged);
+    try { if (typeof render === "function") render(); } catch(e){ console.warn("render() çağrısı hata:", e); }
+  }, (err)=> console.error("RTDB dinleme hatası:", err));
+
+  // 4) İlk seed: RTDB boşsa LS'den al
   setTimeout(() => {
     onValue(rootRef, (snap) => {
-      if(!snap.exists()) {
-        const data = { products: (window.state?.products)||[], logs: (window.state?.logs)||[], updatedAt: Date.now() };
-        set(rootRef, data);
+      if(!snap.exists()){
+        const local = safeParse(localStorage.getItem(window.LS_KEY) || "null") || {products:[], logs:[]};
+        const data = { products: local.products||[], logs: local.logs||[], updatedAt: Date.now() };
+        set(rootRef, data).catch(console.error);
       }
     }, { onlyOnce: true });
-  }, 200);
+  }, 300);
 
+  // 5) Ekranda "statusOnline" varsa sayacı yaz
   onValue(presRef, (snap) => {
     const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
     const el = document.getElementById("statusOnline");
     if (el) el.textContent = `Çevrimiçi: ${n}`;
   });
 </script>
-<!-- === /Firebase Live Sync === -->
+<!-- === /Sync-Fix === -->
 
 </body>
 </html>
