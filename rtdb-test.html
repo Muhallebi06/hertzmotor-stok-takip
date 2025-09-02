@@ -1,0 +1,58 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>RTDB Quick Test</title>
+<h1>Firebase RTDB Quick Test</h1>
+<p>Status: <span id="status">Starting…</span></p>
+<label>Doc ID: <input id="doc" value="deneme-oda-1"></label>
+<button id="write">Write Timestamp</button>
+<pre id="log" style="background:#f6f8fa;padding:12px;border-radius:8px;max-width:720px;white-space:pre-wrap"></pre>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getDatabase, ref, update, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+
+  const log = (m)=>{ document.getElementById('log').textContent += m + "\n"; };
+  const setStatus = (s)=>{ document.getElementById('status').textContent = s; };
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
+    authDomain: "hertz-stok-takip.firebaseapp.com",
+    databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "hertz-stok-takip",
+    storageBucket: "hertz-stok-takip.appspot.com",
+    messagingSenderId: "512663727455",
+    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
+  };
+
+  try{
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
+    setStatus("Initialized");
+    const input = document.getElementById('doc');
+    const btn   = document.getElementById('write');
+
+    const attach = ()=>{
+      const rootRef = ref(db, "docs/" + input.value);
+      onValue(rootRef, (snap)=>{
+        log("onValue: " + JSON.stringify(snap.val()));
+      }, (err)=>{
+        log("onValue ERROR: " + err.message);
+      });
+    };
+    attach();
+
+    btn.onclick = async ()=>{
+      try{
+        const rootRef = ref(db, "docs/" + input.value);
+        await update(rootRef, { quickTest: Date.now() });
+        log("Write OK");
+      }catch(e){
+        log("Write ERROR: " + e.message);
+        setStatus("Write failed");
+      }
+    };
+  }catch(e){
+    setStatus("Init failed");
+    log(e.message);
+  }
+</script>
