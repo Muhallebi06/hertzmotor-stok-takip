@@ -62,6 +62,87 @@
         <input id="authPass" name="p" type="password" autocomplete="current-password" placeholder="••••••••" required>
       </div>
       <button id="authBtn" type="submit">Giriş</button>
+
+<script>
+(function(){
+  const USERS = {
+    "hertz":   { pass: "hertz", role: "admin" },
+    "muhasebe":{ pass: "2",     role: "user"  },
+    "imalat1": { pass: "3",     role: "user"  },
+    "imalat2": { pass: "4",     role: "user"  },
+    "imalat3": { pass: "5",     role: "user"  },
+    "imalat4": { pass: "6",     role: "user"  },
+    "imalat5": { pass: "7",     role: "user"  },
+    "imalat6": { pass: "8",     role: "user"  }
+  };
+  const KEY  = "auth_ok"; // sessionStorage
+  const UN   = "auth_user";
+  const RL   = "role";
+  const gate = document.getElementById("authGate");
+  const form = document.getElementById("authForm");
+  const err  = document.getElementById("authErr");
+  const out  = document.getElementById("logoutBtn");
+
+  function openGate(){ gate.style.display = "grid"; }
+  function closeGate(){
+    gate.style.display = "none";
+    out.style.display = "inline-block";
+    document.dispatchEvent(new Event("auth_ok"));
+    applyRoleUI();
+  }
+
+  function applyRoleUI(){
+    const role = sessionStorage.getItem(RL);
+    // 1) Hide clear-all button for non-admins by ID
+    const btnById = document.getElementById("btnClearAll");
+    if (btnById) btnById.style.display = (role === "admin") ? "" : "none";
+    // 2) Hide any button-like element that has text "tüm verileri sil"
+    const candidates = document.querySelectorAll("button, a, [role='button'], .btn, .button");
+    const norm = s => (s||"").toLowerCase().replace(/\s+/g, " ").trim();
+    candidates.forEach(el => {
+      const t = norm(el.textContent);
+      if (t.includes("tüm verileri sil") || t.includes("tum verileri sil")) {
+        if (role !== "admin") el.style.display = "none";
+      }
+    });
+  }
+
+  // Persistent per-tab session
+  if (sessionStorage.getItem(KEY) === "1") {
+    closeGate();
+  } else {
+    openGate();
+  }
+
+  form.addEventListener("submit", (e)=>{
+    e.preventDefault();
+    const u = (form.u.value || "").trim();
+    const p = form.p.value || "";
+    const rec = USERS[u];
+    if (rec && p === rec.pass){
+      sessionStorage.setItem(KEY, "1");
+      sessionStorage.setItem(UN, u);
+      sessionStorage.setItem(RL, rec.role);
+      closeGate();
+    } else {
+      err.textContent = "Hatalı kullanıcı adı/şifre";
+      form.p.value = "";
+    }
+  });
+
+  out.addEventListener("click", ()=>{
+    sessionStorage.removeItem(KEY);
+    sessionStorage.removeItem(UN);
+    sessionStorage.removeItem(RL);
+    location.reload();
+  });
+
+  // Apply role once content loads (in case auth_ok fired before areas exist)
+  window.addEventListener("load", applyRoleUI);
+  document.addEventListener("auth_ok", applyRoleUI);
+})();
+</script>
+
       <div id="authErr"></div>
     </form>
   </div>
@@ -642,6 +723,19 @@
   else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
 <!-- === /Firebase Live Sync (guarded) === -->
+
+
+<!-- === Kullanıcı Tablosu (Referans) ===
+| Kullanıcı Adı | Şifre | Rol    |
+| hertz         | hertz | admin  |
+| muhasebe      | 2     | user   |
+| imalat1       | 3     | user   |
+| imalat2       | 4     | user   |
+| imalat3       | 5     | user   |
+| imalat4       | 6     | user   |
+| imalat5       | 7     | user   |
+| imalat6       | 8     | user   |
+=== -->
 
 </body>
 </html>
