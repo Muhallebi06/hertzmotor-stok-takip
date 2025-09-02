@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hertz Motor — Stok Takip</title>
+  <link rel="icon" href="assets/favicon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+  <header>
+    <h1>Hertz Motor — Stok Takip</h1>
+    <div id="statusOnline">Bağlanıyor…</div>
+  </header>
+  <main>
+    <p>Stok takip uygulaması burada çalışır.</p>
+  </main>
+
+  <script>
+  window.LS_KEY = "stok-uyg";
+  window.state = { products: [], logs: [] };
+  function render(){};
+  function save(){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify({products:state.products, logs:state.logs})); }catch{}
+  }
+  function load(){
+    try{ const v = JSON.parse(localStorage.getItem(LS_KEY)||"null"); if(v){ state.products=v.products||[]; state.logs=v.logs||[]; } }catch{}
+    render();
+  }
+  load();
+  </script>
+
+  <!-- Firebase Realtime Database integration -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
+      authDomain: "hertz-stok-takip.firebaseapp.com",
+      databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "hertz-stok-takip",
+      storageBucket: "hertz-stok-takip.appspot.com",
+      messagingSenderId: "512663727455",
+      appId: "1:512663727455:web:99e15a20f7ae9b77a39aea",
+      measurementId: "G-00WN8FD5K9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
+
+    const urlDoc = new URLSearchParams(location.search).get("doc");
+    const DOC_ID = urlDoc || "stoktakip-paylasimli-oda";
+
+    const rootRef = ref(db, `docs/${DOC_ID}`);
+    const presRef = ref(db, `docs/${DOC_ID}/presence`);
+    const meId    = crypto.randomUUID();
+    const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
+    set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
+    onDisconnect(meRef).remove();
+
+    window.__saveOriginal = window.save;
+    window.save = function() {
+      try { window.__saveOriginal(); } catch(e) {}
+      const data = { products: state.products, logs: state.logs, updatedAt: Date.now() };
+      update(rootRef, data).catch(console.error);
+    };
+
+    onValue(rootRef, (snap) => {
+      const v = snap.val();
+      if(!v) return;
+      const { products = [], logs = [] } = v;
+      state.products = Array.isArray(products) ? products : [];
+      state.logs     = Array.isArray(logs) ? logs : [];
+      try { localStorage.setItem(LS_KEY, JSON.stringify({products:state.products, logs:state.logs})); }catch{}
+      try { render(); }catch(e){}
+    });
+
+    setTimeout(() => {
+      onValue(rootRef, (snap) => {
+        if(!snap.exists()) set(rootRef, { products: state.products, logs: state.logs, updatedAt: Date.now() });
+      }, { onlyOnce: true });
+    }, 200);
+
+    onValue(presRef, (snap) => {
+      const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
+      const el = document.getElementById("statusOnline");
+      if (el) el.textContent = `Çevrimiçi: ${n}`;
+    });
+  </script>
+</body>
+</html>

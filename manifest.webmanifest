@@ -1,0 +1,11 @@
+{
+  "name": "Hertz Motor — Stok Takip",
+  "short_name": "StokTakip",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#cd6928",
+  "icons": [
+    {"src": "assets/favicon.svg", "sizes": "128x128", "type": "image/svg+xml"}
+  ]
+}
