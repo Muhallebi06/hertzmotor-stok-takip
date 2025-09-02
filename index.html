@@ -737,5 +737,38 @@
 | imalat6       | 8     | user   |
 === -->
 
+
+<!-- === Non-admin guard: continuously hide "Tüm verileri sil" === -->
+<script>
+(function(){
+  function norm(s){ return (s||"").toLowerCase().replace(/\s+/g," ").trim(); }
+  function hideClearForNonAdmin(){
+    const role = sessionStorage.getItem("role");
+    if (role === "admin") return; // admins see everything
+
+    // 1) By ID
+    const byId = document.getElementById("btnClearAll");
+    if (byId) byId.style.display = "none";
+
+    // 2) By text content (covers dynamically re-rendered buttons)
+    const nodes = document.querySelectorAll("button, a, [role='button'], .btn, .button");
+    nodes.forEach(el => {
+      const t = norm(el.textContent);
+      if (t.includes("tüm verileri sil") || t.includes("tum verileri sil")) {
+        el.style.display = "none";
+        el.disabled = true; // extra safety
+        el.setAttribute("aria-hidden", "true");
+      }
+    });
+  }
+
+  // Run on load and then every 500ms to catch re-renders
+  window.addEventListener("load", hideClearForNonAdmin);
+  setInterval(hideClearForNonAdmin, 500);
+  document.addEventListener("auth_ok", hideClearForNonAdmin);
+})();
+</script>
+<!-- === /Non-admin guard === -->
+
 </body>
 </html>
