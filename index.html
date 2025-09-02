@@ -448,7 +448,7 @@
   })();
   </script>
 
-<!-- === Firebase Live Sync (Sync-Fix v2: correct LS key + save() hook) === -->
+<!-- === Firebase Live Sync (Sync-Fix v3: LS set/remove/clear + save() hook) === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -476,43 +476,69 @@
   onDisconnect(meRef).remove();
 
   const APP_LS_KEY = "stokTakip.v1";
+  const EMPTY_DATA = { products: [], logs: [], updatedAt: Date.now() };
 
-  function safeParse(x){ try { return JSON.parse(x); } catch { return null; } }
-  function pushLSJsonToCloud(raw){
-    const obj = safeParse(raw) || {};
-    const data = { products: obj.products || [], logs: obj.logs || [], updatedAt: Date.now() };
-    return update(rootRef, data).catch(err => console.error("Buluta yazma hatası:", err));
-  }
+  const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
+  const push = (obj)=> update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now() })
+                        .catch(err => console.error("Buluta yazma hatası:", err));
 
-  const _setItem = localStorage.setItem.bind(localStorage);
+  // ---- Hook localStorage.setItem/removeItem/clear ----
+  const _setItem    = localStorage.setItem.bind(localStorage);
+  const _removeItem = localStorage.removeItem.bind(localStorage);
+  const _clear      = localStorage.clear.bind(localStorage);
+
   localStorage.setItem = function(k, v){
     _setItem(k, v);
     if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) {
-      pushLSJsonToCloud(v);
+      const obj = safeParse(v) || {};
+      push(obj);
     }
   };
 
+  localStorage.removeItem = function(k){
+    _removeItem(k);
+    if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) {
+      // Veriyi bulutta da sıfırla
+      push(EMPTY_DATA);
+    }
+  };
+
+  localStorage.clear = function(){
+    _clear();
+    // Uygulama "tüm veriyi sil" yaptığında clear kullanabilir → bulutta da sil
+    push(EMPTY_DATA);
+  };
+
+  // ---- save() hook (varsa) ----
   if (typeof window.save === "function") {
     const __orig = window.save;
     window.save = function(){
       try { __orig(); } catch(e) { console.error("save() orijinal hata:", e); }
-      try { const raw = localStorage.getItem(APP_LS_KEY); if (raw) pushLSJsonToCloud(raw); } catch{}
+      try {
+        const raw = localStorage.getItem(APP_LS_KEY);
+        if (raw) push(safeParse(raw) || {});
+        else push(EMPTY_DATA);
+      } catch {}
     };
   }
 
-  let lastSent = "";
+  // ---- Periodic flush (fallback) ----
+  let lastSent = null;
   setInterval(() => {
-    const now = localStorage.getItem(APP_LS_KEY) || "";
-    if(now && now !== lastSent){
+    const now = localStorage.getItem(APP_LS_KEY);
+    if (now !== lastSent) {
       lastSent = now;
-      pushLSJsonToCloud(now);
+      if (now) push(safeParse(now) || {});
+      else push(EMPTY_DATA);
     }
   }, 1000);
 
+  // ---- Remote -> UI ----
   onValue(rootRef, (snap) => {
     const v = snap.val();
     if(!v || typeof v !== "object") return;
     const { products = [], logs = [] } = v;
+
     const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
     if (JSON.stringify(local.products||[]) === JSON.stringify(products) &&
         JSON.stringify(local.logs||[])     === JSON.stringify(logs)) return;
@@ -522,6 +548,7 @@
     try { if (typeof render === "function") render(); } catch(e){ console.warn("render() çağrısı hata:", e); }
   }, (err)=> console.error("RTDB dinleme hatası:", err));
 
+  // ---- İlk seed ----
   setTimeout(() => {
     onValue(rootRef, (snap) => {
       if(!snap.exists()){
@@ -532,13 +559,14 @@
     }, { onlyOnce: true });
   }, 300);
 
+  // ---- Presence ----
   onValue(presRef, (snap) => {
     const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
     const el = document.getElementById("statusOnline");
     if (el) el.textContent = `Çevrimiçi: ${n}`;
   });
 </script>
-<!-- === /Sync-Fix v2 === -->
+<!-- === /Sync-Fix v3 === -->
 
 </body>
 </html>
