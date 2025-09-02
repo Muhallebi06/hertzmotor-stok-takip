@@ -448,7 +448,7 @@
   })();
   </script>
 
-<!-- === Firebase Realtime Database Live Sync (Integrated — FULL APP) === -->
+<!-- === Firebase Realtime Database Live Sync (Integrated) === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -477,7 +477,6 @@
   set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
   onDisconnect(meRef).remove();
 
-  // Orijinal save() fonksiyonu varsa sarmala
   const hasSave = typeof window.save === "function";
   if (hasSave) {
     window.__saveOriginal = window.save;
@@ -487,7 +486,6 @@
       update(rootRef, data).catch(e => console.error("Buluta yazma hatası:", e));
     };
   } else {
-    // Emniyet: yoksa basit bir save ekleyelim ki buluta yazsın
     window.save = function() {
       try { localStorage.setItem(LS_KEY, JSON.stringify({products:state.products, logs:state.logs})); } catch {}
       const data = { products: state.products, logs: state.logs, updatedAt: Date.now() };
@@ -495,40 +493,31 @@
     }
   }
 
-  // Bulutu dinle ve UI'ı güncelle
   onValue(rootRef, (snap) => {
     const v = snap.val();
     if(!v || typeof v !== "object") return;
     const { products = [], logs = [] } = v;
-
-    // Aynıysa pas
     try {
       const sameP = JSON.stringify(products) === JSON.stringify(state.products);
       const sameL = JSON.stringify(logs) === JSON.stringify(state.logs);
       if (sameP && sameL) return;
     } catch {}
-
-    // Uygula
     window.state = window.state || { products: [], logs: [] };
     state.products = Array.isArray(products) ? products : [];
     state.logs     = Array.isArray(logs) ? logs : [];
     try { localStorage.setItem(LS_KEY, JSON.stringify({products:state.products, logs:state.logs})); } catch {}
-
-    // Ekranı yenile (uygulamanın kendi render fonksiyonu varsa)
     try { if (typeof render === "function") render(); } catch(e){ console.error("render() hatası:", e); }
   });
 
-  // İlk seed
   setTimeout(() => {
     onValue(rootRef, (snap) => {
       if(!snap.exists()) {
-        const data = { products: (state?.products)||[], logs: (state?.logs)||[], updatedAt: Date.now() };
+        const data = { products: (window.state?.products)||[], logs: (window.state?.logs)||[], updatedAt: Date.now() };
         set(rootRef, data);
       }
     }, { onlyOnce: true });
   }, 200);
 
-  // Çevrimiçi sayaç (opsiyonel)
   onValue(presRef, (snap) => {
     const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
     const el = document.getElementById("statusOnline");
