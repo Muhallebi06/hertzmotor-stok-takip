@@ -1,154 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr" class="scroll-smooth">
 <head>
-<!-- === Theme Upgrade: Dark/Light + Contrast === -->
-<style>
-:root {
-  --bg:#0b1220; --panel:#0f172a; --muted:#a8b3c7; --text:#f1f5f9;
-  --brand:#cd6928; --brand-2:#de7a39; --border:#253043; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
-  --card:#0f172a; --radius:14px;
-  --input-bg:#0c1526; --input-bd:#334155; --input-tx:#e7eef8; --placeholder:#8aa0bb;
-  --btn-bg:#1b2740; --btn-bd:#3a4a66; --btn-tx:#ffffff;
-}
-:root[data-theme="light"]{
-  --bg:#f6f7fb; --panel:#ffffff; --muted:#475569; --text:#0f172a;
-  --brand:#cd6928; --brand-2:#de7a39; --border:#e2e8f0;
-  --card:#ffffff;
-  --input-bg:#ffffff; --input-bd:#cbd5e1; --input-tx:#0f172a; --placeholder:#64748b;
-  --btn-bg:#ffffff; --btn-bd:#cbd5e1; --btn-tx:#0f172a;
-}
-html,body{height:100%}
-body{
-  background:
-   radial-gradient(1200px 800px at 10% -20%, rgba(205,105,40,.10), transparent 55%),
-   radial-gradient(900px 600px at 120% 10%, rgba(222,122,57,.08), transparent 60%),
-   var(--bg);
-  color:var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  margin:0;
-}
-header.appbar{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
-  max-width:min(1100px,94vw); margin:18px auto 10px; padding:10px 14px;
-  border:1px solid var(--border); border-radius:calc(var(--radius) - 6px);
-  background:linear-gradient(180deg, color-mix(in oklab, var(--card) 85%, transparent), color-mix(in oklab, var(--card) 55%, transparent));
-  backdrop-filter: blur(6px);
-}
-.brand{ display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.2px; }
-.brand .logo{
-  width:28px; height:28px; border-radius:8px; display:grid; place-items:center;
-  background:linear-gradient(135deg, var(--brand), var(--brand-2)); color:white; font-weight:800;
-}
-.status-badge{
-  font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); color:var(--muted);
-}
-.appbar-actions{ display:flex; align-items:center; gap:8px; }
-
-main.container{
-  max-width:min(1100px,94vw); margin:8px auto 24px; padding:12px 14px;
-  background:linear-gradient(180deg, color-mix(in oklab, var(--card) 90%, transparent), color-mix(in oklab, var(--card) 70%, transparent));
-  border:1px solid var(--border); border-radius:var(--radius);
-}
-
-/* Inputs & Buttons with higher contrast */
-input[type=text], input[type=number], input[type=password], select, textarea {
-  background:var(--input-bg); color:var(--input-tx);
-  border:1px solid var(--input-bd); border-radius:12px; padding:12px 14px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
-}
-input::placeholder, textarea::placeholder { color:var(--placeholder); }
-input:focus, select:focus, textarea:focus {
-  outline:2px solid color-mix(in oklab, var(--brand) 55%, transparent);
-  border-color: color-mix(in oklab, var(--brand) 55%, var(--input-bd));
-}
-
-/* Buttons */
-button, .btn {
-  appearance:none; border:1px solid var(--btn-bd); color:var(--btn-tx);
-  background:var(--btn-bg); border-radius:12px;
-  padding:10px 14px; cursor:pointer; transition:.15s transform ease, .15s background ease, .15s opacity ease;
-}
-button:hover{ transform: translateY(-1px); opacity:.95; }
-button.primary{ border-color:#cc7a44; background:linear-gradient(120deg, var(--brand), var(--brand-2)); color:#fff; }
-button.danger{ border-color:#7a2e2e; background:linear-gradient(120deg, #b91c1c, #ef4444); color:#fff; }
-
-/* Tables */
-table{ width:100%; border-collapse: collapse; margin: 8px 0; }
-thead th{ text-align:left; font-size:13px; color:var(--muted); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--border); }
-tbody td{ padding:10px; border-bottom:1px dashed var(--border); }
-tbody tr:hover{ background:color-mix(in oklab, var(--card) 85%, transparent); }
-
-/* Modal backdrop */
-.modal, .dialog, .overlay{ background: color-mix(in oklab, #000 60%, transparent); }
-
-/* Login overlay polish */
-#authGate {
-  position: fixed; inset: 0; display: none; place-items: center; z-index: 99999;
-  background:
-   radial-gradient(800px 500px at 15% 10%, rgba(205,105,40,.12), transparent 60%),
-   radial-gradient(700px 500px at 90% 10%, rgba(222,122,57,.10), transparent 60%),
-   var(--bg);
-}
-#authCard {
-  width: min(420px, 94vw); background: var(--card);
-  border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 24px 22px 20px; box-shadow: 0 10px 40px rgba(0,0,0,.35);
-}
-#authCard h2 { margin: 0 0 6px; font-size: 20px; color: var(--text); }
-#authCard p  { margin: 0 0 16px; font-size: 13px; color: var(--muted); }
-.row { display: grid; gap: 8px; margin: 10px 0 12px; }
-.row label { font-size: 12px; color: var(--muted); }
-.row input { font: 14px/1.2 system-ui; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--input-bd); background:var(--input-bg); color:var(--input-tx); }
-#authBtn { width:100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cc7a44;
-  background: linear-gradient(120deg, var(--brand), var(--brand-2)); color: white; font-weight: 700; cursor: pointer; }
-#authErr { min-height: 18px; color: #fca5a5; font-size: 12px; margin-top: 8px; }
-#logoutBtn { position: fixed; right: 12px; top: 12px; z-index: 1000; display:none; padding: 8px 12px; border-radius: 10px;
-  border: 1px solid var(--btn-bd); background:var(--btn-bg); color:var(--btn-tx); cursor:pointer; }
-.login-brand{ display:flex; align-items:center; gap:10px; margin:0 0 12px; }
-.login-logo{ width:32px; height:32px; border-radius:8px; display:grid; place-items:center; font-weight:800; color:#fff;
-  background:linear-gradient(135deg, var(--brand), var(--brand-2)); }
-
-.theme-toggle { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);
-  border:1px solid var(--border); border-radius:999px; padding:6px 10px; cursor:pointer; }
-.theme-toggle input { accent-color: var(--brand); }
-.footer-hint{ opacity:.7; font-size:12px; text-align:center; margin:12px 0 0; color:var(--muted); }
-</style>
-<!-- === /Theme Upgrade === -->
-
-
-<!-- === Visual Theme (Global) === -->
-<style>
-:root{ --bg:#0b1220; --panel:#0f172a; --muted:#94a3b8; --text:#e5e7eb;
-  --brand:#cd6928; --brand-2:#de7a39; --border:#1f2937; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
-  --card:#111827; --radius:14px; }
-body{ background:
- radial-gradient(1200px 800px at 10% -20%, rgba(205,105,40,.10), transparent 55%),
- radial-gradient(900px 600px at 120% 10%, rgba(222,122,57,.08), transparent 60%), var(--bg);
- color:var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; }
-header.appbar{ display:flex; align-items:center; justify-content:space-between;
-  max-width:min(1100px,94vw); margin:18px auto 10px; padding:10px 14px;
-  border:1px solid var(--border); border-radius:8px;
-  background:linear-gradient(180deg, rgba(17,24,39,.7), rgba(17,24,39,.5)); backdrop-filter: blur(6px); }
-.brand{ display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.2px; }
-.brand .logo{ width:28px; height:28px; border-radius:8px; display:grid; place-items:center;
-  background:linear-gradient(135deg, var(--brand), var(--brand-2)); color:white; font-weight:800; }
-.status-badge{ font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); color:#94a3b8; }
-main.container{ max-width:min(1100px,94vw); margin:8px auto 24px; padding:12px 14px;
-  background:linear-gradient(180deg, rgba(17,24,39,.65), rgba(17,24,39,.55)); border:1px solid var(--border); border-radius:12px; }
-input, select, textarea { background:#0f172a; color:#e5e7eb; border:1px solid #303a4a; border-radius:10px; padding:10px 12px; }
-button{ border:1px solid #394151; color:#fff; background:#182234; border-radius:12px; padding:10px 14px; cursor:pointer; }
-button.primary{ border-color:#cc7a44; background:linear-gradient(120deg, var(--brand), var(--brand-2)); }
-button.danger{ border-color:#7a2e2e; background:linear-gradient(120deg, #b91c1c, #ef4444); }
-#authGate{ position: fixed; inset:0; display:none; place-items:center; z-index:99999; }
-#authCard{ width:min(420px,94vw); background:var(--card); border:1px solid var(--border); border-radius:12px; padding:22px; }
-.login-brand{ display:flex; align-items:center; gap:10px; margin:0 0 12px; }
-.login-logo{ width:32px; height:32px; border-radius:8px; display:grid; place-items:center; font-weight:800; color:#fff;
-  background:linear-gradient(135deg, var(--brand), var(--brand-2)); }
-.footer-hint{ opacity:.7; font-size:12px; text-align:center; margin:12px 0 0; color:#94a3b8; }
-</style>
-<!-- === /Visual Theme === -->
-
-
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hertz Motor — Stok Takip</title>
@@ -167,10 +19,183 @@ button.danger{ border-color:#7a2e2e; background:linear-gradient(120deg, #b91c1c,
 </head>
 <body class="bg-slate-50 text-slate-800">
 
-<header class="appbar">
-  <div class="brand"><div class="logo">HM</div> Hertz Motor • Stok Takip</div>
-  <div class="status-badge"> <span id="statusOnline">Çevrimiçi: 0</span> </div>
-</header>
+<!-- === Simple Login Gate (user: hertz / pass: hertz) === -->
+<style>
+  #authGate {
+    position: fixed; inset: 0; display: none; place-items: center; z-index: 99999;
+    background: radial-gradient(1000px 600px at 30% 20%, rgba(205,105,40,.08), transparent 60%) , #0b1220;
+    color: #e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  }
+  #authCard {
+    width: min(380px, 92vw); background: #111827; border: 1px solid #1f2937; border-radius: 14px;
+    padding: 22px 22px 16px; box-shadow: 0 10px 40px rgba(0,0,0,.35);
+  }
+  #authCard h2 { margin: 0 0 8px; font-size: 18px; color: #f3f4f6; }
+  #authCard p  { margin: 0 0 16px; font-size: 13px; color: #94a3b8; }
+  .row { display: grid; gap: 8px; margin: 10px 0 12px; }
+  .row label { font-size: 12px; color: #cbd5e1; }
+  .row input {
+    font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    padding: 10px 12px; border-radius: 10px; border: 1px solid #303a4a; background:#0f172a; color:#e5e7eb;
+  }
+  #authBtn {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cc7a44;
+    background: linear-gradient(120deg, #cd6928, #de7a39); color: white; font-weight: 600; cursor: pointer;
+  }
+  #authErr { min-height: 18px; color: #fca5a5; font-size: 12px; margin-top: 8px; }
+  #logoutBtn {
+    position: fixed; right: 10px; top: 10px; z-index: 1000; display:none;
+    padding: 6px 10px; border-radius: 10px; border: 1px solid #cbd5e1; background:#ffffff; color:#0f172a; cursor:pointer;
+  }
+</style>
+<div id="authGate">
+  <div id="authCard">
+    <h2>Giriş yap</h2>
+    <p>Devam etmek için kullanıcı adı ve şifre girin.</p>
+    <form id="authForm">
+      <div class="row">
+        <label for="authUser">Kullanıcı adı</label>
+        <input id="authUser" name="u" autocomplete="username" placeholder="Kullanıcı adı" required>
+      </div>
+      <div class="row">
+        <label for="authPass">Şifre</label>
+        <input id="authPass" name="p" type="password" autocomplete="current-password" placeholder="••••••••" required>
+      </div>
+      <button id="authBtn" type="submit">Giriş</button>
+
+<script>
+(function(){
+  const USERS = {
+    "hertz":   { pass: "hertz", role: "admin" },
+    "muhasebe":{ pass: "2",     role: "user"  },
+    "imalat1": { pass: "3",     role: "user"  },
+    "imalat2": { pass: "4",     role: "user"  },
+    "imalat3": { pass: "5",     role: "user"  },
+    "imalat4": { pass: "6",     role: "user"  },
+    "imalat5": { pass: "7",     role: "user"  },
+    "imalat6": { pass: "8",     role: "user"  }
+  };
+  const KEY  = "auth_ok"; // sessionStorage
+  const UN   = "auth_user";
+  const RL   = "role";
+  const gate = document.getElementById("authGate");
+  const form = document.getElementById("authForm");
+  const err  = document.getElementById("authErr");
+  const out  = document.getElementById("logoutBtn");
+
+  function openGate(){ gate.style.display = "grid"; }
+  function closeGate(){
+    gate.style.display = "none";
+    out.style.display = "inline-block";
+    document.dispatchEvent(new Event("auth_ok"));
+    applyRoleUI();
+  }
+
+  function applyRoleUI(){
+    const role = sessionStorage.getItem(RL);
+    // 1) Hide clear-all button for non-admins by ID
+    const btnById = document.getElementById("btnClearAll");
+    if (btnById) btnById.style.display = (role === "admin") ? "" : "none";
+    // 2) Hide any button-like element that has text "tüm verileri sil"
+    const candidates = document.querySelectorAll("button, a, [role='button'], .btn, .button");
+    const norm = s => (s||"").toLowerCase().replace(/\s+/g, " ").trim();
+    candidates.forEach(el => {
+      const t = norm(el.textContent);
+      if (t.includes("tüm verileri sil") || t.includes("tum verileri sil")) {
+        if (role !== "admin") el.style.display = "none";
+      }
+    });
+  }
+
+  // Persistent per-tab session
+  if (sessionStorage.getItem(KEY) === "1") {
+    closeGate();
+  } else {
+    openGate();
+  }
+
+  form.addEventListener("submit", (e)=>{
+    e.preventDefault();
+    const u = (form.u.value || "").trim();
+    const p = form.p.value || "";
+    const rec = USERS[u];
+    if (rec && p === rec.pass){
+      sessionStorage.setItem(KEY, "1");
+      sessionStorage.setItem(UN, u);
+      sessionStorage.setItem(RL, rec.role);
+      closeGate();
+    } else {
+      err.textContent = "Hatalı kullanıcı adı/şifre";
+      form.p.value = "";
+    }
+  });
+
+  out.addEventListener("click", ()=>{
+    sessionStorage.removeItem(KEY);
+    sessionStorage.removeItem(UN);
+    sessionStorage.removeItem(RL);
+    location.reload();
+  });
+
+  // Apply role once content loads (in case auth_ok fired before areas exist)
+  window.addEventListener("load", applyRoleUI);
+  document.addEventListener("auth_ok", applyRoleUI);
+})();
+</script>
+
+      <div id="authErr"></div>
+    </form>
+  </div>
+</div>
+<button id="logoutBtn" title="Oturumu kapat">Çıkış</button>
+<script>
+(function(){
+  const USER = "hertz";
+  const PASS = "hertz";
+  const KEY  = "auth_ok"; // sessionStorage
+  const gate = document.getElementById("authGate");
+  const form = document.getElementById("authForm");
+  const err  = document.getElementById("authErr");
+  const out  = document.getElementById("logoutBtn");
+  let fails = 0;
+
+  function openGate(){ gate.style.display = "grid"; }
+  function closeGate(){
+    gate.style.display = "none";
+    out.style.display = "inline-block";
+    document.dispatchEvent(new Event("auth_ok"));
+  }
+
+  // Persist only per-tab (sessionStorage). If you want persistent, switch to localStorage.
+  if (sessionStorage.getItem(KEY) === "1") { closeGate(); }
+  else { openGate(); }
+
+  form.addEventListener("submit", (e)=>{
+    e.preventDefault();
+    const u = (form.u.value || "").trim();
+    const p = form.p.value || "";
+    if (u === USER && p === PASS){
+      sessionStorage.setItem(KEY, "1");
+      closeGate();
+    } else {
+      fails++;
+      err.textContent = "Hatalı kullanıcı adı/şifre";
+      form.p.value = "";
+      if (fails >= 5){
+        err.textContent = "5 başarısız deneme. Lütfen 60 sn sonra tekrar deneyin.";
+        form.querySelector("button[type=submit]").disabled = true;
+        setTimeout(()=>{ form.querySelector("button[type=submit]").disabled = false; err.textContent=""; fails=0; }, 60000);
+      }
+    }
+  });
+
+  out.addEventListener("click", ()=>{
+    sessionStorage.removeItem(KEY);
+    location.reload();
+  });
+})();
+</script>
+<!-- === /Login Gate === -->
 
 
   <header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200">
@@ -602,39 +627,148 @@ button.danger{ border-color:#7a2e2e; background:linear-gradient(120deg, #b91c1c,
     window.addEventListener('storage',e=>{ if(e.key===LS_KEY){ load(); render(); } });
   })();
   </script>
-<!-- === UI Controller: Theme + Reliable Logout === -->
+
+<!-- === Firebase Live Sync (guarded by login) === -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+
+  // Config
+  const firebaseConfig = {
+    apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
+    authDomain: "hertz-stok-takip.firebaseapp.com",
+    databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "hertz-stok-takip",
+    storageBucket: "hertz-stok-takip.appspot.com",
+    messagingSenderId: "512663727455",
+    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
+  };
+
+  function startSync(){
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
+
+    const urlDoc = new URLSearchParams(location.search).get("doc");
+    const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
+    const rootRef = ref(db, `docs/${DOC_ID}`);
+    const presRef = ref(db, `docs/${DOC_ID}/presence`);
+    const meId    = crypto.randomUUID();
+    const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
+    set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
+    onDisconnect(meRef).remove();
+
+    const APP_LS_KEY = "stokTakip.v1";
+    const EMPTY_DATA = { products: [], logs: [], updatedAt: Date.now() };
+    const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
+    const push = (obj)=> update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now() })
+                          .catch(err => console.error("Buluta yazma hatası:", err));
+
+    // Hook LS
+    const _setItem    = localStorage.setItem.bind(localStorage);
+    const _removeItem = localStorage.removeItem.bind(localStorage);
+    const _clear      = localStorage.clear.bind(localStorage);
+
+    localStorage.setItem = function(k, v){
+      _setItem(k, v);
+      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(safeParse(v)||{});
+    };
+    localStorage.removeItem = function(k){
+      _removeItem(k);
+      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(EMPTY_DATA);
+    };
+    localStorage.clear = function(){ _clear(); push(EMPTY_DATA); };
+
+    if (typeof window.save === "function") {
+      const __orig = window.save;
+      window.save = function(){ try{ __orig(); }catch(e){ console.error(e); } 
+        const raw = localStorage.getItem(APP_LS_KEY);
+        if (raw) push(safeParse(raw)||{}); else push(EMPTY_DATA);
+      };
+    }
+
+    let lastSent = null;
+    setInterval(() => {
+      const now = localStorage.getItem(APP_LS_KEY);
+      if (now !== lastSent) { lastSent = now; if (now) push(safeParse(now)||{}); else push(EMPTY_DATA); }
+    }, 1000);
+
+    onValue(rootRef, (snap) => {
+      const v = snap.val();
+      if(!v || typeof v !== "object") return;
+      const { products = [], logs = [] } = v;
+      const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
+      if (JSON.stringify(local.products||[]) === JSON.stringify(products) &&
+          JSON.stringify(local.logs||[])     === JSON.stringify(logs)) return;
+      localStorage.setItem(APP_LS_KEY, JSON.stringify({ products, logs }));
+      try { if (typeof render === "function") render(); } catch(e){ console.warn("render() çağrısı hata:", e); }
+    });
+
+    setTimeout(() => {
+      onValue(rootRef, (snap) => {
+        if(!snap.exists()){
+          const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
+          set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now() }).catch(console.error);
+        }
+      }, { onlyOnce: true });
+    }, 300);
+
+    onValue(presRef, (snap) => {
+      const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
+      const el = document.getElementById("statusOnline");
+      if (el) el.textContent = `Çevrimiçi: ${n}`;
+    });
+  }
+
+  if (sessionStorage.getItem("auth_ok") === "1") startSync();
+  else document.addEventListener("auth_ok", startSync, { once: true });
+</script>
+<!-- === /Firebase Live Sync (guarded) === -->
+
+
+<!-- === Kullanıcı Tablosu (Referans) ===
+| Kullanıcı Adı | Şifre | Rol    |
+| hertz         | hertz | admin  |
+| muhasebe      | 2     | user   |
+| imalat1       | 3     | user   |
+| imalat2       | 4     | user   |
+| imalat3       | 5     | user   |
+| imalat4       | 6     | user   |
+| imalat5       | 7     | user   |
+| imalat6       | 8     | user   |
+=== -->
+
+
+<!-- === Non-admin guard: continuously hide "Tüm verileri sil" === -->
 <script>
 (function(){
-  const LS_THEME = "hm.theme";
-  const root = document.documentElement;
-  const sw = document.getElementById("themeSwitch");
-  const current = localStorage.getItem(LS_THEME) || "dark";
-  root.setAttribute("data-theme", current);
-  if (sw) sw.checked = (current === "dark");
-  if (sw) sw.addEventListener("change", ()=>{
-    const mode = sw.checked ? "dark" : "light";
-    root.setAttribute("data-theme", mode);
-    localStorage.setItem(LS_THEME, mode);
-  });
+  function norm(s){ return (s||"").toLowerCase().replace(/\s+/g," ").trim(); }
+  function hideClearForNonAdmin(){
+    const role = sessionStorage.getItem("role");
+    if (role === "admin") return; // admins see everything
 
-  function doLogout(){
-    try {
-      sessionStorage.removeItem("auth_ok");
-      sessionStorage.removeItem("auth_user");
-      sessionStorage.removeItem("role");
-    } catch {}
-    const gate = document.getElementById("authGate");
-    if (gate) gate.style.display = "grid";
-    location.reload();
+    // 1) By ID
+    const byId = document.getElementById("btnClearAll");
+    if (byId) byId.style.display = "none";
+
+    // 2) By text content (covers dynamically re-rendered buttons)
+    const nodes = document.querySelectorAll("button, a, [role='button'], .btn, .button");
+    nodes.forEach(el => {
+      const t = norm(el.textContent);
+      if (t.includes("tüm verileri sil") || t.includes("tum verileri sil")) {
+        el.style.display = "none";
+        el.disabled = true; // extra safety
+        el.setAttribute("aria-hidden", "true");
+      }
+    });
   }
-  const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn) logoutBtn.addEventListener("click", doLogout);
-  document.addEventListener("click", (e)=>{
-    const t = (e.target.textContent || "").toLowerCase().trim();
-    if (t === "çıkış" || t === "cikis") doLogout();
-  });
+
+  // Run on load and then every 500ms to catch re-renders
+  window.addEventListener("load", hideClearForNonAdmin);
+  setInterval(hideClearForNonAdmin, 500);
+  document.addEventListener("auth_ok", hideClearForNonAdmin);
 })();
 </script>
-<!-- === /UI Controller === -->
+<!-- === /Non-admin guard === -->
+
 </body>
 </html>
