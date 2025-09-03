@@ -912,10 +912,10 @@
 <!-- === HM Product Form Enhancer v31 END === -->
 
 
-<!-- RTDB FOREIGN-ONLY REFRESH v32 START -->
+<!-- RTDB RELIABLE SYNC v33 START -->
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   const fallbackCfg = {
     apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
@@ -934,68 +934,84 @@
   const docId  = params.get("doc") || "default";
   const docRef = ref(db, "docs/" + docId);
 
-  // track local actions to avoid self-trigger refresh (no bridge, just detection)
-  let lastLocalActionAt = 0;
-  function markLocalAction(){ lastLocalActionAt = Date.now(); }
-  const actionTexts = ['kaydet','ekle','güncelle','guncelle','sil','stok','giriş','girisi','cikis','çıkış','save','add','update','delete'];
-  document.addEventListener('click', (e)=>{
-    const el = e.target.closest('button, [type="submit"], .btn, [role="button"]');
-    if (!el) return;
-    const t = (el.textContent||'').toLowerCase();
-    if (actionTexts.some(a=>t.includes(a))) markLocalAction();
-  }, true);
-  document.addEventListener('submit', ()=>markLocalAction(), true);
-  // Also mark when localStorage changes (app may persist locally)
+  // A stable client id to mark our writes
+  const ss = sessionStorage;
+  let clientId = ss.getItem("hm_client_id");
+  if (!clientId) { clientId = "c" + Math.random().toString(36).slice(2) + Date.now().toString(36); ss.setItem("hm_client_id", clientId); }
+
+  // ---- State helpers
+  function safeJSON(s){ try { return JSON.parse(s); } catch(_) { return null; } }
+  function extractLocal(){
+    // Find the most likely products/logs arrays from localStorage
+    let products = null, logs = null;
+    for (let i=0;i<localStorage.length;i++){
+      const v = safeJSON(localStorage.getItem(localStorage.key(i)));
+      if (!v || typeof v !== 'object') continue;
+      if (products === null && Array.isArray(v.products)) products = v.products;
+      if (logs     === null && Array.isArray(v.logs))     logs     = v.logs;
+    }
+    if (!Array.isArray(products)) products = [];
+    if (!Array.isArray(logs)) logs = [];
+    return { products, logs };
+  }
+  function sigOf(obj){
+    const p = Array.isArray(obj.products) ? obj.products : [];
+    const l = Array.isArray(obj.logs) ? obj.logs : [];
+    const pt = p.length ? (p[p.length-1].sku || p[p.length-1].name || p[p.length-1].id || '') : '';
+    const lt = l.length ? (l[l.length-1].msg || l[l.length-1].t || '') : '';
+    return p.length + "|" + pt + "#" + l.length + "|" + lt;
+  }
+
+  // ---- Outbound: mirror local -> RTDB (polling + hooks)
+  let lastSentSig = "";
+  let lastAppliedFromRTDBSig = "";
+  async function pushToRTDB(state){
+    try {
+      await update(docRef, { products: state.products, logs: state.logs, updatedAt: Date.now(), _writerId: clientId });
+    } catch(e){ console.warn("pushToRTDB failed", e); }
+  }
+  function checkAndPush(){
+    const st = extractLocal();
+    const s  = sigOf(st);
+    if (s && s !== lastSentSig && s !== lastAppliedFromRTDBSig){
+      lastSentSig = s;
+      pushToRTDB(st);
+    }
+  }
+  setInterval(checkAndPush, 800); // periodic safety
+  // hooks to react faster
+  ['click','submit','change','keyup'].forEach(ev=>document.addEventListener(ev, ()=> setTimeout(checkAndPush, 120), true));
   const _set = localStorage.setItem.bind(localStorage);
   const _rem = localStorage.removeItem.bind(localStorage);
   const _clr = localStorage.clear.bind(localStorage);
-  localStorage.setItem = function(k,v){ markLocalAction(); return _set(k,v); };
-  localStorage.removeItem = function(k){ markLocalAction(); return _rem(k); };
-  localStorage.clear = function(){ markLocalAction(); return _clr(); };
+  localStorage.setItem = function(k,v){ const r=_set(k,v); setTimeout(checkAndPush, 60); return r; };
+  localStorage.removeItem = function(k){ const r=_rem(k); setTimeout(checkAndPush, 60); return r; };
+  localStorage.clear = function(){ const r=_clr(); setTimeout(checkAndPush, 60); return r; };
 
-  // signature of products/logs only (ignore other fields like heartbeats)
-  function sigOf(data){
-    const p = Array.isArray(data?.products) ? data.products : [];
-    const l = Array.isArray(data?.logs) ? data.logs : [];
-    function tailSig(arr){
-      if (!arr.length) return '0|';
-      const t = arr[arr.length-1] || {};
-      const key = t.sku || t.name || t.id || t.kod || '';
-      const qty = t.qty || t.miktar || t.stock || t.stok || t.adet || '';
-      return arr.length + '|' + String(key).slice(0,32) + '|' + String(qty);
-    }
-    return tailSig(p) + '#' + tailSig(l);
-  }
-
-  let ready = false;
-  let prevSig = null;
-  let lastReloadAt = 0;
-  const RELOAD_COOLDOWN = 1200; // ms
-  const LOCAL_ACTION_WINDOW = 1500; // ms
+  // ---- Inbound: RTDB -> local, then refresh others
+  let initial = true;
   function hardReload(){
-    const now = Date.now();
-    if (now - lastReloadAt < RELOAD_COOLDOWN) return;
-    lastReloadAt = now;
     const u = new URL(location.href);
-    u.searchParams.set("_r", String(now));
+    u.searchParams.set("_r", Date.now().toString());
     location.replace(u.toString());
   }
-
   onValue(docRef, (snap)=>{
     const data = snap.val() || {};
-    const sig  = sigOf(data);
-    if (!ready){ ready = true; prevSig = sig; return; }
-    if (sig !== prevSig){
-      prevSig = sig;
-      const now = Date.now();
-      const isSelfWindow = (now - lastLocalActionAt) < LOCAL_ACTION_WINDOW;
-      if (!isSelfWindow){
-        hardReload();
-      } // else: ignore our own immediate write
+    const incoming = { products: data.products || [], logs: data.logs || [] };
+    const s = sigOf(incoming);
+    if (initial){ initial = false; lastAppliedFromRTDBSig = s; return; }
+
+    const writer = data._writerId || "";
+    // If this change comes from another client, reflect to localStorage and reload
+    if (writer && writer !== clientId){
+      lastAppliedFromRTDBSig = s;
+      // Write a stable key so app can read the newest state after reload
+      try { localStorage.setItem("hm_rtdb_shadow", JSON.stringify(incoming)); } catch(_){}
+      hardReload();
     }
   });
 </script>
-<!-- RTDB FOREIGN-ONLY REFRESH v32 END -->
+<!-- RTDB RELIABLE SYNC v33 END -->
 
 </body>
 </html>
