@@ -771,7 +771,17 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v10): reload only on real foreign changes; suppress no-ops === -->
+<!-- === RTDB Real-time Sync (v11): global clear + foreign-change reload + toasts === -->
+<style>
+  #hmToast{position:fixed; right:12px; bottom:12px; z-index:99990; display:none;
+    background:#111827; color:#e5e7eb; border:1px solid #374151; border-radius:10px; padding:10px 12px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35); font:14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+  #hmToast button{ margin-left:8px; border:1px solid #cc7a44; background:linear-gradient(120deg,#cd6928,#de7a39);
+    color:#fff; border-radius:8px; padding:6px 10px; cursor:pointer;}
+  #hmToast .msg{opacity:.95}
+</style>
+<div id="hmToast"><span class="msg">Yeni güncelleme</span><button id="hmToastReload">Yenile</button></div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -798,11 +808,22 @@
     try { return JSON.stringify(obj).length + ":" + (JSON.stringify(obj)||"").slice(0,64); } catch { return Math.random()+""; }
   };
 
+  // Toast helpers
+  const toast = document.getElementById("hmToast");
+  const toastMsg = document.querySelector("#hmToast .msg");
+  const toastBtn = document.getElementById("hmToastReload");
+  if (toastBtn) toastBtn.addEventListener("click", ()=> location.reload());
+  function showToast(msg){
+    if (toastMsg) toastMsg.textContent = msg;
+    if (toast) { toast.style.display = "block"; setTimeout(()=> toast.style.display = "none", 3000); }
+  }
+
   function startSync(){
     const presRef = ref(db, `docs/${DOC_ID}/presence`);
     const meId = crypto.randomUUID();
+    const meName = sessionStorage.getItem("auth_user") || sessionStorage.getItem("user") || "Bilinmeyen";
     const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
-    set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
+    set(meRef, { at: Date.now(), name: meName, ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
     onDisconnect(meRef).remove();
     onValue(presRef, (snap) => {
       const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
@@ -825,8 +846,10 @@
       if (pushTimer) clearTimeout(pushTimer);
       pushTimer = setTimeout(()=>{
         const obj = safeParse(valueStr) || {};
-        update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now(), updatedBy: meId })
-          .catch(err => console.error("Buluta yazma hatası:", err));
+        update(rootRef, {
+          products: obj.products||[], logs: obj.logs||[],
+          updatedAt: Date.now(), updatedBy: meId, updatedByName: meName, lastAction: "update"
+        }).catch(err => console.error("Buluta yazma hatası:", err));
       }, 250);
     }
 
@@ -851,6 +874,37 @@
       if (had) schedulePushFrom(JSON.stringify({ products: [], logs: [] }));
     };
 
+    // Bridge: "Tüm verileri sil" click -> push clear for everyone
+    function bindClearAll(){
+      const byId = document.getElementById("btnClearAll");
+      const candidates = Array.from(document.querySelectorAll("button, a, [role='button'], .btn, .button"));
+      const norm = s => (s||"").toLowerCase().replace(/\s+/g," ").trim();
+      const list = [];
+      if (byId) list.push(byId);
+      candidates.forEach(el => {
+        const t = norm(el.textContent);
+        if (t.includes("tüm verileri sil") || t.includes("tum verileri sil")) list.push(el);
+      });
+      list.forEach(el => {
+        if (el.dataset._clearbound === "1") return;
+        el.dataset._clearbound = "1";
+        el.addEventListener("click", (e)=>{
+          // Allow UI to run its own clear; then force cloud clear too
+          setTimeout(()=>{
+            // Clear LS
+            try { _setItem(APP_LS_KEY, JSON.stringify({ products: [], logs: [] })); } catch {}
+            // Push cloud clear
+            update(rootRef, {
+              products: [], logs: [], updatedAt: Date.now(),
+              updatedBy: meId, updatedByName: meName, lastAction: "clear"
+            }).catch(console.error);
+          }, 30);
+        });
+      });
+    }
+    bindClearAll();
+    setInterval(bindClearAll, 800); // handle re-renders
+
     // RTDB -> UI (only foreign, newer, content-changed)
     let lastApplied = 0;
     let prevHash = null;
@@ -859,7 +913,7 @@
     onValue(rootRef, (snap) => {
       const v = snap.val();
       if(!v || typeof v !== "object") return;
-      const { products = [], logs = [], updatedAt = 0, updatedBy = null } = v;
+      const { products = [], logs = [], updatedAt = 0, updatedBy = null, updatedByName = "Biri", lastAction = "update" } = v;
       const h = contentHash({products, logs});
 
       if (!primed){
@@ -871,21 +925,20 @@
       }
 
       if (updatedAt <= lastApplied) return;
-
-      // Update local cache
       try { _setItem(APP_LS_KEY, JSON.stringify({ products, logs })); } catch {}
 
-      // If mine -> accept but don't reload
       if (updatedBy && updatedBy === meId) {
         lastApplied = updatedAt; prevHash = h; return;
       }
-
-      // If content didn't change, skip
       if (h === prevHash) { lastApplied = updatedAt; return; }
 
-      // Foreign & newer & changed -> reload
       lastApplied = updatedAt; prevHash = h;
-      location.reload();
+      // Toast info before reload
+      const msg = lastAction === "clear"
+        ? `${updatedByName} tüm verileri sildi.`
+        : `${updatedByName} stokları güncelledi.`;
+      showToast(msg);
+      setTimeout(()=> location.reload(), 700);
     });
 
     // Seed if empty
@@ -893,7 +946,10 @@
       onValue(rootRef, (s) => {
         if(!s.exists()){
           const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-          set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now(), updatedBy: meId }).catch(console.error);
+          set(rootRef, {
+            products: local.products||[], logs: local.logs||[],
+            updatedAt: Date.now(), updatedBy: meId, updatedByName: meName, lastAction: "seed"
+          }).catch(console.error);
         }
       }, { onlyOnce: true });
     }, 300);
@@ -903,7 +959,7 @@
   if (isAuthed()) startSync();
   else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
-<!-- === /RTDB Sync v10 === -->
+<!-- === /RTDB Sync v11 === -->
 
 </body>
 </html>
