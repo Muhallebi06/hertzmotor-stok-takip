@@ -771,7 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v25): shared canonical key + mirror all keys === -->
+<!-- === RTDB Real-time Sync (v26): pure polling, no overrides, in-place apply === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -791,20 +791,17 @@
 
   const DOC_ID = new URL(location.href).searchParams.get("doc") || "stoktakip-paylasimli-orta-oda";
 
-  // --- Utils ---
+  // ---- utils ----
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
   const isStockPayload = (obj)=> obj && typeof obj==="object" && ("products" in obj || "logs" in obj);
-  const mergePayload = (a,b)=>{
-    const out = { products:[], logs:[] };
-    try { out.products = Array.isArray(b?.products) ? b.products : (Array.isArray(a?.products) ? a.products : []); } catch{}
-    try { out.logs     = Array.isArray(b?.logs)     ? b.logs     : (Array.isArray(a?.logs)     ? a.logs     : []); } catch{}
-    return out;
+  const stable = (obj)=>{
+    try{ return JSON.stringify(obj, Object.keys(obj).sort()); } catch { return ""; }
+  };
+  const hash = (str)=>{
+    let h=0, i=0, len=str.length|0; for(; i<len; i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
+    return h.toString(16);
   };
 
-  // Canonical "shared" key all tabs/users will mirror to
-  const CANON = "stokTakip.shared";
-
-  // Discover ALL stock keys in both storages
   function discoverStockKeys(){
     const keys = new Set();
     for (let i=0;i<localStorage.length;i++){
@@ -815,129 +812,124 @@
       const k = sessionStorage.key(i);
       if (isStockPayload(safeParse(sessionStorage.getItem(k)))) keys.add(k);
     }
-    // Always include canonical
-    keys.add(CANON);
+    // If none found, create default key so app can pick it up
+    if (keys.size === 0){
+      const def = "stokTakip.v1";
+      localStorage.setItem(def, JSON.stringify({products:[], logs:[]}));
+      keys.add(def);
+    }
     return keys;
   }
-  const STOCK_KEYS = discoverStockKeys();
 
-  // Originals
-  const _ls = {
-    setItem: localStorage.setItem.bind(localStorage),
-    removeItem: localStorage.removeItem.bind(localStorage),
-    clear: localStorage.clear.bind(localStorage),
-  };
-  const _ss = {
-    setItem: sessionStorage.setItem.bind(sessionStorage),
-    removeItem: sessionStorage.removeItem.bind(sessionStorage),
-    clear: sessionStorage.clear.bind(sessionStorage),
-  };
+  // Initial key set
+  let STOCK_KEYS = discoverStockKeys();
 
-  // Mirror write to ALL keys helper (avoid event loops)
-  let applyingRemote = false;
-  function writeAll(str){
-    applyingRemote = true;
-    try { for (const k of STOCK_KEYS) _ls.setItem(k, str); } catch{}
-    applyingRemote = false;
-  }
+  // Presence (optional)
+  const presRef = ref(db, `docs/${DOC_ID}/presence`);
+  const meId = crypto.randomUUID();
+  const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
+  set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
+  onDisconnect(meRef).remove();
 
   const rootRef = ref(db, `docs/${DOC_ID}`);
 
-  // Push to RTDB
-  let lastPushedStr = null;
-  function pushRTDB(str, lastAction="update"){
-    if (!str) return;
-    if (str === lastPushedStr && lastAction==="update") return;
-    lastPushedStr = str;
-    const obj = safeParse(str) || {};
-    update(rootRef, {
-      products: obj.products||[], logs: obj.logs||[],
-      updatedAt: Date.now(), lastAction
-    }).catch(console.error);
+  // Local change detection (pure polling)
+  const lastHash = new Map(); // key -> hash
+  let debounceTimer = null, pendingPush = null;
+
+  function computeHashForKey(k){
+    const v = localStorage.getItem(k) ?? sessionStorage.getItem(k);
+    const obj = safeParse(v||"null");
+    if (!isStockPayload(obj)) return null;
+    return hash(stable({products: obj.products||[], logs: obj.logs||[]}));
   }
 
-  // Intercepts: ANY storage write with stock payload -> mirror to CANON + push
-  function onStorageWrite(area, k, v){
-    if (applyingRemote) return; // ignore writes we ourselves mirror
-    const obj = safeParse(v);
+  function scanAndMaybePush(){
+    // Re-discover keys (new ones may appear)
+    const discovered = discoverStockKeys();
+    for (const k of discovered) STOCK_KEYS.add(k);
+
+    // Find the most recently changed stock payload among keys
+    let changedKey = null;
+    for (const k of STOCK_KEYS){
+      const h = computeHashForKey(k);
+      if (!h) continue;
+      if (lastHash.get(k) !== h){
+        lastHash.set(k, h);
+        changedKey = k;
+      }
+    }
+    if (!changedKey) return;
+
+    // Prepare payload from changedKey and push to RTDB (debounced)
+    const v = localStorage.getItem(changedKey) ?? sessionStorage.getItem(changedKey);
+    const obj = safeParse(v||"null");
     if (!isStockPayload(obj)) return;
-    STOCK_KEYS.add(k);
-    STOCK_KEYS.add(CANON);
-    // Merge with CANON (prefer new value's arrays)
-    const canonObj = safeParse(localStorage.getItem(CANON) || "null") || {};
-    const merged = mergePayload(canonObj, obj);
-    const str = JSON.stringify(merged);
-    // Mirror to all known keys (including the originally written key and CANON)
-    writeAll(str);
-    // Push to cloud
-    pushRTDB(str, "update");
-    // Notify UI (in-place apply without reload)
-    notifyRender(CANON, str);
+    pendingPush = { products: obj.products||[], logs: obj.logs||[] };
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(()=>{
+      const payload = pendingPush; pendingPush = null;
+      update(rootRef, { products: payload.products, logs: payload.logs, updatedAt: Date.now(), lastAction: "update" }).catch(console.error);
+    }, 120);
   }
 
-  localStorage.setItem = function(k,v){ _ls.setItem(k,v); onStorageWrite(localStorage,k,v); };
-  sessionStorage.setItem = function(k,v){ _ss.setItem(k,v); onStorageWrite(sessionStorage,k,v); };
-  localStorage.removeItem = function(k){ _ls.removeItem(k); if (STOCK_KEYS.has(k)) { const str = JSON.stringify({products:[],logs:[]}); writeAll(str); pushRTDB(str,"clear"); notifyRender(CANON,str);} };
-  sessionStorage.removeItem = function(k){ _ss.removeItem(k); if (STOCK_KEYS.has(k)) { const str = JSON.stringify({products:[],logs:[]}); writeAll(str); pushRTDB(str,"clear"); notifyRender(CANON,str);} };
-  localStorage.clear = function(){ _ls.clear(); const str = JSON.stringify({products:[],logs:[]}); writeAll(str); pushRTDB(str,"clear"); notifyRender(CANON,str); };
-  sessionStorage.clear = function(){ _ss.clear(); const str = JSON.stringify({products:[],logs:[]}); writeAll(str); pushRTDB(str,"clear"); notifyRender(CANON,str); };
-
-  // Also add a small poller to catch non-setItem writes
-  let lastCanonStr = localStorage.getItem(CANON);
-  setInterval(()=>{
-    // Re-discover dynamically added keys
-    for (let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if (isStockPayload(safeParse(localStorage.getItem(k)))) STOCK_KEYS.add(k); }
-    for (let i=0;i<sessionStorage.length;i++){ const k=sessionStorage.key(i); if (isStockPayload(safeParse(sessionStorage.getItem(k)))) STOCK_KEYS.add(k); }
-
-    const cur = localStorage.getItem(CANON);
-    if (cur !== lastCanonStr){ lastCanonStr = cur; onStorageWrite(localStorage, CANON, cur||"{}"); }
-  }, 600);
+  // Kick off the poller
+  setInterval(scanAndMaybePush, 500);
 
   // In-place UI notify
-  function notifyRender(key, str){
+  function notifyRender(){
     try {
       if (typeof window.renderStok === "function") { window.renderStok(); return; }
       if (window.app && typeof window.app.render === "function") { window.app.render(); return; }
-      document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { key, value: str } }));
-      const evt = new StorageEvent("storage", { key, newValue: str, storageArea: localStorage });
-      window.dispatchEvent(evt);
+      document.dispatchEvent(new CustomEvent("rtdb_data_changed"));
+      // Also emit a synthetic storage event for listeners
+      for (const k of STOCK_KEYS){
+        const v = localStorage.getItem(k);
+        const evt = new StorageEvent("storage", { key: k, newValue: v, storageArea: localStorage });
+        window.dispatchEvent(evt);
+      }
     } catch {}
   }
 
-  // Apply from RTDB: mirror to CANON + ALL keys, notify UI (NO reload, NO toast)
+  // Apply from RTDB: write to ALL detected keys with native setItem (no overrides), then notify
   let primed=false, lastApplied=0;
   onValue(rootRef, (snap) => {
     const v = snap.val(); if(!v || typeof v!=="object") return;
     const { products=[], logs=[], updatedAt=0 } = v;
-    if (!primed){
-      primed = true; lastApplied = updatedAt;
-    } else {
-      if (updatedAt <= lastApplied) return;
-      lastApplied = updatedAt;
-    }
+
+    if (!primed){ primed=true; lastApplied = updatedAt; }
+    else { if (updatedAt <= lastApplied) return; lastApplied = updatedAt; }
+
+    // Write payload to all known keys
     const str = JSON.stringify({products, logs});
-    writeAll(str);
-    notifyRender(CANON, str);
+    // Refresh key discovery before writing
+    STOCK_KEYS = discoverStockKeys();
+    for (const k of STOCK_KEYS){
+      try { localStorage.setItem(k, str); } catch {}
+    }
+    // Update lastHash so we don't echo back immediately
+    for (const k of STOCK_KEYS){ lastHash.set(k, hash(stable({products, logs}))); }
+
+    notifyRender();
   });
 
-  // Seed from any existing key if DB empty
+  // If DB empty, seed from any local key
   setTimeout(()=>{
     onValue(rootRef, (s)=>{
       if(!s.exists()){
-        // Merge from all known keys
-        let acc = {products:[], logs:[]};
+        STOCK_KEYS = discoverStockKeys();
+        // Find first valid payload
+        let initial = {products:[], logs:[]};
         for (const k of STOCK_KEYS){
-          const o = safeParse(localStorage.getItem(k) || "null"); 
-          if (isStockPayload(o)) acc = mergePayload(acc, o);
+          const obj = safeParse(localStorage.getItem(k)||"null");
+          if (isStockPayload(obj)){ initial = obj; break; }
         }
-        const str = JSON.stringify(acc);
-        writeAll(str);
-        set(rootRef, { ...acc, updatedAt: Date.now(), lastAction: "seed" }).catch(console.error);
+        set(rootRef, { products: initial.products||[], logs: initial.logs||[], updatedAt: Date.now(), lastAction: "seed" }).catch(console.error);
       }
     }, { onlyOnce: true });
   }, 400);
 </script>
-<!-- === /RTDB Sync v25 === -->
+<!-- === /RTDB Sync v26 === -->
 
 </body>
 </html>
