@@ -931,5 +931,44 @@
 </script>
 <!-- === /RTDB Sync v26 === -->
 
+
+<!-- === SKU FIX v1 === -->
+<script>
+  // SKU wrong when switching category (e.g., Rotorlu Mil showing Stator code)
+  // Force-suggest SKU on category change and just before submit (capture phase).
+  (function(){
+    const form = document.getElementById('productForm');
+    if(!form) return;
+    function ensureSkuForCategory(force=true){
+      try{
+        const cat = form.category?.value;
+        if(!cat) return;
+        if(typeof nextSkuForCategory !== 'function') return;
+        const prefix = ((window.CATEGORY_PREFIX && window.CATEGORY_PREFIX[cat]) ? window.CATEGORY_PREFIX[cat] : 'PRD') + '-';
+        const suggestion = nextSkuForCategory(cat);
+        // Always enforce for mil categories; else enforce when prefix mismatch/empty
+        const isMilCat = ['mil','rotorluMil','taslanmisMil'].includes(cat);
+        if(isMilCat || !form.sku.value || !String(form.sku.value).startsWith(prefix)){
+          form.sku.value = suggestion;
+        }
+      }catch(e){ /* no-op */ }
+    }
+    // When user changes category, immediately re-suggest SKU
+    if (form.category){
+      form.category.addEventListener('change', ()=> ensureSkuForCategory(true));
+    }
+    // Some flows change "milType" / "milCode" fields; hook those too if present
+    ['milType','milCode'].forEach(id=>{
+      const el = form.querySelector(`[name="${id}"]`) || document.getElementById(id);
+      if (el) el.addEventListener('change', ()=> ensureSkuForCategory(true));
+    });
+    // Before submit, in capture phase, normalize SKU so backend handler sees correct value
+    form.addEventListener('submit', function(evt){
+      ensureSkuForCategory(true);
+    }, true);
+  })();
+</script>
+<!-- === /SKU FIX v1 === -->
+
 </body>
 </html>
