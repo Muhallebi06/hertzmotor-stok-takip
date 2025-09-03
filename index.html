@@ -771,24 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v14): better names + logs 'by' + TR toast === -->
-<style>
-  #hmToast{
-    position:fixed; right:16px; bottom:16px; z-index:99990; display:none;
-    background:#111827; color:#e5e7eb; border:1px solid #374151; border-radius:12px; padding:12px 14px;
-    box-shadow:0 10px 30px rgba(0,0,0,.35); font:14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-    opacity:0; transform: translateY(8px); transition: opacity .35s ease, transform .35s ease;
-  }
-  #hmToast.show{ display:block; opacity:1; transform: translateY(0); }
-  #hmToast.fade{ opacity:0; transform: translateY(6px); }
-  #hmToast .msg{opacity:.98; white-space:pre-wrap}
-  #hmToast button{
-    margin-left:10px; border:1px solid #cc7a44; background:linear-gradient(120deg,#cd6928,#de7a39);
-    color:#fff; border-radius:8px; padding:6px 10px; cursor:pointer;
-  }
-</style>
-<div id="hmToast"><span class="msg">Güncelleme</span><button id="hmToastReload">Yenile</button></div>
-
+<!-- === RTDB Real-time Sync (v15): robust username detection === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -806,8 +789,29 @@
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
-  const urlDoc = new URLSearchParams(location.search).get("doc");
-  const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
+  const url = new URL(location.href);
+  const DOC_ID = url.searchParams.get("doc") || "stoktakip-paylasimli-orta-oda";
+
+  // ---- Username detection (many fallbacks) ----
+  function pickName(){
+    const s = sessionStorage, l = localStorage, q = new URLSearchParams(location.search);
+    const keys = [
+      "auth_user","user","username","currentUser","login_user","aktifKullanici","kullanici","kullanıcı",
+      "stokTakip.user","stokTakip_user","hm_user"
+    ];
+    for (const k of keys){
+      if (s.getItem && s.getItem(k)) return s.getItem(k);
+      if (l.getItem && l.getItem(k)) return l.getItem(k);
+    }
+    if (q.get("user")) return q.get("user");
+    // Try to read from DOM if visible (e.g., element with id currentUser or data-username)
+    const el = document.querySelector("#currentUser, [data-username]");
+    if (el) return (el.getAttribute("data-username") || el.textContent || "").trim();
+    return "Bilinmeyen";
+  }
+  const ME_NAME = pickName();
+  // Persist so future sessions see it
+  try { sessionStorage.setItem("auth_user", ME_NAME); } catch {}
 
   const APP_LS_KEY = "stokTakip.v1";
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
@@ -819,27 +823,19 @@
 
   // Toast helpers
   const toast = document.getElementById("hmToast");
-  const toastMsg = document.querySelector("#hmToast .msg");
-  const toastBtn = document.getElementById("hmToastReload");
-  if (toastBtn) toastBtn.addEventListener("click", ()=> location.reload());
-
+  const toastMsg = toast ? toast.querySelector(".msg") : null;
   function showToastThenReload(msg, holdMs=1300, fadeMs=350){
     if (toastMsg) toastMsg.textContent = msg;
     if (!toast) { setTimeout(()=>location.reload(), holdMs); return; }
-    toast.classList.remove("fade");
-    toast.classList.add("show");
-    setTimeout(()=>{
-      toast.classList.add("fade");
-      setTimeout(()=> location.reload(), fadeMs);
-    }, holdMs);
+    toast.classList.remove("fade"); toast.classList.add("show");
+    setTimeout(()=>{ toast.classList.add("fade"); setTimeout(()=> location.reload(), fadeMs); }, holdMs);
   }
 
   function startSync(){
     const presRef = ref(db, `docs/${DOC_ID}/presence`);
     const meId = crypto.randomUUID();
-    const meName = sessionStorage.getItem("auth_user") || sessionStorage.getItem("user") || "Biri";
     const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
-    set(meRef, { at: Date.now(), name: meName, ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
+    set(meRef, { at: Date.now(), name: ME_NAME, ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
     onDisconnect(meRef).remove();
     onValue(presRef, (snap) => {
       const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
@@ -849,28 +845,25 @@
 
     const rootRef = ref(db, `docs/${DOC_ID}`);
 
-    // Debounced + deduplicated LS -> RTDB with logs-by enrichment
+    // Debounced + deduplicated LS -> RTDB, enrich last log with user name
     const _setItem    = localStorage.setItem.bind(localStorage);
     const _removeItem = localStorage.removeItem.bind(localStorage);
     const _clear      = localStorage.clear.bind(localStorage);
 
-    let lastSentStr = null;
-    let pushTimer = null;
+    let lastSentStr = null, pushTimer = null;
     function schedulePushFrom(valueStr, lastAction="update"){
       if (valueStr === lastSentStr && lastAction==="update") return;
       lastSentStr = valueStr;
       if (pushTimer) clearTimeout(pushTimer);
       pushTimer = setTimeout(()=>{
         const obj = safeParse(valueStr) || {};
-        // enrich last log with 'by' if missing
         if (Array.isArray(obj.logs) && obj.logs.length){
           const last = obj.logs[obj.logs.length-1];
-          if (last && !last.by) last.by = meName;
-          if (last && !last.user) last.user = meName;
+          if (last){ if (!last.by) last.by = ME_NAME; if (!last.user) last.user = ME_NAME; }
         }
         update(rootRef, {
           products: obj.products||[], logs: obj.logs||[],
-          updatedAt: Date.now(), updatedBy: meId, updatedByName: meName, lastAction
+          updatedAt: Date.now(), updatedBy: meId, updatedByName: ME_NAME, lastAction
         }).catch(err => console.error("Buluta yazma hatası:", err));
       }, 200);
     }
@@ -886,9 +879,7 @@
     localStorage.removeItem = function(k){
       const existed = localStorage.getItem(k) != null;
       _removeItem(k);
-      if (k === APP_LS_KEY && existed) {
-        schedulePushFrom(JSON.stringify({ products: [], logs: [] }), "clear");
-      }
+      if (k === APP_LS_KEY && existed) schedulePushFrom(JSON.stringify({ products: [], logs: [] }), "clear");
     };
     localStorage.clear = function(){
       const had = localStorage.getItem(APP_LS_KEY) != null;
@@ -896,110 +887,88 @@
       if (had) schedulePushFrom(JSON.stringify({ products: [], logs: [] }), "clear");
     };
 
-    // Product diff helpers with better labels
-    const keyFields = ["id","kod","code","stokKodu","stok_kodu","skod"];
-    const nameFields = ["ad","adı","adi","isim","name","urun","ürün","product","title"];
-    const qtyFields = ["adet","miktar","stok","qty","quantity","amount"];
-    const getLabel = (it)=>{
+    // Diff helpers
+    const keyFields=["id","kod","code","stokKodu","stok_kodu","skod"];
+    const nameFields=["ad","adı","adi","isim","name","urun","ürün","product","title"];
+    const qtyFields=["adet","miktar","stok","qty","quantity","amount"];
+    const getLabel = it => {
       for (const k of nameFields) if (it && (k in it) && String(it[k]).trim()!=="") return String(it[k]);
-      for (const k of keyFields)   if (it && (k in it) && String(it[k]).trim()!=="") return String(it[k]);
+      for (const k of keyFields) if (it && (k in it) && String(it[k]).trim()!=="") return String(it[k]);
       return "ürün";
     };
-    const getKey = (it)=>{
+    const getKey = it => {
       for (const k of keyFields) if (it && (k in it)) return String(it[k]);
       for (const k of nameFields) if (it && (k in it)) return String(it[k]);
       return JSON.stringify(it);
     };
-    const getQty = (it)=>{
+    const getQty = it => {
       for (const k of qtyFields) if (it && typeof it[k] === "number") return it[k];
-      for (const k of qtyFields) if (it && typeof it[k] === "string" && it[k].trim() !== "" && !isNaN(Number(it[k]))) return Number(it[k]);
+      for (const k of qtyFields) if (it && typeof it[k] === "string" && it[k].trim()!=="" && !isNaN(Number(it[k]))) return Number(it[k]);
       return 0;
     };
-    function mapByKeyFull(list){
-      const m = new Map();
-      (list||[]).forEach(x=> m.set(getKey(x), { qty:getQty(x), label:getLabel(x) }));
-      return m;
-    }
-    function diffProducts(prev, curr){
+    const mapByKeyFull = list => {
+      const m = new Map(); (list||[]).forEach(x=> m.set(getKey(x), { qty:getQty(x), label:getLabel(x) })); return m;
+    };
+    const diffProducts = (prev, curr) => {
       const a = mapByKeyFull(prev||[]), b = mapByKeyFull(curr||[]);
-      const keys = new Set([...a.keys(), ...b.keys()]);
-      const changes = [];
+      const keys = new Set([...a.keys(), ...b.keys()]); const changes = [];
       for (const k of keys){
-        const qa = a.get(k)?.qty || 0;
-        const qb = b.get(k)?.qty || 0;
-        const la = a.get(k)?.label;
-        const lb = b.get(k)?.label;
-        const lbl = lb || la || "ürün";
-        const d = qb - qa;
-        if (d !== 0) changes.push({ key:k, label: lbl, delta:d });
+        const qa = a.get(k)?.qty || 0, qb = b.get(k)?.qty || 0;
+        const lbl = (b.get(k)?.label || a.get(k)?.label || "ürün"); const d = qb-qa;
+        if (d!==0) changes.push({ key:k, label:lbl, delta:d });
       }
       return changes.sort((x,y)=> Math.abs(y.delta)-Math.abs(x.delta));
-    }
+    };
 
-    // RTDB -> UI (foreign, newer, changed) with detailed toast
-    let lastApplied = 0;
-    let prevHash = null;
-    let prevProducts = null;
-    let primed = false;
-
+    // Real-time apply with toast
+    let lastApplied=0, prevHash=null, prevProducts=null, primed=false;
     onValue(rootRef, (snap) => {
-      const v = snap.val();
-      if(!v || typeof v !== "object") return;
-      const { products = [], logs = [], updatedAt = 0, updatedBy = null, updatedByName = "Biri", lastAction = "update" } = v;
+      const v = snap.val(); if(!v || typeof v!=="object") return;
+      const { products=[], logs=[], updatedAt=0, updatedBy=null, updatedByName="Biri", lastAction="update" } = v;
       const h = contentHash({products, logs});
 
-      if (!primed){
-        primed = true;
-        lastApplied = updatedAt;
-        prevHash = h;
-        prevProducts = products;
-        try { _setItem(APP_LS_KEY, JSON.stringify({ products, logs })); } catch {}
-        return;
-      }
+      if (!primed){ primed=true; lastApplied=updatedAt; prevHash=h; prevProducts=products;
+        try{ localStorage.setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{}; return; }
 
       if (updatedAt <= lastApplied) return;
-      try { _setItem(APP_LS_KEY, JSON.stringify({ products, logs })); } catch {}
+      try{ localStorage.setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{}
 
-      if (updatedBy && updatedBy === meId) {
-        lastApplied = updatedAt; prevHash = h; prevProducts = products; return;
-      }
-      if (h === prevHash) { lastApplied = updatedAt; return; }
+      if (updatedBy && updatedBy===meId){ lastApplied=updatedAt; prevHash=h; prevProducts=products; return; }
+      if (h === prevHash){ lastApplied=updatedAt; return; }
 
-      // Build message
-      let msg = "";
-      if (lastAction === "clear"){
+      // Build toast
+      const fmt = n => new Intl.NumberFormat('tr-TR').format(Math.abs(Number(n)||0));
+      let msg="";
+      if (lastAction==="clear"){
         msg = `${updatedByName} tüm verileri sildi.`;
       } else {
         const changes = diffProducts(prevProducts, products);
-        if (changes.length === 1){
+        if (changes.length===1){
           const c = changes[0];
-          const adet = fmtTR(Math.abs(c.delta));
-          const ad = clip(c.label, 48);
-          msg = c.delta > 0
-            ? `${updatedByName} → ${adet} adet "${ad}" eklendi`
-            : `${updatedByName} → ${adet} adet "${ad}" çıkış yapıldı`;
-        } else if (changes.length > 1){
-          const total = fmtTR(changes.reduce((s,c)=> s + Math.abs(c.delta), 0));
+          msg = c.delta>0 ? `${updatedByName} → ${fmt(c.delta)} adet "${c.label}" eklendi`
+                          : `${updatedByName} → ${fmt(-c.delta)} adet "${c.label}" çıkış yapıldı`;
+        } else if (changes.length>1){
+          const total = fmt(changes.reduce((s,c)=> s+Math.abs(c.delta),0));
           const count = changes.length;
-          const top3 = changes.slice(0,3).map(c=> `${c.delta>0?"+":"-"}${fmtTR(Math.abs(c.delta))} "${clip(c.label,28)}"`).join(", ");
-          msg = `${updatedByName} → ${count} ürün, toplam ${total} adet güncellendi` + (top3 ? `\n${top3}` : "");
+          const top3 = changes.slice(0,3).map(c=> `${c.delta>0?"+":"-"}${fmt(Math.abs(c.delta))} "${c.label}"`).join(", ");
+          msg = `${updatedByName} → ${count} ürün, toplam ${total} adet güncellendi` + (top3?`\n${top3}`:"");
         } else {
           msg = `${updatedByName} stokları güncelledi.`;
         }
       }
 
-      lastApplied = updatedAt; prevHash = h; prevProducts = products;
+      lastApplied=updatedAt; prevHash=h; prevProducts=products;
       showToastThenReload(msg, 1300, 350);
     });
 
     // Seed if empty
-    setTimeout(() => {
-      onValue(rootRef, (s) => {
+    setTimeout(()=>{
+      onValue(ref(db, `docs/${DOC_ID}`), (s)=>{
         if(!s.exists()){
           const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-          set(rootRef, {
+          set(ref(db, `docs/${DOC_ID}`), {
             products: local.products||[], logs: local.logs||[],
-            updatedAt: Date.now(), updatedBy: meId, updatedByName: meName, lastAction: "seed"
+            updatedAt: Date.now(), updatedByName: ME_NAME, lastAction: "seed"
           }).catch(console.error);
         }
       }, { onlyOnce: true });
@@ -1010,7 +979,7 @@
   if (isAuthed()) startSync();
   else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
-<!-- === /RTDB Sync v14 === -->
+<!-- === /RTDB Sync v15 === -->
 
 </body>
 </html>
