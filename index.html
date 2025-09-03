@@ -912,10 +912,7 @@
 <!-- === HM Product Form Enhancer v31 END === -->
 
 
-
-
-
-<!-- RTDB RELIABLE SYNC v34 START -->
+<!-- RTDB STABLE HASH SYNC v35 START -->
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -937,18 +934,29 @@
   const docId  = params.get("doc") || "default";
   const docRef = ref(db, "docs/" + docId);
 
-  // Stable client id
+  // Stable client + hashing helpers
   const ss = sessionStorage;
   let clientId = ss.getItem("hm_client_id");
   if (!clientId) { clientId = "c" + Math.random().toString(36).slice(2) + Date.now().toString(36); ss.setItem("hm_client_id", clientId); }
 
-  // ---- Helpers
+  function stableStringify(obj){
+    // stringify products/logs deterministically
+    const p = Array.isArray(obj.products) ? obj.products : [];
+    const l = Array.isArray(obj.logs) ? obj.logs : [];
+    return JSON.stringify({p,l});
+  }
+  function djb2(str){
+    let h = 5381;
+    for (let i=0;i<str.length;i++){ h = ((h << 5) + h) + str.charCodeAt(i); h = h & 0xffffffff; }
+    return (h>>>0).toString(16);
+  }
+  function stateHash(obj){ return djb2(stableStringify(obj)); }
+
   function safeJSON(s){ try { return JSON.parse(s); } catch(_) { return null; } }
   function extractLocal(){
     let products = null, logs = null;
     for (let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      const v = safeJSON(localStorage.getItem(k));
+      const v = safeJSON(localStorage.getItem(localStorage.key(i)));
       if (!v || typeof v !== 'object') continue;
       if (products === null && Array.isArray(v.products)) products = v.products;
       if (logs     === null && Array.isArray(v.logs))     logs     = v.logs;
@@ -957,51 +965,43 @@
     if (!Array.isArray(logs)) logs = [];
     return { products, logs };
   }
-  function sigOf(obj){
-    const p = Array.isArray(obj.products) ? obj.products : [];
-    const l = Array.isArray(obj.logs) ? obj.logs : [];
-    const pt = p.length ? (p[p.length-1].sku || p[p.length-1].name || p[p.length-1].id || '') : '';
-    const lt = l.length ? (l[l.length-1].msg || l[l.length-1].t || '') : '';
-    return p.length + "|" + pt + "#" + l.length + "|" + lt;
+  function writeLocalShadow(state){
+    try { localStorage.setItem("hm_rtdb_shadow", JSON.stringify(state)); } catch(_){}
   }
 
-  let lastSentSig = "";               // last signature we pushed
-  let lastKnownRTDBSig = "";          // signature from last snapshot (any writer)
-  let suppressPushUntil = Date.now()+1500;  // suppression window during initial load
-  let shadowWrite = false;            // guard: avoid reacting to our own hm_rtdb_shadow setItem
+  // Guard variables
+  let lastKnownHash = "";     // last hash seen from RTDB
+  let lastLocalHash = "";     // last hash we observed in localStorage
+  let pendingPushHash = "";   // hash we just pushed; when same arrives from RTDB, ignore
+  let suppressUntil = Date.now()+1200;
 
   async function pushToRTDB(state){
+    pendingPushHash = stateHash(state);
     try {
-      await update(docRef, { products: state.products, logs: state.logs, updatedAt: Date.now(), _writerId: clientId });
+      await update(docRef, { products: state.products, logs: state.logs, updatedAt: Date.now(), _writerId: clientId, _hash: pendingPushHash });
     } catch(e){ console.warn("pushToRTDB failed", e); }
   }
 
-  function checkAndPush(){
-    const now = Date.now();
-    if (now < suppressPushUntil) return; // don't push immediately after reload/foreign apply
-    const st = extractLocal();
-    const s  = sigOf(st);
-    // Only push if local differs from what we last saw in RTDB AND from what we last sent
-    if (s && s !== lastKnownRTDBSig && s !== lastSentSig){
-      lastSentSig = s;
-      pushToRTDB(st);
+  // Observe local changes and push when different from RTDB
+  function checkLocalAndPush(){
+    if (Date.now() < suppressUntil) return;
+    const local = extractLocal();
+    const h = stateHash(local);
+    if (h !== lastLocalHash){ lastLocalHash = h; }
+    if (h && h !== lastKnownHash && h !== pendingPushHash){
+      pushToRTDB(local);
     }
   }
-
-  // Periodic + hooks
-  setInterval(checkAndPush, 900);
-  ['click','submit','change','keyup'].forEach(ev=>document.addEventListener(ev, ()=> setTimeout(checkAndPush, 120), true));
+  setInterval(checkLocalAndPush, 900);
+  ['click','submit','change','keyup'].forEach(ev=>document.addEventListener(ev, ()=> setTimeout(checkLocalAndPush, 120), true));
   const _set = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function(k,v){ const r=_set(k,v); setTimeout(checkLocalAndPush, 60); return r; };
   const _rem = localStorage.removeItem.bind(localStorage);
+  localStorage.removeItem = function(k){ const r=_rem(k); setTimeout(checkLocalAndPush, 60); return r; };
   const _clr = localStorage.clear.bind(localStorage);
-  localStorage.setItem = function(k,v){
-    if (k === 'hm_rtdb_shadow' || shadowWrite) { return _set(k,v); }
-    const r=_set(k,v); setTimeout(checkAndPush, 60); return r;
-  };
-  localStorage.removeItem = function(k){ const r=_rem(k); setTimeout(checkAndPush, 60); return r; };
-  localStorage.clear = function(){ const r=_clr(); setTimeout(checkAndPush, 60); return r; };
+  localStorage.clear = function(){ const r=_clr(); setTimeout(checkLocalAndPush, 60); return r; };
 
-  // Snapshot listener
+  // Apply RTDB changes; only reload for foreign, mismatch hashes
   let initial = true;
   function hardReload(){
     const u = new URL(location.href);
@@ -1011,24 +1011,38 @@
   onValue(docRef, (snap)=>{
     const data = snap.val() || {};
     const incoming = { products: data.products || [], logs: data.logs || [] };
-    const s = sigOf(incoming);
-    lastKnownRTDBSig = s;
+    const h = data._hash || stateHash(incoming);
+    lastKnownHash = h;
 
-    if (initial){ initial = false; suppressPushUntil = Date.now()+800; return; }
-
-    const writer = data._writerId || "";
-    if (writer && writer !== clientId){
-      // Apply foreign: store into shadow (ignored by hooks), then reload. Also align lastSentSig to incoming to avoid echo.
-      shadowWrite = true;
-      try { localStorage.setItem('hm_rtdb_shadow', JSON.stringify(incoming)); } catch(_){}
-      shadowWrite = false;
-      lastSentSig = s;
-      suppressPushUntil = Date.now()+1500;
-      hardReload();
+    if (initial){
+      initial = false;
+      lastLocalHash = stateHash(extractLocal());
+      return;
     }
+
+    // If this is our own push (hash matches pending), do nothing and clear pending
+    if (pendingPushHash && h === pendingPushHash){
+      pendingPushHash = "";
+      suppressUntil = Date.now()+600;  // short grace
+      return;
+    }
+
+    // If local already matches incoming, do nothing
+    const localHashNow = stateHash(extractLocal());
+    if (localHashNow === h){
+      // align lastLocalHash just in case
+      lastLocalHash = h;
+      return;
+    }
+
+    // Foreign change diverges from local: write shadow + reload
+    writeLocalShadow(incoming);
+    lastLocalHash = h;
+    suppressUntil = Date.now()+1200;
+    hardReload();
   });
 </script>
-<!-- RTDB RELIABLE SYNC v34 END -->
+<!-- RTDB STABLE HASH SYNC v35 END -->
 
 </body>
 </html>
