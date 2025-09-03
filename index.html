@@ -19,6 +19,13 @@
     .no-scrollbar::-webkit-scrollbar{ display:none; }
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
   </style>
+
+<script>
+// DOM helpers
+const $=(sel,root=document)=>root.querySelector(sel);
+const $$=(sel,root=document)=>Array.from(root.querySelectorAll(sel));
+</script>
+
 </head>
 <body class="bg-slate-50 text-slate-800">
 
@@ -214,10 +221,8 @@
         <button id="btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
         <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
         <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-        <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
-      
-        
-        </div>
+        <button id="btnClearAll" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm verileri sil</button>
+      </div>
     </div>
   </header>
 
@@ -492,7 +497,7 @@
       const listMobile=$('#listMobile'); listMobile.innerHTML='';
 
       let list=[state.products];
-      if(q) list=list.filter(p=>(((p.name||'')+' '+(p.sku||'')+' '+(p.note||'')+' '+(CATEGORY_LABEL[p.category]||'')).toLowerCase().includes(q));
+      if(q) list=list.filter(p=>(p.name+' '+p.sku+' '+(p.note||'')+' '+(CATEGORY_LABEL[p.category]||'')).toLowerCase().includes(q));
       if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
 
       // Sıralama
@@ -585,7 +590,7 @@
     $('#btnImport').addEventListener('click',()=>$('#fileInput').click());
     $('#fileInput').addEventListener('change',e=>{ const f=e.target.files?.[0]; if(f) importJSONFile(f); e.target.value=''; });
 
-    $('#btnClear').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
+    $('#btnClearAll').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
 
     $('#search').addEventListener('input',render);
     $('#onlyLow').addEventListener('change',render);
@@ -598,7 +603,7 @@
     $('#productForm').addEventListener('submit',e=>{ e.preventDefault(); const form=e.target; const data=Object.fromEntries(new FormData(form).entries()); const isEdit=!!data.id; const min=Number(data.min||0); if(isNaN(min)||min<0){ alert('Minimum stok 0 veya daha büyük olmalı'); return; } if(!data.name||!data.sku){ alert('Ad ve stok kodu zorunlu'); return; } if(data.category==='sargiliPaket'){ if(!(data.kw && data.rpm && data.volt)){ alert('Sargılı paket için kW, rpm ve Volt zorunludur.'); return; } } if(['mil','rotorluMil','taslanmisMil'].includes(data.category)){ if(!data.milCode){ alert('Mil türlerinde Mil Kodu zorunludur.'); return; } }
       const clash=state.products.some(x=>x.id!==data.id && (x.sku||'').toLowerCase()===data.sku.toLowerCase()); if(clash){ alert('Bu stok kodu başka bir üründe kullanılıyor. Otomatik yeni kod önerilecek.'); form.sku.value=nextSkuForCategory(data.category); data.sku=form.sku.value; }
       if(isEdit){ const p=findProduct(data.id); if(!p) return; Object.assign(p,{ kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||'' }); addLog({productId:p.id,type:'edit',amount:0,fromQty:p.qty||0,toQty:p.qty||0,note:'Ürün bilgisi güncellendi'}); } else { const p={ id:uuid(), kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, qty:0, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||'' }; state.products.unshift(p); addLog({productId:p.id,type:'new',amount:0,fromQty:0,toQty:0,note:'Yeni ürün eklendi'}); }
-      $('#productDialog').close(); save(); emitReloadAll(); });
+      $('#productDialog').close(); save(); });
 
     // İPTAL butonları — diyalogları kapat
     $('#productCancelBtn').addEventListener('click',()=> $('#productDialog').close());
@@ -618,7 +623,7 @@
       p.qty = to;
       addLog({ productId:p.id, type:data.type, amount:amt, fromQty:from, toQty:to, note:data.note });
       $('#moveDialog').close();
-      save(); try{ if(window.DB && typeof ref==='function' && typeof set==='function'){ set(ref(window.DB, `app/hertz_stok/reload`), { ts: Date.now() }); } }catch(_){}
+      save();
     });
 
     function toNumOrNull(v){ const n=Number(v); return Number.isFinite(n)?n:null; }
@@ -634,7 +639,99 @@
   </script>
 
 <!-- === Firebase Live Sync (guarded by login) === -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
+  // Config
+  const firebaseConfig = {
+    apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
+    authDomain: "hertz-stok-takip.firebaseapp.com",
+    databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "hertz-stok-takip",
+    storageBucket: "hertz-stok-takip.appspot.com",
+    messagingSenderId: "512663727455",
+    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
+  };
+
+  function startSync(){
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
+
+    const urlDoc = new URLSearchParams(location.search).get("doc");
+    const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
+    const rootRef = ref(db, `docs/${DOC_ID}`);
+    const presRef = ref(db, `docs/${DOC_ID}/presence`);
+    const meId    = crypto.randomUUID();
+    const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
+    set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
+    onDisconnect(meRef).remove();
+
+    const APP_LS_KEY = "stokTakip.v1";
+    const EMPTY_DATA = { products: [], logs: [], updatedAt: Date.now() };
+    const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
+    const push = (obj)=> update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now() })
+                          .catch(err => console.error("Buluta yazma hatası:", err));
+
+    // Hook LS
+    const _setItem    = localStorage.setItem.bind(localStorage);
+    const _removeItem = localStorage.removeItem.bind(localStorage);
+    const _clear      = localStorage.clear.bind(localStorage);
+
+    localStorage.setItem = function(k, v){
+      _setItem(k, v);
+      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(safeParse(v)||{});
+    };
+    localStorage.removeItem = function(k){
+      _removeItem(k);
+      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(EMPTY_DATA);
+    };
+    localStorage.clear = function(){ _clear(); push(EMPTY_DATA); };
+
+    if (typeof window.save === "function") {
+      const __orig = window.save;
+      window.save = function(){ try{ __orig(); }catch(e){ console.error(e); } 
+        const raw = localStorage.getItem(APP_LS_KEY);
+        if (raw) push(safeParse(raw)||{}); else push(EMPTY_DATA);
+      };
+    }
+
+    let lastSent = null;
+    setInterval(() => {
+      const now = localStorage.getItem(APP_LS_KEY);
+      if (now !== lastSent) { lastSent = now; if (now) push(safeParse(now)||{}); else push(EMPTY_DATA); }
+    }, 1000);
+
+    onValue(rootRef, (snap) => {
+      const v = snap.val();
+      if(!v || typeof v !== "object") return;
+      const { products = [], logs = [] } = v;
+      const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
+      if (JSON.stringify(local.products||[]) === JSON.stringify(products) &&
+          JSON.stringify(local.logs||[])     === JSON.stringify(logs)) return;
+      localStorage.setItem(APP_LS_KEY, JSON.stringify({ products, logs }));
+      try { if (typeof render === "function") render(); } catch(e){ console.warn("render() çağrısı hata:", e); }
+    });
+
+    setTimeout(() => {
+      onValue(rootRef, (snap) => {
+        if(!snap.exists()){
+          const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
+          set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now() }).catch(console.error);
+        }
+      }, { onlyOnce: true });
+    }, 300);
+
+    onValue(presRef, (snap) => {
+      const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
+      const el = document.getElementById("statusOnline");
+      if (el) el.textContent = `Çevrimiçi: ${n}`;
+    });
+  }
+
+  if (sessionStorage.getItem("auth_ok") === "1") startSync();
+  else document.addEventListener("auth_ok", startSync, { once: true });
+</script>
 <!-- === /Firebase Live Sync (guarded) === -->
 
 
@@ -769,7 +866,7 @@
   }
   function safeJSON(x){try{return JSON.parse(x)}catch(_){return null}}
   function collectProducts(){ const out=[]; for(const area of [localStorage,sessionStorage]){ try{ for(let i=0;i<area.length;i++){ const v=safeJSON(area.getItem(area.key(i))); if(v&&v.products) out.push(v.products);} }catch(_){}} return out; }
-  function getSku(it){ return (it && it.sku) ? it.sku : ''; }
+  function getSku(it){ return it?.sku||it?.stokKodu||it?.code||it?.kod||'' }
   function maxNum(prefix,arr){ let m=0; const re=new RegExp('^'+prefix+'[-_]?([0-9]+)$','i'); for(const it of arr){ const code=String(getSku(it)||'').toUpperCase(); const mt=code.match(re); if(mt){ const n=parseInt(mt[1],10); if(!isNaN(n)&&n>m) m=n; }} return m; }
   function suggestSku(cat){ const p=pickPrefix(cat); const n=maxNum(p,collectProducts())+1; return p+'-'+String(n).padStart(4,'0'); }
   function updateSku(force){ const cat=getCategoryText(); if(!cat) return; const p=pickPrefix(cat); const cur=String(skuEl.value||'').toUpperCase(); if(force||!cur||!cur.startsWith(p)) skuEl.value=suggestSku(cat); }
@@ -833,8 +930,8 @@
 
 <!-- RTDB COMMIT-SMART RELOAD v41 START -->
 <script type="module">
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { get, getDatabase, onValue, ref, update} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   // Firebase init
   const fallbackCfg = {
@@ -850,12 +947,7 @@ import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.
   const app = (getApps && getApps().length) ? getApps()[0] : initializeApp(cfg);
   const db  = getDatabase(app);
 
-  
-  // expose Firebase DB and helpers globally for non-module scripts
-  window.DB = db;
-  window.ref = ref; window.onValue = onValue; window.update = update; window.set = set; 
-  window.onDisconnect = onDisconnect; window.runTransaction = runTransaction; window.get = get;
-// Doc select
+  // Doc select
   const params = new URLSearchParams(location.search);
   const docId  = params.get("doc") || "default";
   const docRef = ref(db, "docs/" + docId);
@@ -951,59 +1043,30 @@ import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.
 
 <script>
 document.addEventListener('DOMContentLoaded', ()=>{
-  const b = document.getElementById('logoutBtn');
+  const b=document.getElementById('logoutBtn');
   if(b) b.addEventListener('click', ()=> window.logout && window.logout());
 });
 </script>
 
 
 <script>
-function emitReloadAll(){
+function genSku(){
   try{
-    if(window.DB && typeof ref==='function' && typeof set==='function'){
-      const ts = Date.now();
-      set(ref(window.DB, `app/hertz_stok/reload`), { ts }).catch(()=>{});
-      set(ref(window.DB, `docs/stoktakip-paylasimli-orta-oda/reload`), { ts }).catch(()=>{});
+    const cat = (document.getElementById('productForm')?.category?.value)||'GEN';
+    const pre = {stator:'ST', rotor:'RT', mil:'MIL', rotorluMil:'RM', taslanmisMil:'TM', sargiliPaket:'SP', paketliGovde:'PG', motor:'M'}[cat]||'GEN';
+    if(window.DB && typeof ref==='function' && typeof runTransaction==='function'){
+      // Try RTDB counter; fire and forget
+      const cRef = ref(window.DB, `app/hertz_stok/counters/${cat}`);
+      return runTransaction(cRef, (x)=> (x||0)+1, {applyLocally:false}).then(tx=> pre+'-'+String(tx.snapshot.val()||1).padStart(4,'0')).catch(()=>fallback());
     }
-  }catch(_){}
+    return fallback();
+    function fallback(){
+      const d=new Date(), part=String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+      const r=Math.random().toString(36).slice(2,6).toUpperCase();
+      return pre+'-'+part+'-'+r;
+    }
+  }catch(_){ return 'GEN-'+Date.now(); }
 }
-</script>
-
-<script>
-// SAVE_BOTH_PATHS: write to both new and legacy paths
-(function(){
-  const origSave = window.save || save;
-  window.save = function(args){
-    try{ origSave && origSave.apply(this, args); }catch(e){}
-    (async()=>{
-      const payload = { products: state.products||[], logs: state.logs||[], updatedAt: Date.now() };
-      const paths = [`app/hertz_stok/data`, `docs/stoktakip-paylasimli-orta-oda/data`];
-      for(const p of paths){
-        try{
-          if(window.DB && typeof ref==='function' && typeof runTransaction==='function'){
-            const r = ref(window.DB, p);
-            await runTransaction(r, (curr)=>{
-              const remote = curr || { products: [], logs: [], updatedAt: 0 };
-              const map = new Map();
-              (remote.products||[]).forEach(x=> map.set(String(x.sku||'').toLowerCase(), x));
-              (payload.products||[]).forEach(x=> map.set(String(x.sku||'').toLowerCase(), x));
-              const products = Array.from(map.values());
-              const seen = new Set();
-              const mergedLogs = [];
-              [(remote.logs||[]), (payload.logs||[])].forEach(l=>{
-                const k = l.id || l.t || JSON.stringify(l);
-                if(seen.has(k)) return; seen.add(k); mergedLogs.push(l);
-              });
-              return { products, logs: mergedLogs.slice(0,5000), updatedAt: Date.now() };
-            }, { applyLocally:false });
-          } else if(window.DB && typeof ref==='function' && typeof update==='function'){
-            await update(ref(window.DB, p), payload);
-          }
-        }catch(e){ console.warn('save both paths failed', p, e); }
-      }
-    })();
-  };
-})();
 </script>
 
 </body>
