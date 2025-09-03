@@ -941,7 +941,10 @@
 
 
 
-<!-- === SKU FIX v4: Ürün Ekle kısmında otomatik stok kodu === -->
+
+
+
+<!-- === SKU FIX v5: kategori -> prefix revize + 'Oluştur' butonunu kaldır === -->
 <script>
 (function(){
   const form = document.getElementById('productForm') || document.querySelector('form');
@@ -950,31 +953,33 @@
   const skuEl = form.querySelector('[name="sku"],[name="stokKodu"],#sku,#stokKodu');
   if(!catEl || !skuEl) return;
 
-  // Kategori -> Prefix haritası (kısa kodlar)
-  const MAP = {
-    'stator':'ST',
-    'rotor':'RT',
-    'mil':'MIL',
-    'rotorlu mil':'RMIL',
-    'taslanmış mil':'TMIL',
-    'taslanmis mil':'TMIL',
-    'sac paket':'SP',
-    'paket sac':'SP',
-    'motor':'MOT',
-  };
-
-  function norm(s){ return String(s||"").toLowerCase().trim(); }
-
-  function prefixFor(cat){
-    const t = norm(cat);
-    for(const k in MAP){
-      if(t.includes(k)) return MAP[k];
-    }
+  // İstenen kısaltmalar (case-insensitive, Türkçe karakter destekli)
+  const MAP = [
+    {k:'stator',          p:'ST'},
+    {k:'rotor',           p:'RT'},
+    {k:'mil',             p:'MIL'},             // yalın "mil/şaft"
+    {k:'rotorlu mil',     p:'RMIL'},
+    {k:'rotorlu mil',     p:'RMIL'},
+    {k:'taşlanmış mil',   p:'TMIL'},
+    {k:'taslanmış mil',   p:'TMIL'},
+    {k:'taslanmis mil',   p:'TMIL'},
+    {k:'sargılı paket',   p:'SP'},
+    {k:'sargili paket',   p:'SP'},
+    {k:'paketli gövde',   p:'PG'},
+    {k:'paketli govde',   p:'PG'},
+    {k:'motor',           p:'MOT'},
+  ];
+  function norm(s){ return String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+  function prefixFor(catText){
+    const t = norm(catText);
+    // Önce uzun eşleşmeler (rotorlu mil vs) — MAP sıraya göre dolaşılır
+    for(const m of MAP){ if (t.includes(norm(m.k))) return m.p; }
+    // fallback
     return 'PRD';
   }
 
-  // ürünler içinden max numarayı bul
-  function safeParse(x){ try{return JSON.parse(x);}catch(e){return null;} }
+  // Var olan ürünlerden aynı prefix için en büyük numarayı bul
+  function safeParse(x){ try{return JSON.parse(x);}catch(_){return null;} }
   function collectProducts(){
     const out=[];
     function scan(area){
@@ -983,48 +988,54 @@
         if(v && v.products) out.push(...v.products);
       }
     }
-    try{scan(localStorage);}catch{}
-    try{scan(sessionStorage);}catch{}
+    try{scan(localStorage);}catch(_){}
+    try{scan(sessionStorage);}catch(_){}
     return out;
   }
-  function getSku(it){
-    return it.sku||it.stokKodu||it.code||"";
-  }
-
+  function getSku(it){ return it?.sku || it?.stokKodu || it?.code || it?.kod || ''; }
   function maxNum(prefix, arr){
-    let m=0;
-    const re=new RegExp("^"+prefix+"-?(\\d+)$","i");
-    arr.forEach(it=>{
-      const code=String(getSku(it)).toUpperCase();
-      const mt=code.match(re);
+    let m=0; const re=new RegExp('^'+prefix+'[-_]?(\\d+)$','i');
+    for(const it of arr){
+      const code = String(getSku(it)||'').toUpperCase();
+      const mt = code.match(re);
       if(mt){ const n=parseInt(mt[1],10); if(n>m) m=n; }
-    });
+    }
     return m;
   }
-
   function suggest(cat){
-    const p=prefixFor(cat);
-    const arr=collectProducts();
-    const n=maxNum(p,arr)+1;
-    return p+"-"+String(n).padStart(4,"0");
+    const p = prefixFor(cat);
+    const n = maxNum(p, collectProducts()) + 1;
+    return p + '-' + String(n).padStart(4,'0');
   }
-
   function updateSku(force){
-    const cat=catEl.value||catEl.options?.[catEl.selectedIndex]?.text||"";
+    const cat = catEl.value || catEl.options?.[catEl.selectedIndex||0]?.text || '';
     if(!cat) return;
-    const want=suggest(cat);
-    if(force || !skuEl.value || !skuEl.value.startsWith(prefixFor(cat))){
-      skuEl.value=want;
+    const pref = prefixFor(cat);
+    const cur  = String(skuEl.value||'').toUpperCase();
+    if(force || !cur || !cur.startsWith(pref)){
+      skuEl.value = suggest(cat);
     }
   }
 
+  // Kategori değişiminde ve gönderimden hemen önce güncelle
   catEl.addEventListener('change', ()=>updateSku(true));
   form.addEventListener('submit', ()=>updateSku(true), true);
-  // initial
+  // İlk açılış
   updateSku(false);
+
+  // "Oluştur" butonunu kaldır (id/name/text ile yakala)
+  const candidates = Array.from(document.querySelectorAll('button, .btn, [role="button"]'));
+  for (const el of candidates){
+    const txt = (el.textContent||'').trim().toLowerCase();
+    const nm  = (el.getAttribute('name')||'').toLowerCase();
+    const id  = (el.id||'').toLowerCase();
+    if (txt === 'oluştur' || txt === 'olustur' || nm.includes('createSku') || id.includes('createSku') || id.includes('generateSku')) {
+      el.remove();
+    }
+  }
 })();
 </script>
-<!-- === /SKU FIX v4 === -->
+<!-- === /SKU FIX v5 === -->
 
 </body>
 </html>
