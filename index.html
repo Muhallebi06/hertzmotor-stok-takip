@@ -771,16 +771,23 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v11): global clear + foreign-change reload + toasts === -->
+<!-- === RTDB Real-time Sync (v12): toast with adet; fade; timed reload === -->
 <style>
-  #hmToast{position:fixed; right:12px; bottom:12px; z-index:99990; display:none;
-    background:#111827; color:#e5e7eb; border:1px solid #374151; border-radius:10px; padding:10px 12px;
-    box-shadow:0 10px 30px rgba(0,0,0,.35); font:14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
-  #hmToast button{ margin-left:8px; border:1px solid #cc7a44; background:linear-gradient(120deg,#cd6928,#de7a39);
-    color:#fff; border-radius:8px; padding:6px 10px; cursor:pointer;}
+  #hmToast{
+    position:fixed; right:16px; bottom:16px; z-index:99990; display:none;
+    background:#111827; color:#e5e7eb; border:1px solid #374151; border-radius:12px; padding:12px 14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35); font:14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    opacity:0; transform: translateY(8px); transition: opacity .35s ease, transform .35s ease;
+  }
+  #hmToast.show{ display:block; opacity:1; transform: translateY(0); }
+  #hmToast.fade{ opacity:0; transform: translateY(6px); }
   #hmToast .msg{opacity:.95}
+  #hmToast button{
+    margin-left:10px; border:1px solid #cc7a44; background:linear-gradient(120deg,#cd6928,#de7a39);
+    color:#fff; border-radius:8px; padding:6px 10px; cursor:pointer;
+  }
 </style>
-<div id="hmToast"><span class="msg">Yeni güncelleme</span><button id="hmToastReload">Yenile</button></div>
+<div id="hmToast"><span class="msg">Güncelleme</span><button id="hmToastReload">Yenile</button></div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
@@ -813,9 +820,17 @@
   const toastMsg = document.querySelector("#hmToast .msg");
   const toastBtn = document.getElementById("hmToastReload");
   if (toastBtn) toastBtn.addEventListener("click", ()=> location.reload());
-  function showToast(msg){
+
+  function showToastThenReload(msg, holdMs=1100, fadeMs=350){
     if (toastMsg) toastMsg.textContent = msg;
-    if (toast) { toast.style.display = "block"; setTimeout(()=> toast.style.display = "none", 3000); }
+    if (!toast) { setTimeout(()=>location.reload(), holdMs); return; }
+    toast.classList.remove("fade");
+    toast.classList.add("show");
+    // hold then fade
+    setTimeout(()=>{
+      toast.classList.add("fade");
+      setTimeout(()=> location.reload(), fadeMs);
+    }, holdMs);
   }
 
   function startSync(){
@@ -840,17 +855,17 @@
 
     let lastSentStr = null;
     let pushTimer = null;
-    function schedulePushFrom(valueStr){
-      if (valueStr === lastSentStr) return;
+    function schedulePushFrom(valueStr, lastAction="update"){
+      if (valueStr === lastSentStr && lastAction==="update") return;
       lastSentStr = valueStr;
       if (pushTimer) clearTimeout(pushTimer);
       pushTimer = setTimeout(()=>{
         const obj = safeParse(valueStr) || {};
         update(rootRef, {
           products: obj.products||[], logs: obj.logs||[],
-          updatedAt: Date.now(), updatedBy: meId, updatedByName: meName, lastAction: "update"
+          updatedAt: Date.now(), updatedBy: meId, updatedByName: meName, lastAction
         }).catch(err => console.error("Buluta yazma hatası:", err));
-      }, 250);
+      }, 220);
     }
 
     localStorage.setItem = function(k, v){
@@ -858,23 +873,23 @@
       _setItem(k, v);
       if (k === APP_LS_KEY) {
         if (cur === v) return;
-        schedulePushFrom(v);
+        schedulePushFrom(v, "update");
       }
     };
     localStorage.removeItem = function(k){
       const existed = localStorage.getItem(k) != null;
       _removeItem(k);
       if (k === APP_LS_KEY && existed) {
-        schedulePushFrom(JSON.stringify({ products: [], logs: [] }));
+        schedulePushFrom(JSON.stringify({ products: [], logs: [] }), "clear");
       }
     };
     localStorage.clear = function(){
       const had = localStorage.getItem(APP_LS_KEY) != null;
       _clear();
-      if (had) schedulePushFrom(JSON.stringify({ products: [], logs: [] }));
+      if (had) schedulePushFrom(JSON.stringify({ products: [], logs: [] }), "clear");
     };
 
-    // Bridge: "Tüm verileri sil" click -> push clear for everyone
+    // Try to bind "Tüm verileri sil"
     function bindClearAll(){
       const byId = document.getElementById("btnClearAll");
       const candidates = Array.from(document.querySelectorAll("button, a, [role='button'], .btn, .button"));
@@ -889,25 +904,43 @@
         if (el.dataset._clearbound === "1") return;
         el.dataset._clearbound = "1";
         el.addEventListener("click", (e)=>{
-          // Allow UI to run its own clear; then force cloud clear too
           setTimeout(()=>{
-            // Clear LS
             try { _setItem(APP_LS_KEY, JSON.stringify({ products: [], logs: [] })); } catch {}
-            // Push cloud clear
-            update(rootRef, {
-              products: [], logs: [], updatedAt: Date.now(),
-              updatedBy: meId, updatedByName: meName, lastAction: "clear"
-            }).catch(console.error);
+            schedulePushFrom(JSON.stringify({ products: [], logs: [] }), "clear");
           }, 30);
         });
       });
     }
     bindClearAll();
-    setInterval(bindClearAll, 800); // handle re-renders
+    setInterval(bindClearAll, 800);
 
-    // RTDB -> UI (only foreign, newer, content-changed)
+    // Heuristic: compute adet delta between two product lists
+    function computeAdetDelta(prev, curr){
+      const fields = ["adet","miktar","stok","qty","quantity"];
+      const byKey = (list)=>{
+        const map = new Map();
+        (list||[]).forEach(it=>{
+          const key = (it.id || it.kod || it.code || it.name || it.urun || it.ürün || JSON.stringify(it)).toString();
+          let val = 0;
+          fields.forEach(f=>{ if (typeof it[f] === "number") val += it[f]; });
+          map.set(key, val);
+        });
+        return map;
+      };
+      const pa = byKey(prev||[]), ca = byKey(curr||[]);
+      let delta = 0;
+      const keys = new Set([...pa.keys(), ...ca.keys()]);
+      keys.forEach(k=>{
+        const d = (ca.get(k)||0) - (pa.get(k)||0);
+        if (d !== 0) delta += Math.abs(d);
+      });
+      return delta || 0;
+    }
+
+    // RTDB -> UI (foreign, newer, changed) with toast displaying adet delta
     let lastApplied = 0;
     let prevHash = null;
+    let prevProducts = null;
     let primed = false;
 
     onValue(rootRef, (snap) => {
@@ -920,6 +953,7 @@
         primed = true;
         lastApplied = updatedAt;
         prevHash = h;
+        prevProducts = products;
         try { _setItem(APP_LS_KEY, JSON.stringify({ products, logs })); } catch {}
         return;
       }
@@ -928,17 +962,20 @@
       try { _setItem(APP_LS_KEY, JSON.stringify({ products, logs })); } catch {}
 
       if (updatedBy && updatedBy === meId) {
-        lastApplied = updatedAt; prevHash = h; return;
+        lastApplied = updatedAt; prevHash = h; prevProducts = products; return;
       }
       if (h === prevHash) { lastApplied = updatedAt; return; }
 
-      lastApplied = updatedAt; prevHash = h;
-      // Toast info before reload
+      // Compute adet delta
+      const adetDelta = lastAction === "clear" ? 0 : computeAdetDelta(prevProducts, products);
+
+      lastApplied = updatedAt; prevHash = h; prevProducts = products;
       const msg = lastAction === "clear"
         ? `${updatedByName} tüm verileri sildi.`
-        : `${updatedByName} stokları güncelledi.`;
-      showToast(msg);
-      setTimeout(()=> location.reload(), 700);
+        : `${updatedByName} ${adetDelta} adet güncelledi.`;
+
+      // Fade toast then reload
+      showToastThenReload(msg, 1100, 350);
     });
 
     // Seed if empty
@@ -959,7 +996,7 @@
   if (isAuthed()) startSync();
   else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
-<!-- === /RTDB Sync v11 === -->
+<!-- === /RTDB Sync v12 === -->
 
 </body>
 </html>
