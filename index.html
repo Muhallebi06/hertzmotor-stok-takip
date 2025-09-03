@@ -1069,5 +1069,46 @@ function genSku(){
 }
 </script>
 
+
+<script>
+async function sanitizeAndPersist(reason='startup'){
+  try{
+    const list = Array.isArray(state.products) ? state.products.slice() : [];
+    let changed = false;
+    const cleaned = [];
+    const seen = new Map(); // sku->index
+    for (const p0 of list){
+      const p = {...p0};
+      p.sku  = String(p.sku||'').trim();
+      p.name = String(p.name||'').trim();
+      if(!p.sku || !p.name || /^ürün$/i.test(p.name)){
+        changed = true; continue;
+      }
+      const key = p.sku.toLowerCase();
+      if (seen.has(key)){
+        const idx = seen.get(key);
+        // birleştir: qty topla, not birleştir
+        cleaned[idx].qty = Number(cleaned[idx].qty||0) + Number(p.qty||0);
+        if(p.note){ cleaned[idx].note = [cleaned[idx].note, p.note].filter(Boolean).join(' | '); }
+        changed = true; continue;
+      }
+      p.qty = Number(p.qty||0);
+      cleaned.push(p);
+      seen.set(key, cleaned.length-1);
+    }
+    if(changed && window.DB && typeof ref==='function' && typeof runTransaction==='function'){
+      await runTransaction(ref(window.DB, `app/hertz_stok/data`), (curr)=>{
+        const remote = curr || { products: [], logs: [] };
+        remote.products = cleaned;
+        if(!Array.isArray(remote.logs)) remote.logs = [];
+        remote.logs.unshift({ t: Date.now(), type: 'sanitize', note: reason, removed: list.length - cleaned.length });
+        remote.updatedAt = Date.now();
+        return remote;
+      }, { applyLocally: false });
+    }
+  }catch(e){ console.warn('sanitizeAndPersist failed', e); }
+}
+</script>
+
 </body>
 </html>
