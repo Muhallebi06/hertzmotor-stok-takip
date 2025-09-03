@@ -944,7 +944,10 @@
 
 
 
-<!-- === SKU FIX v7: kesin harita (ST, RT, MIL, RMIL, TMIL, SP, PG, MOT) === -->
+
+
+
+<!-- === SKU FIX v8: kesin eşleşme + 'Oluştur' butonunu kaldır === -->
 <script>
 (function(){
   const form = document.getElementById('productForm') || document.querySelector('form');
@@ -959,7 +962,6 @@
   function norm(s){ return deTR(String(s||'').toLowerCase()).replace(/\s+/g,' ').trim(); }
 
   function getCategoryText(){
-    // value ya da option text
     const val = catEl.value;
     const optText = (catEl.tagName === 'SELECT')
       ? (catEl.options[catEl.selectedIndex >= 0 ? catEl.selectedIndex : 0]?.text || '')
@@ -967,31 +969,20 @@
     return val && String(val).length >= 2 ? val : optText;
   }
 
-  // Kesin eşleştirme mantığı (özgül -> genel)
   function pickPrefix(catText){
     const t = norm(catText);
-    // Rotorlu Mil
     if (t.includes('rotorlu') && t.includes('mil')) return 'RMIL';
     if (t.includes('rotor') && t.includes('mil')) return 'RMIL';
-    // Taşlanmış Mil
     if ((t.includes('taslan') || t.includes('taslama')) && t.includes('mil')) return 'TMIL';
-    // Mil (yalın)
     if (t.includes('mil') || t.includes('saft') || t.includes('shaft')) return 'MIL';
-    // Stator
     if (t.includes('stator')) return 'ST';
-    // Rotor
     if (t.includes('rotor')) return 'RT';
-    // Sargılı Paket
     if (t.includes('sargili') && t.includes('paket')) return 'SP';
-    // Paketli Gövde
     if (t.includes('paketli') && (t.includes('govde') || t.includes('gövde'))) return 'PG';
-    // Motor
     if (t.includes('motor')) return 'MOT';
-    // diğer
     return 'PRD';
   }
 
-  // Var olan ürünlerden aynı prefix için en büyük numarayı bul
   function safeParse(x){ try{return JSON.parse(x);}catch(_){return null;} }
   function collectProducts(){
     const out=[];
@@ -1032,16 +1023,24 @@
     }
   }
 
-  // Kategori değişince ve submit öncesi güncelle
   catEl.addEventListener('change', ()=>updateSku(true));
   catEl.addEventListener('input',  ()=>updateSku(true));
   form.addEventListener('submit', ()=>updateSku(true), true);
-
-  // İlk açılışta
   updateSku(false);
+
+  // "Oluştur" butonunu kaldır
+  const candidates = Array.from(document.querySelectorAll('button, .btn, [role="button"]'));
+  for (const el of candidates){
+    const txt = (el.textContent||'').trim().toLowerCase();
+    const nm  = (el.getAttribute('name')||'').toLowerCase();
+    const id  = (el.id||'').toLowerCase();
+    if (txt === 'oluştur' || txt === 'olustur' || nm.includes('createsku') || id.includes('createsku') || id.includes('generatesku')) {
+      el.remove();
+    }
+  }
 })();
 </script>
-<!-- === /SKU FIX v7 === -->
+<!-- === /SKU FIX v8 === -->
 
 </body>
 </html>
