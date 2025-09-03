@@ -771,7 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v12): toast with adet; fade; timed reload === -->
+<!-- === RTDB Real-time Sync (v13): TR-format toast with product-aware messages === -->
 <style>
   #hmToast{
     position:fixed; right:16px; bottom:16px; z-index:99990; display:none;
@@ -781,7 +781,8 @@
   }
   #hmToast.show{ display:block; opacity:1; transform: translateY(0); }
   #hmToast.fade{ opacity:0; transform: translateY(6px); }
-  #hmToast .msg{opacity:.95}
+  #hmToast .msg{opacity:.98; white-space:pre-wrap}
+  #hmToast .icon{margin-right:8px; opacity:.9}
   #hmToast button{
     margin-left:10px; border:1px solid #cc7a44; background:linear-gradient(120deg,#cd6928,#de7a39);
     color:#fff; border-radius:8px; padding:6px 10px; cursor:pointer;
@@ -814,6 +815,8 @@
   const contentHash = (obj)=>{
     try { return JSON.stringify(obj).length + ":" + (JSON.stringify(obj)||"").slice(0,64); } catch { return Math.random()+""; }
   };
+  const fmtTR = (n)=> new Intl.NumberFormat('tr-TR').format(Math.abs(Number(n)||0));
+  const clip = (s, n=40)=> (s||"").toString().length>n ? (s||"").toString().slice(0,n-1)+"…" : (s||"");
 
   // Toast helpers
   const toast = document.getElementById("hmToast");
@@ -821,12 +824,11 @@
   const toastBtn = document.getElementById("hmToastReload");
   if (toastBtn) toastBtn.addEventListener("click", ()=> location.reload());
 
-  function showToastThenReload(msg, holdMs=1100, fadeMs=350){
+  function showToastThenReload(msg, holdMs=1200, fadeMs=350){
     if (toastMsg) toastMsg.textContent = msg;
     if (!toast) { setTimeout(()=>location.reload(), holdMs); return; }
     toast.classList.remove("fade");
     toast.classList.add("show");
-    // hold then fade
     setTimeout(()=>{
       toast.classList.add("fade");
       setTimeout(()=> location.reload(), fadeMs);
@@ -865,7 +867,7 @@
           products: obj.products||[], logs: obj.logs||[],
           updatedAt: Date.now(), updatedBy: meId, updatedByName: meName, lastAction
         }).catch(err => console.error("Buluta yazma hatası:", err));
-      }, 220);
+      }, 200);
     }
 
     localStorage.setItem = function(k, v){
@@ -889,55 +891,32 @@
       if (had) schedulePushFrom(JSON.stringify({ products: [], logs: [] }), "clear");
     };
 
-    // Try to bind "Tüm verileri sil"
-    function bindClearAll(){
-      const byId = document.getElementById("btnClearAll");
-      const candidates = Array.from(document.querySelectorAll("button, a, [role='button'], .btn, .button"));
-      const norm = s => (s||"").toLowerCase().replace(/\s+/g," ").trim();
-      const list = [];
-      if (byId) list.push(byId);
-      candidates.forEach(el => {
-        const t = norm(el.textContent);
-        if (t.includes("tüm verileri sil") || t.includes("tum verileri sil")) list.push(el);
-      });
-      list.forEach(el => {
-        if (el.dataset._clearbound === "1") return;
-        el.dataset._clearbound = "1";
-        el.addEventListener("click", (e)=>{
-          setTimeout(()=>{
-            try { _setItem(APP_LS_KEY, JSON.stringify({ products: [], logs: [] })); } catch {}
-            schedulePushFrom(JSON.stringify({ products: [], logs: [] }), "clear");
-          }, 30);
-        });
-      });
-    }
-    bindClearAll();
-    setInterval(bindClearAll, 800);
-
-    // Heuristic: compute adet delta between two product lists
-    function computeAdetDelta(prev, curr){
-      const fields = ["adet","miktar","stok","qty","quantity"];
-      const byKey = (list)=>{
-        const map = new Map();
-        (list||[]).forEach(it=>{
-          const key = (it.id || it.kod || it.code || it.name || it.urun || it.ürün || JSON.stringify(it)).toString();
-          let val = 0;
-          fields.forEach(f=>{ if (typeof it[f] === "number") val += it[f]; });
-          map.set(key, val);
-        });
-        return map;
-      };
-      const pa = byKey(prev||[]), ca = byKey(curr||[]);
-      let delta = 0;
-      const keys = new Set([...pa.keys(), ...ca.keys()]);
-      keys.forEach(k=>{
-        const d = (ca.get(k)||0) - (pa.get(k)||0);
-        if (d !== 0) delta += Math.abs(d);
-      });
-      return delta || 0;
+    // Product diff helpers
+    const keyFields = ["id","kod","code","name","urun","ürün","product","title"];
+    const qtyFields = ["adet","miktar","stok","qty","quantity","amount"];
+    const getKey = (it)=>{
+      for (const k of keyFields) if (it && (k in it)) return (it[k]||"").toString();
+      return (it && (it.name||it.urun||it.ürün)) ? (it.name||it.urun||it.ürün).toString() : JSON.stringify(it);
+    };
+    const getQty = (it)=>{
+      for (const k of qtyFields) if (it && typeof it[k] === "number") return it[k];
+      // Some schemas keep string numbers
+      for (const k of qtyFields) if (it && typeof it[k] === "string" && it[k].trim() !== "" && !isNaN(Number(it[k]))) return Number(it[k]);
+      return 0;
+    };
+    function mapByKey(list){ const m = new Map(); (list||[]).forEach(x=> m.set(getKey(x), getQty(x))); return m; }
+    function diffProducts(prev, curr){
+      const a = mapByKey(prev||[]), b = mapByKey(curr||[]);
+      const keys = new Set([...a.keys(), ...b.keys()]);
+      const changes = [];
+      for (const k of keys){
+        const d = (b.get(k)||0) - (a.get(k)||0);
+        if (d !== 0) changes.push({ key:k, delta:d });
+      }
+      return changes.sort((x,y)=> Math.abs(y.delta)-Math.abs(x.delta));
     }
 
-    // RTDB -> UI (foreign, newer, changed) with toast displaying adet delta
+    // RTDB -> UI (foreign, newer, changed) with detailed toast
     let lastApplied = 0;
     let prevHash = null;
     let prevProducts = null;
@@ -966,16 +945,32 @@
       }
       if (h === prevHash) { lastApplied = updatedAt; return; }
 
-      // Compute adet delta
-      const adetDelta = lastAction === "clear" ? 0 : computeAdetDelta(prevProducts, products);
+      // Build message
+      let msg = "";
+      if (lastAction === "clear"){
+        msg = `${updatedByName} tüm verileri sildi.`;
+      } else {
+        const changes = diffProducts(prevProducts, products);
+        if (changes.length === 1){
+          const c = changes[0];
+          const adet = fmtTR(Math.abs(c.delta));
+          const ad = clip(c.key, 48);
+          msg = c.delta > 0
+            ? `${updatedByName} → ${adet} adet "${ad}" eklendi`
+            : `${updatedByName} → ${adet} adet "${ad}" çıkış yapıldı`;
+        } else if (changes.length > 1){
+          const total = fmtTR(changes.reduce((s,c)=> s + Math.abs(c.delta), 0));
+          const count = changes.length;
+          const top3 = changes.slice(0,3).map(c=> `${c.delta>0?"+":"-"}${fmtTR(Math.abs(c.delta))} "${clip(c.key,28)}"`).join(", ");
+          msg = `${updatedByName} → ${count} ürün, toplam ${total} adet güncellendi` + (top3 ? `\n${top3}` : "");
+        } else {
+          // Fallback if schema unusual
+          msg = `${updatedByName} stokları güncelledi.`;
+        }
+      }
 
       lastApplied = updatedAt; prevHash = h; prevProducts = products;
-      const msg = lastAction === "clear"
-        ? `${updatedByName} tüm verileri sildi.`
-        : `${updatedByName} ${adetDelta} adet güncelledi.`;
-
-      // Fade toast then reload
-      showToastThenReload(msg, 1100, 350);
+      showToastThenReload(msg, 1300, 350);
     });
 
     // Seed if empty
@@ -996,7 +991,7 @@
   if (isAuthed()) startSync();
   else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
-<!-- === /RTDB Sync v12 === -->
+<!-- === /RTDB Sync v13 === -->
 
 </body>
 </html>
