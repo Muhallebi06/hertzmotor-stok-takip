@@ -1071,5 +1071,79 @@
 </script>
 <!-- HARD RTDB REFRESH v3 END -->
 
+
+<!-- RTDB BRIDGE v28 START -->
+<script type="module">
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+
+  const fallbackCfg = {
+    apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
+    authDomain: "hertz-stok-takip.firebaseapp.com",
+    databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "hertz-stok-takip",
+    storageBucket: "hertz-stok-takip.firebasestorage.app",
+    messagingSenderId: "512663727455",
+    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
+  };
+  const cfg = window.firebaseConfig || fallbackCfg;
+  const app = (getApps && getApps().length) ? getApps()[0] : initializeApp(cfg);
+  const db  = getDatabase(app);
+
+  const params = new URLSearchParams(location.search);
+  const docId  = params.get("doc") || "default";
+  const docRef = ref(db, "docs/" + docId);
+
+  // --- Helpers to sniff localStorage payloads and mirror to RTDB ---
+  function safeJSON(s){ try { return JSON.parse(s); } catch(_) { return null; } }
+  function extractStateFromStorage(){
+    let best = { products:null, logs:null, updatedAt:0, key:null, score:-1 };
+    for (let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      const v = safeJSON(localStorage.getItem(k));
+      if (!v || typeof v !== 'object') continue;
+      const hasP = Array.isArray(v.products);
+      const hasL = Array.isArray(v.logs);
+      const score = (hasP?10:0) + (hasL?3:0) + (v.updatedAt?1:0);
+      if (score > best.score){
+        best = { products: hasP ? v.products : null, logs: hasL ? v.logs : null, updatedAt: v.updatedAt||0, key:k, score };
+      }
+    }
+    // Fallbacks
+    if (!best.products) best.products = [];
+    if (!best.logs) best.logs = [];
+    return best;
+  }
+
+  const debounced = (fn, ms=250)=>{ let t; return ()=>{ clearTimeout(t); t=setTimeout(fn, ms); }; };
+  async function mirrorToRTDB(){
+    const st = extractStateFromStorage();
+    try{
+      await update(docRef, { products: st.products, logs: st.logs, updatedAt: Date.now() });
+      // console.debug('RTDB mirror ok', st);
+    }catch(e){
+      console.warn('RTDB mirror failed', e);
+    }
+  }
+  const scheduleMirror = debounced(mirrorToRTDB, 200);
+
+  // Patch localStorage methods to detect app writes
+  const _set = localStorage.setItem.bind(localStorage);
+  const _rem = localStorage.removeItem.bind(localStorage);
+  const _clr = localStorage.clear.bind(localStorage);
+  localStorage.setItem = function(k,v){ const r=_set(k,v); scheduleMirror(); return r; };
+  localStorage.removeItem = function(k){ const r=_rem(k); scheduleMirror(); return r; };
+  localStorage.clear = function(){ const r=_clr(); scheduleMirror(); return r; };
+
+  // Also monitor user interactions likely to change products/logs
+  ['click','submit','change'].forEach(ev=>{
+    document.addEventListener(ev, ()=>{ setTimeout(scheduleMirror, 120); }, true);
+  });
+
+  // Expose manual trigger if needed
+  window.hmSyncNow = mirrorToRTDB;
+</script>
+<!-- RTDB BRIDGE v28 END -->
+
 </body>
 </html>
