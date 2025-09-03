@@ -915,12 +915,15 @@
 <!-- === HM Product Form Enhancer v31 END === -->
 
 
-<!-- RTDB ULTRA-SIMPLE BROADCAST v39 START -->
+
+
+
+<!-- RTDB COMMIT-ONLY RELOAD v40 START -->
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
-  // --- Firebase init (reuse if already inited)
+  // Firebase init
   const fallbackCfg = {
     apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
     authDomain: "hertz-stok-takip.firebaseapp.com",
@@ -934,48 +937,71 @@
   const app = (getApps && getApps().length) ? getApps()[0] : initializeApp(cfg);
   const db  = getDatabase(app);
 
-  // --- Doc selection (?doc=...)
+  // Doc select
   const params = new URLSearchParams(location.search);
   const docId  = params.get("doc") || "default";
   const docRef = ref(db, "docs/" + docId);
 
-  // --- INBOUND: Reload on ANY change after initial (no writer checks, no signatures)
-  let initial = true;
+  // --- Helpers
+  function safeJSON(s){ try { return JSON.parse(s); } catch(_) { return null; } }
+  function detectStateKey(){
+    let bestKey=null, bestScore=-1;
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i), v=safeJSON(localStorage.getItem(k));
+      if(!v || typeof v!=='object') continue;
+      const score=(Array.isArray(v.products)?10:0)+(Array.isArray(v.logs)?3:0);
+      if(score>bestScore){bestScore=score;bestKey=k;}
+    }
+    return bestKey || 'hm_state';
+  }
+  const STATE_KEY = detectStateKey();
+  function readLocal(){
+    const raw = safeJSON(localStorage.getItem(STATE_KEY)) || {};
+    return { products: Array.isArray(raw.products)?raw.products:[], logs: Array.isArray(raw.logs)?raw.logs:[] };
+  }
+  function sigOf(s){
+    const p = Array.isArray(s.products)?s.products:[];
+    const l = Array.isArray(s.logs)?s.logs:[];
+    const tp = p.length ? (p[p.length-1].sku || p[p.length-1].name || p[p.length-1].id || '') : '';
+    const tl = l.length ? (l[l.length-1].msg || l[l.length-1].t || '') : '';
+    return p.length + '|' + tp + '#' + l.length + '|' + tl;
+  }
   function hardReload(){
     const u = new URL(location.href);
-    u.searchParams.set("_r", Date.now().toString());
+    u.searchParams.set('_r', Date.now().toString());
     location.replace(u.toString());
   }
-  onValue(docRef, (_snap)=>{
-    if (initial){ initial = false; return; }
-    // Any change under docs/<docId> -> reload this page
-    hardReload();
-  });
 
-  // --- OUTBOUND: Broadcast a tick on user actions & storage changes (guaranteed change)
-  function broadcastTick(){
-    // Always update unique fields so RTDB change is guaranteed
-    update(docRef, { _tick: Date.now(), _srv: serverTimestamp(), _rnd: Math.random() })
-      .catch(e=>console.warn('broadcast tick failed', e));
+  // --- OUTBOUND (commit detection): only when products/logs truly change
+  let lastPushedSig = '';
+  function pushIfCommitted(){
+    const st = readLocal();
+    const s  = sigOf(st);
+    if (!s || s === lastPushedSig) return;
+    lastPushedSig = s;
+    update(docRef, { products: st.products, logs: st.logs, updatedAt: Date.now() })
+      .catch(e=>console.warn('RTDB update failed', e));
   }
 
-  // Aggressively hook user interactions
-  ['click','submit','change','keyup','keydown','input'].forEach(ev=>{
-    document.addEventListener(ev, ()=> setTimeout(broadcastTick, 50), true);
-  });
-
-  // Also hook storage ops (some flows only touch localStorage)
+  // Hook only storage ops (no click/input listeners): push when app commits to storage
   const _set = localStorage.setItem.bind(localStorage);
   const _rem = localStorage.removeItem.bind(localStorage);
   const _clr = localStorage.clear.bind(localStorage);
-  localStorage.setItem = function(k,v){ const r=_set(k,v); setTimeout(broadcastTick, 50); return r; };
-  localStorage.removeItem = function(k){ const r=_rem(k); setTimeout(broadcastTick, 50); return r; };
-  localStorage.clear = function(){ const r=_clr(); setTimeout(broadcastTick, 50); return r; };
+  localStorage.setItem = function(k,v){ const r=_set(k,v); if (k===STATE_KEY) setTimeout(pushIfCommitted, 60); return r; };
+  localStorage.removeItem = function(k){ const r=_rem(k); if (k===STATE_KEY) setTimeout(pushIfCommitted, 60); return r; };
+  localStorage.clear = function(){ const r=_clr(); setTimeout(pushIfCommitted, 60); return r; };
 
-  // Safety net: periodic heartbeat to ensure liveness
-  setInterval(broadcastTick, 5000);
+  // Safety net: periodic check (in case app batches then writes later)
+  setInterval(pushIfCommitted, 1200);
+
+  // --- INBOUND: reload on any change after initial
+  let initial = true;
+  onValue(docRef, (_snap)=>{
+    if (initial){ initial = false; return; }
+    hardReload();
+  });
 </script>
-<!-- RTDB ULTRA-SIMPLE BROADCAST v39 END -->
+<!-- RTDB COMMIT-ONLY RELOAD v40 END -->
 
 </body>
 </html>
