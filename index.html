@@ -944,37 +944,42 @@
 
 
 
-<!-- === SKU FIX v5: kategori -> prefix revize + 'Oluştur' butonunu kaldır === -->
+
+
+
+<!-- === SKU FIX v6: kesin eşleşme haritası (ST, RT, MIL, RMIL, TMIL, SP, PG, MOT) === -->
 <script>
 (function(){
   const form = document.getElementById('productForm') || document.querySelector('form');
   if(!form) return;
   const catEl = form.querySelector('[name="category"],[name="kategori"],#category,#kategori,[name="urunTuru"]');
-  const skuEl = form.querySelector('[name="sku"],[name="stokKodu"],#sku,#stokKodu');
+  const skuEl = form.querySelector('[name="sku"],[name="stokKodu"],#sku,#stokKodu,[name="code"],[name="kod"]');
   if(!catEl || !skuEl) return;
 
-  // İstenen kısaltmalar (case-insensitive, Türkçe karakter destekli)
-  const MAP = [
-    {k:'stator',          p:'ST'},
-    {k:'rotor',           p:'RT'},
-    {k:'mil',             p:'MIL'},             // yalın "mil/şaft"
-    {k:'rotorlu mil',     p:'RMIL'},
-    {k:'rotorlu mil',     p:'RMIL'},
-    {k:'taşlanmış mil',   p:'TMIL'},
-    {k:'taslanmış mil',   p:'TMIL'},
-    {k:'taslanmis mil',   p:'TMIL'},
-    {k:'sargılı paket',   p:'SP'},
-    {k:'sargili paket',   p:'SP'},
-    {k:'paketli gövde',   p:'PG'},
-    {k:'paketli govde',   p:'PG'},
-    {k:'motor',           p:'MOT'},
+  // Türkçe karakterleri sadeleştir
+  const trMap = { 'ş':'s','Ş':'s','ğ':'g','Ğ':'g','ı':'i','İ':'i','ç':'c','Ç':'c','ö':'o','Ö':'o','ü':'u','Ü':'u' };
+  function deTR(s){ return String(s||'').replace(/[şŞğĞıİçÇöÖüÜ]/g, ch => trMap[ch] || ch); }
+  function norm(s){ return deTR(String(s||'').toLowerCase()).replace(/\s+/g,' ').trim(); }
+
+  // Kesin harita: sıralama önemli (özgül kategoriler önce)
+  const RULES = [
+    { code:'RMIL', keys:['rotorlu mil','rotorlu mil','rotor mil'] },
+    { code:'TMIL', keys:['taslanmis mil','taslanmis','taslanmis mil','taslanmis şaft','taslanmis shaft'] },
+    { code:'MIL',  keys:['mil','saft','shaft'] }, // yalın mil/şaft
+    { code:'ST',   keys:['stator'] },
+    { code:'RT',   keys:['rotor'] },
+    { code:'SP',   keys:['sargili paket','sargili','sargili sac','sargili paket sac'] },
+    { code:'PG',   keys:['paketli govde','paket govde','paketli govde','paketli g','paketli govde'] }}, // 'gövde' varyantları
+    { code:'MOT',  keys:['motor'] },
   ];
-  function norm(s){ return String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
-  function prefixFor(catText){
+
+  function pickPrefix(catText){
     const t = norm(catText);
-    // Önce uzun eşleşmeler (rotorlu mil vs) — MAP sıraya göre dolaşılır
-    for(const m of MAP){ if (t.includes(norm(m.k))) return m.p; }
-    // fallback
+    for (const r of RULES){
+      for (const k of r.keys){
+        if (t.includes(norm(k))) return r.code;
+      }
+    }
     return 'PRD';
   }
 
@@ -1003,27 +1008,25 @@
     return m;
   }
   function suggest(cat){
-    const p = prefixFor(cat);
+    const p = pickPrefix(cat);
     const n = maxNum(p, collectProducts()) + 1;
     return p + '-' + String(n).padStart(4,'0');
   }
   function updateSku(force){
     const cat = catEl.value || catEl.options?.[catEl.selectedIndex||0]?.text || '';
     if(!cat) return;
-    const pref = prefixFor(cat);
+    const pref = pickPrefix(cat);
     const cur  = String(skuEl.value||'').toUpperCase();
-    if(force || !cur || !cur.startsWith(pref)){
+    if (force || !cur || !cur.startsWith(pref)){
       skuEl.value = suggest(cat);
     }
   }
 
-  // Kategori değişiminde ve gönderimden hemen önce güncelle
   catEl.addEventListener('change', ()=>updateSku(true));
   form.addEventListener('submit', ()=>updateSku(true), true);
-  // İlk açılış
   updateSku(false);
 
-  // "Oluştur" butonunu kaldır (id/name/text ile yakala)
+  // "Oluştur" butonunu kaldır (zaten otomatik)
   const candidates = Array.from(document.querySelectorAll('button, .btn, [role="button"]'));
   for (const el of candidates){
     const txt = (el.textContent||'').trim().toLowerCase();
@@ -1035,7 +1038,7 @@
   }
 })();
 </script>
-<!-- === /SKU FIX v5 === -->
+<!-- === /SKU FIX v6 === -->
 
 </body>
 </html>
