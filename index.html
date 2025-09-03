@@ -912,7 +912,10 @@
 <!-- === HM Product Form Enhancer v31 END === -->
 
 
-<!-- RTDB RELIABLE SYNC v33 START -->
+
+
+
+<!-- RTDB RELIABLE SYNC v34 START -->
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -934,18 +937,18 @@
   const docId  = params.get("doc") || "default";
   const docRef = ref(db, "docs/" + docId);
 
-  // A stable client id to mark our writes
+  // Stable client id
   const ss = sessionStorage;
   let clientId = ss.getItem("hm_client_id");
   if (!clientId) { clientId = "c" + Math.random().toString(36).slice(2) + Date.now().toString(36); ss.setItem("hm_client_id", clientId); }
 
-  // ---- State helpers
+  // ---- Helpers
   function safeJSON(s){ try { return JSON.parse(s); } catch(_) { return null; } }
   function extractLocal(){
-    // Find the most likely products/logs arrays from localStorage
     let products = null, logs = null;
     for (let i=0;i<localStorage.length;i++){
-      const v = safeJSON(localStorage.getItem(localStorage.key(i)));
+      const k = localStorage.key(i);
+      const v = safeJSON(localStorage.getItem(k));
       if (!v || typeof v !== 'object') continue;
       if (products === null && Array.isArray(v.products)) products = v.products;
       if (logs     === null && Array.isArray(v.logs))     logs     = v.logs;
@@ -962,33 +965,43 @@
     return p.length + "|" + pt + "#" + l.length + "|" + lt;
   }
 
-  // ---- Outbound: mirror local -> RTDB (polling + hooks)
-  let lastSentSig = "";
-  let lastAppliedFromRTDBSig = "";
+  let lastSentSig = "";               // last signature we pushed
+  let lastKnownRTDBSig = "";          // signature from last snapshot (any writer)
+  let suppressPushUntil = Date.now()+1500;  // suppression window during initial load
+  let shadowWrite = false;            // guard: avoid reacting to our own hm_rtdb_shadow setItem
+
   async function pushToRTDB(state){
     try {
       await update(docRef, { products: state.products, logs: state.logs, updatedAt: Date.now(), _writerId: clientId });
     } catch(e){ console.warn("pushToRTDB failed", e); }
   }
+
   function checkAndPush(){
+    const now = Date.now();
+    if (now < suppressPushUntil) return; // don't push immediately after reload/foreign apply
     const st = extractLocal();
     const s  = sigOf(st);
-    if (s && s !== lastSentSig && s !== lastAppliedFromRTDBSig){
+    // Only push if local differs from what we last saw in RTDB AND from what we last sent
+    if (s && s !== lastKnownRTDBSig && s !== lastSentSig){
       lastSentSig = s;
       pushToRTDB(st);
     }
   }
-  setInterval(checkAndPush, 800); // periodic safety
-  // hooks to react faster
+
+  // Periodic + hooks
+  setInterval(checkAndPush, 900);
   ['click','submit','change','keyup'].forEach(ev=>document.addEventListener(ev, ()=> setTimeout(checkAndPush, 120), true));
   const _set = localStorage.setItem.bind(localStorage);
   const _rem = localStorage.removeItem.bind(localStorage);
   const _clr = localStorage.clear.bind(localStorage);
-  localStorage.setItem = function(k,v){ const r=_set(k,v); setTimeout(checkAndPush, 60); return r; };
+  localStorage.setItem = function(k,v){
+    if (k === 'hm_rtdb_shadow' || shadowWrite) { return _set(k,v); }
+    const r=_set(k,v); setTimeout(checkAndPush, 60); return r;
+  };
   localStorage.removeItem = function(k){ const r=_rem(k); setTimeout(checkAndPush, 60); return r; };
   localStorage.clear = function(){ const r=_clr(); setTimeout(checkAndPush, 60); return r; };
 
-  // ---- Inbound: RTDB -> local, then refresh others
+  // Snapshot listener
   let initial = true;
   function hardReload(){
     const u = new URL(location.href);
@@ -999,19 +1012,23 @@
     const data = snap.val() || {};
     const incoming = { products: data.products || [], logs: data.logs || [] };
     const s = sigOf(incoming);
-    if (initial){ initial = false; lastAppliedFromRTDBSig = s; return; }
+    lastKnownRTDBSig = s;
+
+    if (initial){ initial = false; suppressPushUntil = Date.now()+800; return; }
 
     const writer = data._writerId || "";
-    // If this change comes from another client, reflect to localStorage and reload
     if (writer && writer !== clientId){
-      lastAppliedFromRTDBSig = s;
-      // Write a stable key so app can read the newest state after reload
-      try { localStorage.setItem("hm_rtdb_shadow", JSON.stringify(incoming)); } catch(_){}
+      // Apply foreign: store into shadow (ignored by hooks), then reload. Also align lastSentSig to incoming to avoid echo.
+      shadowWrite = true;
+      try { localStorage.setItem('hm_rtdb_shadow', JSON.stringify(incoming)); } catch(_){}
+      shadowWrite = false;
+      lastSentSig = s;
+      suppressPushUntil = Date.now()+1500;
       hardReload();
     }
   });
 </script>
-<!-- RTDB RELIABLE SYNC v33 END -->
+<!-- RTDB RELIABLE SYNC v34 END -->
 
 </body>
 </html>
