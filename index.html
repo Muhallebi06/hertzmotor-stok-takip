@@ -771,7 +771,16 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v6): post-auth listener + safe reload fallback === -->
+<!-- === RTDB Real-time Sync (v7): intelligent refresh to avoid interrupting input === -->
+<style>
+  #syncToast{position:fixed; right:12px; bottom:12px; z-index:99990; display:none;
+    background:#111827; color:#e5e7eb; border:1px solid #374151; border-radius:10px; padding:10px 12px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35); font:14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+  #syncToast button{ margin-left:8px; border:1px solid #cc7a44; background:linear-gradient(120deg,#cd6928,#de7a39);
+    color:#fff; border-radius:8px; padding:6px 10px; cursor:pointer;}
+</style>
+<div id="syncToast">Yeni değişiklik geldi.<button id="toastReload">Yenile</button></div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -795,6 +804,28 @@
   const APP_LS_KEY = "stokTakip.v1";
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
 
+  // UI helpers
+  const toast = document.getElementById("syncToast");
+  const toastBtn = document.getElementById("toastReload");
+  if (toastBtn) toastBtn.addEventListener("click", ()=> location.reload());
+
+  // Activity / focus detection
+  let lastActivity = Date.now();
+  ["keydown","mousedown","touchstart","input","focus"].forEach(ev => {
+    window.addEventListener(ev, ()=> lastActivity = Date.now(), {passive:true});
+  });
+  const hasFocusedForm = () => {
+    const a = document.activeElement;
+    if (!a) return false;
+    const tag = (a.tagName||"").toLowerCase();
+    const editable = a.isContentEditable;
+    return editable || ["input","textarea","select","button"].includes(tag);
+  };
+  const hasOpenDialog = () => {
+    const dialogs = Array.from(document.querySelectorAll('[role="dialog"], dialog'));
+    return dialogs.some(d => d.offsetParent !== null);
+  };
+
   function startSync(){
     const presRef = ref(db, `docs/${DOC_ID}/presence`);
     const meId = crypto.randomUUID();
@@ -808,8 +839,9 @@
     });
 
     const rootRef = ref(db, `docs/${DOC_ID}`);
-    const push = (obj)=> update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now() })
-                          .catch(err => console.error("Buluta yazma hatası:", err));
+    const push = (obj)=> update(rootRef, {
+        products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now(), updatedBy: meId
+      }).catch(err => console.error("Buluta yazma hatası:", err));
 
     const _setItem    = localStorage.setItem.bind(localStorage);
     const _removeItem = localStorage.removeItem.bind(localStorage);
@@ -821,41 +853,51 @@
     };
     localStorage.removeItem = function(k){
       _removeItem(k);
-      if (k === APP_LS_KEY) push({ products: [], logs: [], updatedAt: Date.now() });
+      if (k === APP_LS_KEY) push({ products: [], logs: [] });
     };
     localStorage.clear = function(){
       _clear();
-      push({ products: [], logs: [], updatedAt: Date.now() });
+      push({ products: [], logs: [] });
     };
 
     let lastApplied = null;
-    let lastReloadAt = 0;
     onValue(rootRef, (snap) => {
       const v = snap.val();
       if(!v || typeof v !== "object") return;
-      const { products = [], logs = [], updatedAt = 0 } = v;
+      const { products = [], logs = [], updatedAt = 0, updatedBy = null } = v;
+
+      // 1) Skip self echoes
+      if (updatedBy && updatedBy === meId) return;
+
+      // 2) Skip if already applied
       if (lastApplied === updatedAt) return;
       lastApplied = updatedAt;
 
+      // 3) Write LS so app state is consistent
       try { _setItem(APP_LS_KEY, JSON.stringify({ products, logs })); } catch {}
-      document.dispatchEvent(new CustomEvent("rtdb_sync", { detail: { updatedAt } }));
 
+      // 4) Try app render; if yoksa akıllı yenileme
       try {
         if (typeof window.render === "function") {
           window.render();
-        } else {
-          const now = Date.now();
-          if (now - lastReloadAt > 800) { // throttle
-            lastReloadAt = now;
+          return;
+        }
+      } catch(e){ /* ignore */ }
+
+      // If user is typing or dialog open, don't interrupt; show toast
+      const idleForMs = Date.now() - lastActivity;
+      if (hasFocusedForm() || hasOpenDialog() || idleForMs < 1500 || document.visibilityState !== "visible") {
+        if (toast) toast.style.display = "block";
+        // When user becomes idle (>2s) and not focusing a form, reload automatically
+        const i = setInterval(()=>{
+          const nowIdle = Date.now() - lastActivity > 2000;
+          if (!hasFocusedForm() && !hasOpenDialog() && nowIdle && document.visibilityState === "visible") {
+            clearInterval(i);
             location.reload();
           }
-        }
-      } catch(e){
-        const now = Date.now();
-        if (now - lastReloadAt > 800) {
-          lastReloadAt = now;
-          location.reload();
-        }
+        }, 600);
+      } else {
+        location.reload();
       }
     });
 
@@ -864,7 +906,7 @@
       onValue(rootRef, (s) => {
         if(!s.exists()){
           const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-          set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now() }).catch(console.error);
+          set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now(), updatedBy: meId }).catch(console.error);
         }
       }, { onlyOnce: true });
     }, 300);
@@ -874,7 +916,7 @@
   if (isAuthed()) startSync();
   else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
-<!-- === /RTDB Sync v6 === -->
+<!-- === /RTDB Sync v7 === -->
 
 </body>
 </html>
