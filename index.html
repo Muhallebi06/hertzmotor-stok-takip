@@ -19,15 +19,20 @@
     .no-scrollbar::-webkit-scrollbar{ display:none; }
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
   </style>
-
-    <script>const $=(s,r=document)=>r.querySelector(s); const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));</script>
-    </head>
+</head>
 <body class="bg-slate-50 text-slate-800">
 
 <!-- === Simple Login Gate (user: hertz / pass: hertz) === -->
 <style>
-  #authGate { position: fixed; inset:0; display:grid; place-items:center; z-index:99999; background: radial-gradient(1000px 600px at 30% 20%, rgba(205,105,40,.08), transparent 60%), #0b1220; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-  #authCard { width: min(92vw, 440px); margin: 0 auto; background:#111827; border:1px solid #374151; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.3);}
+  #authGate {
+    position: fixed; inset: 0; display: none; place-items: center; z-index: 99999;
+    background: radial-gradient(1000px 600px at 30% 20%, rgba(205,105,40,.08), transparent 60%) , #0b1220;
+    color: #e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  }
+  #authCard {
+    width: min(380px, 92vw); background: #111827; border: 1px solid #1f2937; border-radius: 14px;
+    padding: 22px 22px 16px; box-shadow: 0 10px 40px rgba(0,0,0,.35);
+  }
   #authCard h2 { margin: 0 0 8px; font-size: 18px; color: #f3f4f6; }
   #authCard p  { margin: 0 0 16px; font-size: 13px; color: #94a3b8; }
   .row { display: grid; gap: 8px; margin: 10px 0 12px; }
@@ -195,6 +200,7 @@
 </script>
 <!-- === /Login Gate === -->
 
+
   <header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200">
     <div class="mx-auto max-w-7xl px-3 md:px-4 py-3 flex items-center gap-3">
       <div class="shrink-0 w-10 h-10 grid place-items-center rounded-2xl text-white font-bold" style="background: rgb(var(--brand))">HM</div>
@@ -208,8 +214,10 @@
         <button id="btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
         <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
         <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-        <button id="btnClearAll" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm verileri sil</button>
-      </div>
+        <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
+      
+        
+        </div>
     </div>
   </header>
 
@@ -577,7 +585,7 @@
     $('#btnImport').addEventListener('click',()=>$('#fileInput').click());
     $('#fileInput').addEventListener('change',e=>{ const f=e.target.files?.[0]; if(f) importJSONFile(f); e.target.value=''; });
 
-    $('#btnClearAll').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
+    $('#btnClear').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
 
     $('#search').addEventListener('input',render);
     $('#onlyLow').addEventListener('change',render);
@@ -607,7 +615,6 @@
       if(!(amt>0)){ alert('Miktar pozitif olmalı'); return; }
       const from = Number(p.qty||0);
       const to = data.type==='in' ? from + amt : from - amt;
-      if (to < 0) { alert('Stok eksiye düşemez. Önce giriş yapın.'); return; }
       p.qty = to;
       addLog({ productId:p.id, type:data.type, amount:amt, fromQty:from, toQty:to, note:data.note });
       $('#moveDialog').close();
@@ -629,7 +636,7 @@
 <!-- === Firebase Live Sync (guarded by login) === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, onDisconnect, onValue, ref, runTransaction, set, update} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   // Config
   const firebaseConfig = {
@@ -646,28 +653,12 @@
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
 
-    const DOC_ID = 'hertz-stok';
-    const rootRef = ref(db, `docs/${DOC_ID
-      window.DB = db;
-      const dataRef = ref(db, `app/hertz_stok/data`);
-      onValue(dataRef, (snap)=>{
-        const remote = snap.val() || { products: [], logs: [], updatedAt: Date.now() };
-        state.products = Array.isArray(remote.products) ? remote.products : [];
-        state.logs     = Array.isArray(remote.logs) ? remote.logs : [];
-        try{ localStorage.setItem(LS_KEY, JSON.stringify(remote)); }catch(e){}
-        if (typeof render === 'function') render();
-      });
-      // Presence (optional)
-      try{
-        const meId  = crypto.randomUUID();
-        const meRef = ref(db, `app/hertz_stok/presence/${meId}`);
-        set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
-        onDisconnect(meRef).remove();
-      }catch(_){}
-        }`);
-    const presRef = ref(db, `app/hertz_stok/presence`);
+    const urlDoc = new URLSearchParams(location.search).get("doc");
+    const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
+    const rootRef = ref(db, `docs/${DOC_ID}`);
+    const presRef = ref(db, `docs/${DOC_ID}/presence`);
     const meId    = crypto.randomUUID();
-    const meRef   = ref(db, `app/hertz_stok/presence/${meId}`);
+    const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
     set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
     onDisconnect(meRef).remove();
 
@@ -738,6 +729,7 @@
 </script>
 <!-- === /Firebase Live Sync (guarded) === -->
 
+
 <!-- === Kullanıcı Tablosu (Referans) ===
 | Kullanıcı Adı | Şifre | Rol    |
 | hertz         | hertz | admin  |
@@ -749,6 +741,7 @@
 | imalat5       | 7     | user   |
 | imalat6       | 8     | user   |
 === -->
+
 
 <!-- === Non-admin guard: continuously hide "Tüm verileri sil" === -->
 <script>
@@ -781,6 +774,22 @@
 })();
 </script>
 <!-- === /Non-admin guard === -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <!-- === HM Product Form Enhancer v31 START === -->
 <style>
@@ -907,10 +916,17 @@
 </script>
 <!-- === HM Product Form Enhancer v31 END === -->
 
+
+
+
+
+
+
+
 <!-- RTDB COMMIT-SMART RELOAD v41 START -->
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, onDisconnect, onValue, ref, runTransaction, set, update} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   // Firebase init
   const fallbackCfg = {
@@ -1020,103 +1036,11 @@
 <!-- RTDB COMMIT-SMART RELOAD v41 END -->
 
 
-
-
 <script>
-// Save wrapper to push changes to RTDB transactionally
-(function(){
-  const origSave = window.save || save;
-  window.save = function(...args){
-    try{ origSave && origSave.apply(this, args); }catch(e){ console.warn('orig save error', e); }
-    (async()=>{
-      try{
-        if(window.DB && typeof ref==='function' && typeof runTransaction==='function'){
-          const dataRef = ref(window.DB, `app/hertz_stok/data`);
-          await runTransaction(dataRef, (curr)=>{
-            const remote = curr || { products: [], logs: [], updatedAt: 0 };
-            const map = new Map();
-            (remote.products||[]).forEach(p=> map.set(String(p.sku||'').toLowerCase(), p));
-            (state.products||[]).forEach(p=> map.set(String(p.sku||'').toLowerCase(), p));
-            const products = Array.from(map.values());
-            const seen = new Set();
-            const mergedLogs = [];
-            [...(remote.logs||[]), ...(state.logs||[])].forEach(l=>{
-              const k = l.id || l.t || JSON.stringify(l);
-              if(seen.has(k)) return; seen.add(k); mergedLogs.push(l);
-            });
-            return { products, logs: mergedLogs.slice(0, 5000), updatedAt: Date.now() };
-          }, { applyLocally: false });
-        } else if(window.DB && typeof ref==='function' && typeof update==='function'){
-          await update(ref(window.DB, `app/hertz_stok/data`), { products: state.products, logs: state.logs, updatedAt: Date.now() });
-        }
-      }catch(e){ console.warn('save wrapper RTDB failed', e); }
-    })();
-  };
-})();
-</script>
-
-
-<script>
-(function(){
-  const addBtn = document.getElementById('btnAdd');
-  const logout = document.getElementById('logoutBtn');
-  if(addBtn && logout){
-    const row = addBtn.closest('div');
-    if(row){
-      row.appendChild(logout);
-      // remove any inline styles that could cause "floating"
-      row.removeAttribute('style');
-      // style same as others
-      logout.className = 'ml-auto px-3 py-2 rounded-xl border border-slate-300 bg-white';
-      logout.removeAttribute('style');
-    }
-  }
-})();
-</script>
-
-
-<script>
-// Realtime-only mode: disable local storage for stokTakip keys, and override save() to write only RTDB.
-(function(){
-  try{
-    const _set = localStorage.setItem.bind(localStorage);
-    const _get = localStorage.getItem.bind(localStorage);
-    const _rem = localStorage.removeItem.bind(localStorage);
-    const block = (k)=> k && /stoktakip|stokTakip|LS_KEY/i.test(String(k));
-    localStorage.setItem = (k,v)=>{ if(block(k)) return; try{ _set(k,v);}catch(e){} };
-    localStorage.getItem = (k)=>{ if(block(k)) return null; try{ return _get(k);}catch(e){ return null; } };
-    localStorage.removeItem = (k)=>{ if(block(k)) return; try{ _rem(k);}catch(e){} };
-  }catch(_){}
-
-  // Strong override of save(): only RTDB, no local
-  window.save = function(){
-    (async()=>{
-      try{
-        if(window.DB && typeof ref==='function' && typeof runTransaction==='function'){
-          const dataRef = ref(window.DB, `app/hertz_stok/data`);
-          await runTransaction(dataRef, (curr)=>{
-            const remote = curr || { products: [], logs: [], updatedAt: 0 };
-            // Merge by SKU (case-insensitive)
-            const map = new Map();
-            (remote.products||[]).forEach(p=> map.set(String(p.sku||'').toLowerCase(), p));
-            (state.products||[]).forEach(p=> map.set(String(p.sku||'').toLowerCase(), p));
-            const products = Array.from(map.values());
-            // Merge logs
-            const seen = new Set();
-            const mergedLogs = [];
-            [...(remote.logs||[]), ...(state.logs||[])].forEach(l=>{
-              const k = l.id || l.t || JSON.stringify(l);
-              if(seen.has(k)) return; seen.add(k); mergedLogs.push(l);
-            });
-            return { products, logs: mergedLogs.slice(0,5000), updatedAt: Date.now() };
-          }, { applyLocally:false });
-        } else if(window.DB && typeof ref==='function' && typeof update==='function'){
-          await update(ref(window.DB, `app/hertz_stok/data`), { products: state.products, logs: state.logs, updatedAt: Date.now() });
-        }
-      }catch(e){ console.warn('RTDB save failed', e); }
-    })();
-  };
-})();
+document.addEventListener('DOMContentLoaded', ()=>{
+  const b = document.getElementById('logoutBtn');
+  if(b) b.addEventListener('click', ()=> window.logout && window.logout());
+});
 </script>
 
 </body>
