@@ -918,7 +918,10 @@
 
 
 
-<!-- RTDB COMMIT-ONLY RELOAD v40 START -->
+
+
+
+<!-- RTDB COMMIT-SMART RELOAD v41 START -->
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -942,7 +945,7 @@
   const docId  = params.get("doc") || "default";
   const docRef = ref(db, "docs/" + docId);
 
-  // --- Helpers
+  // Helpers
   function safeJSON(s){ try { return JSON.parse(s); } catch(_) { return null; } }
   function detectStateKey(){
     let bestKey=null, bestScore=-1;
@@ -955,16 +958,30 @@
     return bestKey || 'hm_state';
   }
   const STATE_KEY = detectStateKey();
+
   function readLocal(){
     const raw = safeJSON(localStorage.getItem(STATE_KEY)) || {};
-    return { products: Array.isArray(raw.products)?raw.products:[], logs: Array.isArray(raw.logs)?raw.logs:[] };
+    const products = Array.isArray(raw.products)?raw.products:[];
+    const logs = Array.isArray(raw.logs)?raw.logs:[];
+    return { products, logs };
   }
-  function sigOf(s){
-    const p = Array.isArray(s.products)?s.products:[];
-    const l = Array.isArray(s.logs)?s.logs:[];
-    const tp = p.length ? (p[p.length-1].sku || p[p.length-1].name || p[p.length-1].id || '') : '';
-    const tl = l.length ? (l[l.length-1].msg || l[l.length-1].t || '') : '';
-    return p.length + '|' + tp + '#' + l.length + '|' + tl;
+  function totalQty(products){
+    let s=0;
+    for (const p of products){
+      const q = Number(p.qty ?? p.adet ?? p.miktar ?? p.stock ?? 0);
+      if (!isNaN(q)) s+=q;
+    }
+    return s;
+  }
+  function commitSignature(state){
+    const pc = state.products.length;
+    const lc = state.logs.length;
+    const tq = totalQty(state.products);
+    const lastP = state.products[pc-1] || {};
+    const lastL = state.logs[lc-1] || {};
+    const lastKey = String(lastP.sku || lastP.name || lastP.id || lastP.kod || '');
+    const lastLog = String(lastL.msg || lastL.t || '');
+    return `${pc}|${lc}|${tq}|${lastKey.slice(0,24)}|${lastLog.slice(0,24)}`;
   }
   function hardReload(){
     const u = new URL(location.href);
@@ -972,36 +989,49 @@
     location.replace(u.toString());
   }
 
-  // --- OUTBOUND (commit detection): only when products/logs truly change
-  let lastPushedSig = '';
-  function pushIfCommitted(){
-    const st = readLocal();
-    const s  = sigOf(st);
-    if (!s || s === lastPushedSig) return;
-    lastPushedSig = s;
-    update(docRef, { products: st.products, logs: st.logs, updatedAt: Date.now() })
-      .catch(e=>console.warn('RTDB update failed', e));
+  // Outbound: push only when commit signature changes (prevents typing-triggered reloads)
+  let lastRTDBSig = "";   // last signature seen from RTDB
+  let lastPushedSig = ""; // last signature we pushed
+  let pushTimer = null;
+  function schedulePush(){
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(()=>{
+      const st = readLocal();
+      const sig = commitSignature(st);
+      if (!sig) return;
+      if (sig !== lastPushedSig && sig !== lastRTDBSig){
+        lastPushedSig = sig;
+        update(docRef, { products: st.products, logs: st.logs, updatedAt: Date.now(), _sig: sig })
+          .catch(e=>console.warn('RTDB update failed', e));
+      }
+    }, 220);
   }
 
-  // Hook only storage ops (no click/input listeners): push when app commits to storage
+  // Hook only state key writes (true commits)
   const _set = localStorage.setItem.bind(localStorage);
   const _rem = localStorage.removeItem.bind(localStorage);
   const _clr = localStorage.clear.bind(localStorage);
-  localStorage.setItem = function(k,v){ const r=_set(k,v); if (k===STATE_KEY) setTimeout(pushIfCommitted, 60); return r; };
-  localStorage.removeItem = function(k){ const r=_rem(k); if (k===STATE_KEY) setTimeout(pushIfCommitted, 60); return r; };
-  localStorage.clear = function(){ const r=_clr(); setTimeout(pushIfCommitted, 60); return r; };
+  localStorage.setItem = function(k,v){ const r=_set(k,v); if (k===STATE_KEY) schedulePush(); return r; };
+  localStorage.removeItem = function(k){ const r=_rem(k); if (k===STATE_KEY) schedulePush(); return r; };
+  localStorage.clear = function(){ const r=_clr(); schedulePush(); return r; };
 
-  // Safety net: periodic check (in case app batches then writes later)
-  setInterval(pushIfCommitted, 1200);
+  // Safety: periodic check in case app batches then writes later
+  setInterval(schedulePush, 1500);
 
-  // --- INBOUND: reload on any change after initial
+  // Inbound: reload on any change after initial, but ignore echoes (same signature)
   let initial = true;
-  onValue(docRef, (_snap)=>{
-    if (initial){ initial = false; return; }
-    hardReload();
+  onValue(docRef, (snap)=>{
+    const data = snap.val() || {};
+    const remote = { products: data.products||[], logs: data.logs||[] };
+    const sig = data._sig || commitSignature(remote);
+    if (initial){ initial = false; lastRTDBSig = sig; return; }
+    if (sig && sig !== lastRTDBSig){
+      lastRTDBSig = sig;
+      hardReload();
+    }
   });
 </script>
-<!-- RTDB COMMIT-ONLY RELOAD v40 END -->
+<!-- RTDB COMMIT-SMART RELOAD v41 END -->
 
 </body>
 </html>
