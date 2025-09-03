@@ -480,7 +480,7 @@
 
     const fmt=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(v):n};
     const nowISO=()=>new Date().toISOString();
-    const addLog=(entry)=>state.logs.unshift({id:uuid(),ts:nowISO(),...entry});
+    const addLog=(entry)=>state.logs.unshift({id:uuid(),ts:nowISO(),entry});
     const findProduct=id=>state.products.find(p=>p.id===id);
 
     let sortBy='name', sortDir='asc';
@@ -491,7 +491,7 @@
       const tbody=$('#tbodyDesktop'); tbody.innerHTML='';
       const listMobile=$('#listMobile'); listMobile.innerHTML='';
 
-      let list=[...state.products];
+      let list=[state.products];
       if(q) list=list.filter(p=>(((p.name||'')+' '+(p.sku||'')+' '+(p.note||'')+' '+(CATEGORY_LABEL[p.category]||'')).toLowerCase().includes(q));
       if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
 
@@ -768,7 +768,7 @@
     return 'PRD';
   }
   function safeJSON(x){try{return JSON.parse(x)}catch(_){return null}}
-  function collectProducts(){ const out=[]; for(const area of [localStorage,sessionStorage]){ try{ for(let i=0;i<area.length;i++){ const v=safeJSON(area.getItem(area.key(i))); if(v&&v.products) out.push(...v.products);} }catch(_){}} return out; }
+  function collectProducts(){ const out=[]; for(const area of [localStorage,sessionStorage]){ try{ for(let i=0;i<area.length;i++){ const v=safeJSON(area.getItem(area.key(i))); if(v&&v.products) out.push(v.products);} }catch(_){}} return out; }
   function getSku(it){ return (it && it.sku) ? it.sku : ''; }
   function maxNum(prefix,arr){ let m=0; const re=new RegExp('^'+prefix+'[-_]?([0-9]+)$','i'); for(const it of arr){ const code=String(getSku(it)||'').toUpperCase(); const mt=code.match(re); if(mt){ const n=parseInt(mt[1],10); if(!isNaN(n)&&n>m) m=n; }} return m; }
   function suggestSku(cat){ const p=pickPrefix(cat); const n=maxNum(p,collectProducts())+1; return p+'-'+String(n).padStart(4,'0'); }
@@ -833,7 +833,7 @@
 
 <!-- RTDB COMMIT-SMART RELOAD v41 START -->
 <script type="module">
-  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { get, getDatabase, onValue, ref, update} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   // Firebase init
@@ -850,7 +850,12 @@
   const app = (getApps && getApps().length) ? getApps()[0] : initializeApp(cfg);
   const db  = getDatabase(app);
 
-  // Doc select
+  
+  // expose Firebase DB and helpers globally for non-module scripts
+  window.DB = db;
+  window.ref = ref; window.onValue = onValue; window.update = update; window.set = set; 
+  window.onDisconnect = onDisconnect; window.runTransaction = runTransaction; window.get = get;
+// Doc select
   const params = new URLSearchParams(location.search);
   const docId  = params.get("doc") || "default";
   const docRef = ref(db, "docs/" + docId);
@@ -968,7 +973,7 @@ function emitReloadAll(){
 // SAVE_BOTH_PATHS: write to both new and legacy paths
 (function(){
   const origSave = window.save || save;
-  window.save = function(...args){
+  window.save = function(args){
     try{ origSave && origSave.apply(this, args); }catch(e){}
     (async()=>{
       const payload = { products: state.products||[], logs: state.logs||[], updatedAt: Date.now() };
@@ -985,7 +990,7 @@ function emitReloadAll(){
               const products = Array.from(map.values());
               const seen = new Set();
               const mergedLogs = [];
-              [...(remote.logs||[]), ...(payload.logs||[])].forEach(l=>{
+              [(remote.logs||[]), (payload.logs||[])].forEach(l=>{
                 const k = l.id || l.t || JSON.stringify(l);
                 if(seen.has(k)) return; seen.add(k); mergedLogs.push(l);
               });
