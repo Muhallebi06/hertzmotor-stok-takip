@@ -195,7 +195,6 @@
 </script>
 <!-- === /Login Gate === -->
 
-
   <header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200">
     <div class="mx-auto max-w-7xl px-3 md:px-4 py-3 flex items-center gap-3">
       <div class="shrink-0 w-10 h-10 grid place-items-center rounded-2xl text-white font-bold" style="background: rgb(var(--brand))">HM</div>
@@ -209,7 +208,7 @@
         <button id="btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
         <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
         <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-        <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
+        <button id="btnClearAll" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm verileri sil</button>
       </div>
     </div>
   </header>
@@ -578,7 +577,7 @@
     $('#btnImport').addEventListener('click',()=>$('#fileInput').click());
     $('#fileInput').addEventListener('change',e=>{ const f=e.target.files?.[0]; if(f) importJSONFile(f); e.target.value=''; });
 
-    $('#btnClear').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
+    $('#btnClearAll').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
 
     $('#search').addEventListener('input',render);
     $('#onlyLow').addEventListener('change',render);
@@ -608,6 +607,7 @@
       if(!(amt>0)){ alert('Miktar pozitif olmalı'); return; }
       const from = Number(p.qty||0);
       const to = data.type==='in' ? from + amt : from - amt;
+      if (to < 0) { alert('Stok eksiye düşemez. Önce giriş yapın.'); return; }
       p.qty = to;
       addLog({ productId:p.id, type:data.type, amount:amt, fromQty:from, toQty:to, note:data.note });
       $('#moveDialog').close();
@@ -629,7 +629,7 @@
 <!-- === Firebase Live Sync (guarded by login) === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { getDatabase, onDisconnect, onValue, ref, runTransaction, set, update} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   // Config
   const firebaseConfig = {
@@ -738,7 +738,6 @@
 </script>
 <!-- === /Firebase Live Sync (guarded) === -->
 
-
 <!-- === Kullanıcı Tablosu (Referans) ===
 | Kullanıcı Adı | Şifre | Rol    |
 | hertz         | hertz | admin  |
@@ -750,7 +749,6 @@
 | imalat5       | 7     | user   |
 | imalat6       | 8     | user   |
 === -->
-
 
 <!-- === Non-admin guard: continuously hide "Tüm verileri sil" === -->
 <script>
@@ -783,22 +781,6 @@
 })();
 </script>
 <!-- === /Non-admin guard === -->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 <!-- === HM Product Form Enhancer v31 START === -->
 <style>
@@ -925,17 +907,10 @@
 </script>
 <!-- === HM Product Form Enhancer v31 END === -->
 
-
-
-
-
-
-
-
 <!-- RTDB COMMIT-SMART RELOAD v41 START -->
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { getDatabase, onDisconnect, onValue, ref, runTransaction, set, update} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   // Firebase init
   const fallbackCfg = {
@@ -1043,6 +1018,59 @@
   });
 </script>
 <!-- RTDB COMMIT-SMART RELOAD v41 END -->
+
+<script>
+(function(){
+  const addBtn = document.getElementById('btnAdd');
+  const logout = document.getElementById('logoutBtn');
+  if(addBtn && logout){
+    const row = addBtn.closest('div');
+    if(row){
+      row.appendChild(logout);
+      // push to far right
+      row.style.display = 'flex';
+      row.style.flexWrap = 'wrap';
+      row.style.alignItems = 'center';
+      logout.classList.add('ml-auto','px-3','py-2','rounded-xl','border','border-slate-300','bg-white');
+      logout.style.marginLeft = 'auto';
+    }
+  }
+})();
+</script>
+
+
+<script>
+// Save wrapper to push changes to RTDB transactionally
+(function(){
+  const origSave = window.save || save;
+  window.save = function(...args){
+    try{ origSave && origSave.apply(this, args); }catch(e){ console.warn('orig save error', e); }
+    (async()=>{
+      try{
+        if(window.DB && typeof ref==='function' && typeof runTransaction==='function'){
+          const dataRef = ref(window.DB, `app/hertz_stok/data`);
+          await runTransaction(dataRef, (curr)=>{
+            const remote = curr || { products: [], logs: [], updatedAt: 0 };
+            const map = new Map();
+            (remote.products||[]).forEach(p=> map.set(String(p.sku||'').toLowerCase(), p));
+            (state.products||[]).forEach(p=> map.set(String(p.sku||'').toLowerCase(), p));
+            const products = Array.from(map.values());
+            const seen = new Set();
+            const mergedLogs = [];
+            [...(remote.logs||[]), ...(state.logs||[])].forEach(l=>{
+              const k = l.id || l.t || JSON.stringify(l);
+              if(seen.has(k)) return; seen.add(k); mergedLogs.push(l);
+            });
+            return { products, logs: mergedLogs.slice(0, 5000), updatedAt: Date.now() };
+          }, { applyLocally: false });
+        } else if(window.DB && typeof ref==='function' && typeof update==='function'){
+          await update(ref(window.DB, `app/hertz_stok/data`), { products: state.products, logs: state.logs, updatedAt: Date.now() });
+        }
+      }catch(e){ console.warn('save wrapper RTDB failed', e); }
+    })();
+  };
+})();
+</script>
 
 </body>
 </html>
