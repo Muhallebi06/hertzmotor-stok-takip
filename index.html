@@ -771,7 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v19): always-on sync + flexible LS key + robust by === -->
+<!-- === RTDB Real-time Sync (v20.1): soft-apply realtime (no immediate reload) === -->
 <style>
   #hmToast{
     position:fixed; right:16px; bottom:16px; z-index:99990; display:none;
@@ -780,15 +780,22 @@
     opacity:0; transform: translateY(8px); transition: opacity .35s ease, transform .35s ease;
   }
   #hmToast.show{ display:block; opacity:1; transform: translateY(0); }
-  #hmToast.fade{ opacity:0; transform: translateY(6px); }
   #hmToast .msg{opacity:.98; white-space:pre-wrap}
+  #hmToast .actions{ margin-top:8px; display:flex; gap:8px; }
   #hmToast button{
-    margin-left:10px; border:1px solid #cc7a44; background:linear-gradient(120deg,#cd6928,#de7a39);
+    border:1px solid #cc7a44; background:linear-gradient(120deg,#cd6928,#de7a39);
     color:#fff; border-radius:8px; padding:6px 10px; cursor:pointer;
   }
+  #hmToast .secondary{ background:#374151; border-color:#4b5563; }
   .user-col{ opacity:.9; font-weight:600; }
 </style>
-<div id="hmToast"><span class="msg">Güncelleme</span><button id="hmToastReload">Yenile</button></div>
+<div id="hmToast">
+  <div class="msg">Yeni güncelleme</div>
+  <div class="actions">
+    <button id="hmApplyNow">Uygula</button>
+    <button id="hmLater" class="secondary">Sonra</button>
+  </div>
+</div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
@@ -806,10 +813,10 @@
 
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
-
   const url = new URL(location.href);
   const DOC_ID = url.searchParams.get("doc") || "stoktakip-paylasimli-orta-oda";
 
+  // Username
   function pickName(){
     const s = sessionStorage, l = localStorage, q = new URLSearchParams(location.search);
     const keys = ["auth_user","user","username","currentUser","login_user","aktifKullanici","kullanici","kullanıcı","stokTakip.user","stokTakip_user","hm_user"];
@@ -823,19 +830,20 @@
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
   const fmtTR = (n)=> new Intl.NumberFormat('tr-TR').format(Math.abs(Number(n)||0));
 
-  // Toast
-  const toast = document.getElementById("hmToast");
-  const toastMsg = toast ? toast.querySelector(".msg") : null;
-  const toastBtn = document.getElementById("hmToastReload");
-  if (toastBtn) toastBtn.addEventListener("click", ()=> location.reload());
-  function showToastThenReload(msg, holdMs=1200, fadeMs=350){
-    if (toastMsg) toastMsg.textContent = msg;
-    if (!toast) { setTimeout(()=>location.reload(), holdMs); return; }
-    toast.classList.remove("fade"); toast.classList.add("show");
-    setTimeout(()=>{ toast.classList.add("fade"); setTimeout(()=> location.reload(), fadeMs); }, holdMs);
+  // Toast UI
+  const $toast = document.getElementById("hmToast");
+  const $msg = $toast ? $toast.querySelector(".msg") : null;
+  const $apply = document.getElementById("hmApplyNow");
+  const $later = document.getElementById("hmLater");
+  if ($later) $later.addEventListener("click", ()=> { if ($toast) $toast.style.display="none"; pendingApply=false; });
+  if ($apply) $apply.addEventListener("click", ()=> doApplyNow());
+
+  function showToast(msg){
+    if ($msg) $msg.textContent = msg || "Yeni güncelleme";
+    if ($toast){ $toast.style.display="block"; $toast.classList.add("show"); }
   }
 
-  // Detect canonical LS key dynamically
+  // Canonical LS key
   const isStockPayload = (obj)=> obj && typeof obj==="object" && ("products" in obj || "logs" in obj);
   function findCanonicalKey(){
     for (let i=0;i<localStorage.length;i++){
@@ -843,11 +851,11 @@
       const v = safeParse(localStorage.getItem(k));
       if (isStockPayload(v)) return k;
     }
-    return "stokTakip.v1"; // fallback
+    return "stokTakip.v1";
   }
   let APP_LS_KEY = findCanonicalKey();
 
-  // Enhance history
+  // History enhancer
   function enhanceHistoryTable(){
     const data = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
     const logs = Array.isArray(data.logs) ? data.logs : [];
@@ -879,13 +887,8 @@
     const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
     set(meRef, { at: Date.now(), name: ME_NAME, ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
     onDisconnect(meRef).remove();
-    onValue(presRef, (snap) => {
-      const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
-      const el = document.getElementById("statusOnline");
-      if (el) el.textContent = `Çevrimiçi: ${n}`;
-    });
 
-    const rootRef = ref(db, `docs/${DOC_ID}`);
+    const root = ref(db, `docs/${DOC_ID}`);
 
     // Originals
     const _setItem = localStorage.setItem.bind(localStorage);
@@ -907,78 +910,108 @@
           if (!obj.logs.length) obj.logs.push({ ts: Date.now(), type: lastAction, by: ME_NAME });
           else { const last = obj.logs[obj.logs.length-1]; if (last){ if (!last.by) last.by = ME_NAME; if (!last.user) last.user = ME_NAME; } }
         }
-        update(rootRef, {
-          products: obj.products||[], logs: obj.logs||[],
-          updatedAt: Date.now(), updatedBy: meId, updatedByName: ME_NAME, lastAction
-        }).catch(console.error);
+        update(root, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now(), updatedByName: ME_NAME, lastAction }).catch(console.error);
         justLocalChange = false;
       }, 160);
     }
 
-    // Override ANY LS writes, detect canonical payload
+    // Override ANY LS writes
     localStorage.setItem = function(k, v){
       const pre = localStorage.getItem(k);
       justLocalChange = (pre !== v);
       _setItem(k, v);
-      // If this key contains stock payload or we didn't have a canonical yet, update APP_LS_KEY
       const obj = safeParse(v);
       if (isStockPayload(obj)) APP_LS_KEY = k;
       if (isStockPayload(obj)) pushToCloudFrom(v, "update");
     };
-    localStorage.removeItem = function(k){
-      const existed = localStorage.getItem(k)!=null;
-      justLocalChange = existed;
-      _removeItem(k);
-      if (k===APP_LS_KEY || existed){ pushToCloudFrom(JSON.stringify({products:[], logs:[]}), "clear"); }
-    };
-    localStorage.clear = function(){
-      const had = localStorage.length>0;
-      justLocalChange = had;
-      _clear();
-      pushToCloudFrom(JSON.stringify({products:[], logs:[]}), "clear");
-    };
+    localStorage.removeItem = function(k){ const existed = localStorage.getItem(k)!=null; justLocalChange = existed; _removeItem(k); if (k===APP_LS_KEY || existed) pushToCloudFrom(JSON.stringify({products:[], logs:[]}), "clear"); };
+    localStorage.clear = function(){ const had = localStorage.length>0; justLocalChange = had; _clear(); pushToCloudFrom(JSON.stringify({products:[], logs:[]}), "clear"); };
 
-    // Diff helpers for toast
+    // Diff util for toast text
     const keyFields=["id","kod","code","stokKodu","stok_kodu","skod"];
     const nameFields=["ad","adı","adi","isim","name","urun","ürün","product","title"];
     const qtyFields=["adet","miktar","stok","qty","quantity","amount"];
     const getLabel = it => { for (const k of nameFields) if (it && (k in it) && String(it[k]).trim()!=="") return String(it[k]); for (const k of keyFields) if (it && (k in it) && String(it[k]).trim()!=="") return String(it[k]); return "ürün"; };
     const getKey = it => { for (const k of keyFields) if (it && (k in it)) return String(it[k]); for (const k of nameFields) if (it && (k in it)) return String(it[k]); return JSON.stringify(it); };
-    const getQty = it => { for (const k of qtyFields) if (it && typeof it[k] === "number") return it[k]; for (const k of qtyFields) if (it && typeof it[k] === "string" && it[k].trim()!=="" && !isNaN(Number(it[k]))) return Number(it[k]); return 0; };
+    const getQty = it => {
+      for (const k of qtyFields) if (it && typeof it[k] === "number") return it[k];
+      for (const k of qtyFields) if (it && typeof it[k] === "string" && it[k].trim() !== "" && !isNaN(Number(it[k]))) return Number(it[k]);
+      return 0;
+    };
     const mapByKeyFull = list => { const m=new Map(); (list||[]).forEach(x=> m.set(getKey(x), { qty:getQty(x), label:getLabel(x) })); return m; };
     const diffProducts = (prev, curr) => { const a=mapByKeyFull(prev||[]), b=mapByKeyFull(curr||[]); const keys=new Set([...a.keys(),...b.keys()]); const changes=[]; for(const k of keys){ const qa=a.get(k)?.qty||0, qb=b.get(k)?.qty||0; const lbl=(b.get(k)?.label||a.get(k)?.label||"ürün"); const d=qb-qa; if(d!==0) changes.push({ key:k, label:lbl, delta:d }); } return changes.sort((x,y)=> Math.abs(y.delta)-Math.abs(x.delta)); };
 
-    // Apply + toast on foreign updates (always)
-    let lastApplied=0, prevProducts=null, primed=false;
-    const root = ref(db, `docs/${DOC_ID}`);
+    // Soft apply queue
+    let primed=false, lastApplied=0, prevProducts=null;
+    let pendingApply=false, lastApplyTs=0, coalesceTimer=null, lastToastMsg="Yeni güncelleme";
+    const APPLY_THROTTLE_MS = 20000; // at most 1 per 20s
+    const IDLE_MS = 5000;
+
+    function isEditing(){
+      const active = document.activeElement;
+      if (!active) return false;
+      const tag = (active.tagName||"").toLowerCase();
+      const isInput = ["input","textarea","select"].includes(tag) || active.isContentEditable;
+      return isInput;
+    }
+    let lastActivity = Date.now();
+    ["keydown","mousedown","touchstart","scroll"].forEach(ev=> addEventListener(ev, ()=> lastActivity = Date.now(), {passive:true}));
+    function maybeAutoApply(){
+      if (!pendingApply) return;
+      if (Date.now() - lastApplyTs < APPLY_THROTTLE_MS) return;
+      if (isEditing()) return;
+      if (Date.now() - lastActivity < IDLE_MS) return;
+      doApplyNow();
+    }
+    setInterval(maybeAutoApply, 1000);
+    document.addEventListener("visibilitychange", ()=> { if (!document.hidden) maybeAutoApply(); });
+
+    function queueApply(msg){
+      lastToastMsg = msg || "Yeni güncelleme";
+      pendingApply = true;
+      showToast(lastToastMsg);
+      if (coalesceTimer) clearTimeout(coalesceTimer);
+      coalesceTimer = setTimeout(()=> maybeAutoApply(), 1500);
+    }
+    function doApplyNow(){
+      pendingApply = false;
+      lastApplyTs = Date.now();
+      if ($toast) $toast.style.display="none";
+      // Soft apply: dispatch event for app; if yoksa 50ms sonra güvenli reload
+      document.dispatchEvent(new Event("rtdb_apply_now"));
+      setTimeout(()=> location.reload(), 50);
+    }
+
     onValue(root, (snap) => {
       const v = snap.val(); if(!v || typeof v!=="object") return;
-      const { products=[], logs=[], updatedAt=0, updatedBy=null, updatedByName="Biri", lastAction="update" } = v;
-
-      if (!primed){ primed=true; lastApplied=updatedAt; prevProducts=products; try{ _setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{}; enhanceHistoryTable(); return; }
+      const { products=[], logs=[], updatedAt=0, updatedByName="Biri", lastAction="update" } = v;
+      if (!primed){
+        primed=true; lastApplied=updatedAt; prevProducts=products;
+        try{ localStorage.setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{};
+        enhanceHistoryTable();
+        return;
+      }
       if (updatedAt <= lastApplied) return;
 
-      try{ _setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{};
+      try{ localStorage.setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{};
       enhanceHistoryTable();
-
-      if (updatedBy && updatedBy===meId){ lastApplied=updatedAt; prevProducts=products; return; }
 
       const changes = diffProducts(prevProducts, products);
       let msg="";
-      if (lastAction==="clear"){
-        msg = `${updatedByName} tüm verileri sildi.`;
-      } else if (changes.length===1){
-        const c=changes[0]; msg = c.delta>0 ? `${updatedByName} → ${fmtTR(c.delta)} adet "${c.label}" eklendi` : `${updatedByName} → ${fmtTR(-c.delta)} adet "${c.label}" çıkış yapıldı`;
+      if (lastAction==="clear") msg = `${updatedByName} tüm verileri sildi.`;
+      else if (changes.length===1){
+        const c = changes[0];
+        msg = c.delta>0 ? `${updatedByName} → ${fmtTR(c.delta)} adet "${c.label}" eklendi`
+                        : `${updatedByName} → ${fmtTR(-c.delta)} adet "${c.label}" çıkış yapıldı`;
       } else if (changes.length>1){
         const total = fmtTR(changes.reduce((s,c)=> s + Math.abs(c.delta), 0)); const count = changes.length;
         const top3 = changes.slice(0,3).map(c=> `${c.delta>0?"+":"-"}${fmtTR(Math.abs(c.delta))} "${c.label}"`).join(", ");
         msg = `${updatedByName} → ${count} ürün, toplam ${total} adet güncellendi` + (top3?`\n${top3}`:"");
-      } else {
-        msg = `${updatedByName} stokları güncelledi.`;
-      }
-      lastApplied=updatedAt; prevProducts=products;
-      const t = document.getElementById("hmToast"); if (t){ t.style.display="block"; }
-      showToastThenReload(msg, 1200, 350);
+      } else msg = `${updatedByName} stokları güncelledi.`;
+
+      lastApplied = updatedAt;
+      prevProducts = products;
+      queueApply(msg);
     });
 
     // Seed if empty
@@ -990,16 +1023,19 @@
           set(root, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now(), updatedByName: ME_NAME, lastAction: "seed" }).catch(console.error);
         }
       }, { onlyOnce: true });
-    }, 300);
+    }, 400);
 
-    setTimeout(enhanceHistoryTable, 800);
-    document.addEventListener("rtdb_sync", enhanceHistoryTable);
+    // Presence (optional)
+    onValue(ref(db, `docs/${DOC_ID}/presence`), (snap)=>{
+      const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
+      const el = document.getElementById("statusOnline"); if (el) el.textContent = `Çevrimiçi: ${n}`;
+    });
   }
 
-  // v19: ALWAYS start sync (even before login), so other devices don't miss events
+  // always-on sync
   startSync();
 </script>
-<!-- === /RTDB Sync v19 === -->
+<!-- === /RTDB Sync v20.1 === -->
 
 </body>
 </html>
