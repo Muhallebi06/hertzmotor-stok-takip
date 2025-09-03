@@ -25,7 +25,7 @@
 <!-- === Simple Login Gate (user: hertz / pass: hertz) === -->
 <style>
   #authGate {
-    position: fixed; inset: 0; display: none; place-items: center; z-index: 99999;
+    position: fixed; inset: 0; display: grid; place-items: center; z-index: 99999;
     background: radial-gradient(1000px 600px at 30% 20%, rgba(205,105,40,.08), transparent 60%) , #0b1220;
     color: #e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   }
@@ -213,7 +213,7 @@
       window.openLogin = showGate;
       window.logout = function(){
         try{ sessionStorage.removeItem(RL); sessionStorage.removeItem(UN); }catch(e){}
-        applyRoleUI && applyRoleUI();
+        applyRoleUI && applyRoleUI(); try{sessionStorage.removeItem('auth_ok');}catch(e){};
         showGate();
       };
       btnLogout && btnLogout.addEventListener('click', ()=> window.logout());
@@ -227,13 +227,12 @@
         const role = (u==='admin') ? 'admin' : 'user';
         if(p!=='hertz'){ err && (err.textContent='Şifre hatalı.'); return; }
         try{ sessionStorage.setItem(RL, role); sessionStorage.setItem(UN, u); }catch(e){}
-        hideGate();
-        applyRoleUI && applyRoleUI();
+        hideGate(); applyRoleUI && applyRoleUI(); try{sessionStorage.setItem('auth_ok','1');}catch(e){}; document.dispatchEvent(new Event('auth_ok'));
       });
 
       // İlk yüklemede
       const role = sessionStorage.getItem(RL);
-      if(!role){ showGate(); } else { hideGate(); applyRoleUI && applyRoleUI(); }
+      if(!role){ showGate(); } else { hideGate(); applyRoleUI && applyRoleUI(); try{sessionStorage.setItem('auth_ok','1');}catch(e){}; document.dispatchEvent(new Event('auth_ok')); }
     })();
     </script>
     
@@ -252,7 +251,7 @@
         <button id="btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
         <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
         <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-        <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
+        <button id="btnClearAll" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm verileri sil</button>
       </div>
     </div>
   </header>
@@ -512,7 +511,8 @@
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
 
     function load(){ try{ const raw=localStorage.getItem(LS_KEY); if(!raw) return; const data=JSON.parse(raw); state.products=data.products||[]; state.logs=data.logs||[]; }catch(e){ console.error('Yükleme hatası',e);} }
-    function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({products:state.products,logs:state.logs})); }catch(e){ console.error('Kaydetme hatası',e);} render(); }
+    function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({products:state.products,logs:state.logs})); }catch(e){ console.error('Kaydetme hatası',e);} try{ if(window.DB && typeof ref==='function' && typeof update==='function'){ update(ref(window.DB, `docs/${DOC_ID}/data`), { products: state.products, logs: state.logs, updatedAt: Date.now() }); } }catch(_e){}
+      render(); }
 
     const fmt=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(v):n};
     const nowISO=()=>new Date().toISOString();
@@ -685,13 +685,25 @@
     appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
   };
 
-  function startSync(){
-    const app = initializeApp(firebaseConfig);
+  function startSync(){const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
 
     const urlDoc = new URLSearchParams(location.search).get("doc");
     const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
-    const rootRef = ref(db, `docs/${DOC_ID}`);
+    const rootRef = ref(db, `docs/${DOC_ID
+      window.DB = db;
+      const APP_LS_KEY = "stokTakip.v1";
+      const EMPTY_DATA = { products: [], logs: [], updatedAt: Date.now() };
+
+      const dataRef = ref(db, `docs/${DOC_ID}/data`);
+      onValue(dataRef, (snap)=>{
+        const remote = snap.val() || EMPTY_DATA;
+        state.products = Array.isArray(remote.products) ? remote.products : [];
+        state.logs     = Array.isArray(remote.logs) ? remote.logs : [];
+        try{ localStorage.setItem(APP_LS_KEY, JSON.stringify(remote)); }catch(e){}
+        if (typeof render === 'function') render();
+      }, { onlyOnce: false });
+        }`);
     const presRef = ref(db, `docs/${DOC_ID}/presence`);
     const meId    = crypto.randomUUID();
     const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
@@ -1143,5 +1155,22 @@
     })();
     </script>
     
+<script>document.getElementById('btnAdd')?.addEventListener('click',()=>openProductDialog());</script>
+
+<script>
+(function(){
+  const form = document.getElementById('productForm');
+  if(form){
+    form.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' && !e.shiftKey){
+        // Eğer focus bir textarea ise ve shift yoksa yine de kaydet
+        e.preventDefault();
+        form.requestSubmit?.();
+      }
+    });
+  }
+})();
+</script>
+
 </body>
 </html>
