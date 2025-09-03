@@ -932,43 +932,99 @@
 <!-- === /RTDB Sync v26 === -->
 
 
-<!-- === SKU FIX v1 === -->
+
+
+
+
+
+
+
+
+
+<!-- === SKU FIX v4: Ürün Ekle kısmında otomatik stok kodu === -->
 <script>
-  // SKU wrong when switching category (e.g., Rotorlu Mil showing Stator code)
-  // Force-suggest SKU on category change and just before submit (capture phase).
-  (function(){
-    const form = document.getElementById('productForm');
-    if(!form) return;
-    function ensureSkuForCategory(force=true){
-      try{
-        const cat = form.category?.value;
-        if(!cat) return;
-        if(typeof nextSkuForCategory !== 'function') return;
-        const prefix = ((window.CATEGORY_PREFIX && window.CATEGORY_PREFIX[cat]) ? window.CATEGORY_PREFIX[cat] : 'PRD') + '-';
-        const suggestion = nextSkuForCategory(cat);
-        // Always enforce for mil categories; else enforce when prefix mismatch/empty
-        const isMilCat = ['mil','rotorluMil','taslanmisMil'].includes(cat);
-        if(isMilCat || !form.sku.value || !String(form.sku.value).startsWith(prefix)){
-          form.sku.value = suggestion;
-        }
-      }catch(e){ /* no-op */ }
+(function(){
+  const form = document.getElementById('productForm') || document.querySelector('form');
+  if(!form) return;
+  const catEl = form.querySelector('[name="category"],[name="kategori"],#category,#kategori,[name="urunTuru"]');
+  const skuEl = form.querySelector('[name="sku"],[name="stokKodu"],#sku,#stokKodu');
+  if(!catEl || !skuEl) return;
+
+  // Kategori -> Prefix haritası (kısa kodlar)
+  const MAP = {
+    'stator':'ST',
+    'rotor':'RT',
+    'mil':'MIL',
+    'rotorlu mil':'RMIL',
+    'taslanmış mil':'TMIL',
+    'taslanmis mil':'TMIL',
+    'sac paket':'SP',
+    'paket sac':'SP',
+    'motor':'MOT',
+  };
+
+  function norm(s){ return String(s||"").toLowerCase().trim(); }
+
+  function prefixFor(cat){
+    const t = norm(cat);
+    for(const k in MAP){
+      if(t.includes(k)) return MAP[k];
     }
-    // When user changes category, immediately re-suggest SKU
-    if (form.category){
-      form.category.addEventListener('change', ()=> ensureSkuForCategory(true));
+    return 'PRD';
+  }
+
+  // ürünler içinden max numarayı bul
+  function safeParse(x){ try{return JSON.parse(x);}catch(e){return null;} }
+  function collectProducts(){
+    const out=[];
+    function scan(area){
+      for(let i=0;i<area.length;i++){
+        const v = safeParse(area.getItem(area.key(i)));
+        if(v && v.products) out.push(...v.products);
+      }
     }
-    // Some flows change "milType" / "milCode" fields; hook those too if present
-    ['milType','milCode'].forEach(id=>{
-      const el = form.querySelector(`[name="${id}"]`) || document.getElementById(id);
-      if (el) el.addEventListener('change', ()=> ensureSkuForCategory(true));
+    try{scan(localStorage);}catch{}
+    try{scan(sessionStorage);}catch{}
+    return out;
+  }
+  function getSku(it){
+    return it.sku||it.stokKodu||it.code||"";
+  }
+
+  function maxNum(prefix, arr){
+    let m=0;
+    const re=new RegExp("^"+prefix+"-?(\\d+)$","i");
+    arr.forEach(it=>{
+      const code=String(getSku(it)).toUpperCase();
+      const mt=code.match(re);
+      if(mt){ const n=parseInt(mt[1],10); if(n>m) m=n; }
     });
-    // Before submit, in capture phase, normalize SKU so backend handler sees correct value
-    form.addEventListener('submit', function(evt){
-      ensureSkuForCategory(true);
-    }, true);
-  })();
+    return m;
+  }
+
+  function suggest(cat){
+    const p=prefixFor(cat);
+    const arr=collectProducts();
+    const n=maxNum(p,arr)+1;
+    return p+"-"+String(n).padStart(4,"0");
+  }
+
+  function updateSku(force){
+    const cat=catEl.value||catEl.options?.[catEl.selectedIndex]?.text||"";
+    if(!cat) return;
+    const want=suggest(cat);
+    if(force || !skuEl.value || !skuEl.value.startsWith(prefixFor(cat))){
+      skuEl.value=want;
+    }
+  }
+
+  catEl.addEventListener('change', ()=>updateSku(true));
+  form.addEventListener('submit', ()=>updateSku(true), true);
+  // initial
+  updateSku(false);
+})();
 </script>
-<!-- === /SKU FIX v1 === -->
+<!-- === /SKU FIX v4 === -->
 
 </body>
 </html>
