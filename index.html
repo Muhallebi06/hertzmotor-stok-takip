@@ -618,7 +618,7 @@
       p.qty = to;
       addLog({ productId:p.id, type:data.type, amount:amt, fromQty:from, toQty:to, note:data.note });
       $('#moveDialog').close();
-      save();
+      save(); try{ if(window.DB && typeof ref==='function' && typeof set==='function'){ set(ref(window.DB, `app/hertz_stok/reload`), { ts: Date.now() }); } }catch(_){}
     });
 
     function toNumOrNull(v){ const n=Number(v); return Number.isFinite(n)?n:null; }
@@ -655,7 +655,22 @@
 
     const urlDoc = new URLSearchParams(location.search).get("doc");
     const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
-    const rootRef = ref(db, `docs/${DOC_ID}`);
+    const rootRef = ref(db, `docs/${DOC_ID
+      // Global reload signal: when any client writes a fresh ts, every client reloads after 800ms
+      try{
+        const reloadRef = ref(db, `app/hertz_stok/reload`);
+        onValue(reloadRef, (snap)=>{
+          const v = snap.val();
+          if(!v || !v.ts) return;
+          if(!window.__lastReloadTs || v.ts > window.__lastReloadTs){
+            window.__lastReloadTs = v.ts;
+            if (Date.now() - v.ts < 5000) { // ignore old markers
+              setTimeout(()=>{ location.reload(); }, 800);
+            }
+          }
+        });
+      }catch(e){ console.warn('reload listener error', e); }
+        }`);
     const presRef = ref(db, `docs/${DOC_ID}/presence`);
     const meId    = crypto.randomUUID();
     const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
