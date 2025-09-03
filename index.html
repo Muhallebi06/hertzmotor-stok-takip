@@ -777,9 +777,11 @@
 
 
 
-<!-- === HM Sync Helpers v27c (scoped, non-intrusive) === -->
+
+
+
+<!-- === HM Sync Helpers v27d (dynamic fields required + rotorlu mil includes mil fields) === -->
 <style>
-  /* Scoped to dynamicFields only to avoid global UI shifts */
   #dynamicFields{margin-top:12px}
   #dynamicFields .dyn-grid{
     display:grid;
@@ -795,22 +797,14 @@
     border:1px solid #d0d4dc; border-radius:10px; outline:none;
     font-size:14px; background:#fff;
   }
-  #dynamicFields .dyn-field input[type="number"]{ -moz-appearance:textfield; }
-  #dynamicFields .dyn-field input[type="number"]::-webkit-outer-spin-button,
-  #dynamicFields .dyn-field input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance: none; margin:0; }
-  #milKoduErr{color:#c0392b;font-size:12px;margin-top:6px}
+  #dynamicFields .req-err{color:#c0392b;font-size:12px;margin-top:4px}
 </style>
 <script>
 (function(){
-  // Scope: find the container that actually looks like "Ürün Ekle" form
-  const forms = Array.from(document.querySelectorAll('form'));
-  let form = null;
-  for (const f of forms){
-    const hasCategorySelect = f.querySelector('select');
-    const hasNameField = f.querySelector('input[placeholder*="Ad"], input[name="ad"], input[name="isim"], input[name="name"]');
-    const hasSkuField  = f.querySelector('input[name="sku"], input[name="stokKodu"], input#stokKodu, input[name="code"], input[name="kod"]');
-    if (hasCategorySelect && hasNameField && hasSkuField){ form = f; break; }
-  }
+  const form = Array.from(document.querySelectorAll('form')).find(f =>
+    f.querySelector('select') &&
+    (f.querySelector('input[name="sku"], input[name="stokKodu"], input#stokKodu, input[name="code"], input[name="kod"]'))
+  );
   if(!form) return;
 
   // Utilities
@@ -827,7 +821,6 @@
     return null;
   };
 
-  // Find category SELECT within this form
   function findCategorySelect(){
     const selList = Array.from(form.querySelectorAll('select'));
     const kw = ['stator','rotor','mil','rotorlu','taslan','motor','sargili','paketli','gövde','govde'];
@@ -838,7 +831,6 @@
       }
       return false;
     }
-    // Prefer typical names first
     let el = qn(['category','kategori','urunCesidi','urunTuru','productCategory','cat']);
     if (!el || !looksLikeCategory(el)){
       el = selList.find(looksLikeCategory);
@@ -850,22 +842,7 @@
   const skuEl  = qn(['sku','stokKodu','stok_kodu','code','kod']);
   if(!catSel || !skuEl) return;
 
-  // Remove "Oluştur" buttons within this form only
-  function removeOlusturButtons(){
-    const btns = Array.from(form.querySelectorAll('button, .btn, [role="button"]'));
-    for (const el of btns){
-      const txt = (el.textContent||'').trim().toLowerCase();
-      const nm  = (el.getAttribute('name')||'').toLowerCase();
-      const id  = (el.id||'').toLowerCase();
-      if (txt === 'oluştur' || txt === 'olustur' || nm.includes('createsku') || id.includes('createsku') || id.includes('generatesku')) {
-        el.remove();
-      }
-    }
-  }
-  removeOlusturButtons();
-  new MutationObserver(removeOlusturButtons).observe(form, {childList:true, subtree:true});
-
-  // SKU Auto (with strict mapping)
+  // SKU helpers (as before)
   function getCategoryText(){
     const val = catSel.value;
     const optText = (catSel.tagName==='SELECT')
@@ -876,9 +853,8 @@
   function pickPrefix(catText){
     const t = norm(catText);
     if (t.includes('rotorlu') && t.includes('mil')) return 'RMIL';
-    if (t.includes('rotor') && t.includes('mil')) return 'RMIL';
     if ((t.includes('taslan') || t.includes('taslama')) && t.includes('mil')) return 'TMIL';
-    if (t.includes('mil') || t.includes('saft') || t.includes('shaft')) return 'MIL';
+    if (t.includes('mil') && !t.includes('motor')) return 'MIL';
     if (t.includes('stator')) return 'ST';
     if (t.includes('rotor')) return 'RT';
     if (t.includes('sargili') && t.includes('paket')) return 'SP';
@@ -927,7 +903,7 @@
   form.addEventListener('submit', ()=>updateSku(true), true);
   updateSku(false);
 
-  // Dynamic fields: scoped under this form only
+  // Dynamic fields scoped
   const afterEl = catSel.closest('.form-group') || catSel.closest('div') || catSel;
   let host = form.querySelector('#dynamicFields');
   if(!host){
@@ -956,12 +932,14 @@
       input = h('input', {type, name, id:name});
       if(type==='number'){ input.setAttribute('step','any'); }
     }
+    input.required = true; // all dynamic fields required by default
     wrap.appendChild(lab); wrap.appendChild(input);
     return wrap;
   }
+
   function buildDyn(catText){
-    const t = norm(catText);
     host.innerHTML='';
+    const t = norm(catText);
     const grid = h('div', {class:'dyn-grid'});
     const soketOpts = ['Soketli','Düz klemensli','Ters klemensli'];
     const ykrOpts   = ['Standart','YKR','YKL'];
@@ -985,23 +963,45 @@
       grid.appendChild(field('soketTipi', 'Soket/Klemens', 'select', soketOpts));
       grid.appendChild(field('ykr_ykl', 'YKR / YKL', 'select', ykrOpts));
       grid.appendChild(field('milTipi', 'Mil Tipi', 'text'));
-    } else if (t.includes('mil') && !t.includes('rotor')){
+    } else if (t.includes('mil') && !t.includes('motor')){
+      // Mil, Rotorlu Mil, Taşlanmış Mil -> Mil Kodu + Mil Türü
       grid.appendChild(field('milKodu', 'Mil Kodu', 'text'));
+      grid.appendChild(field('milTuru', 'Mil Türü', 'text'));
     }
-    if (grid.children.length) host.appendChild(grid);
 
-    // Native required: only when category needs it (no submit interception)
-    const milInput = form.querySelector('[name="milKodu"],#milKodu,[name="milcode"],[name="milCode"],#mil');
-    if (milInput){
-      if (t.includes('mil')){ milInput.setAttribute('required','required'); milInput.setCustomValidity(''); }
-      else { milInput.removeAttribute('required'); milInput.setCustomValidity(''); }
+    if (grid.children.length){
+      host.appendChild(grid);
     }
   }
+
   ['change','input'].forEach(ev=> catSel.addEventListener(ev, ()=> buildDyn(getCategoryText())));
   buildDyn(getCategoryText());
+
+  // Submit: ensure all visible dynamic required fields are filled
+  form.addEventListener('submit', function(e){
+    const reqs = Array.from(form.querySelectorAll('#dynamicFields input[required], #dynamicFields select[required]'));
+    for (const el of reqs){
+      if (el.offsetParent === null) continue; // not visible
+      if (!el.value){
+        e.preventDefault();
+        // show a tiny message under the field
+        let err = el.parentElement.querySelector('.req-err');
+        if (!err){
+          err = document.createElement('div'); err.className='req-err'; el.parentElement.appendChild(err);
+        }
+        err.textContent = 'Bu alan zorunludur.';
+        el.focus();
+        return false;
+      } else {
+        const err = el.parentElement.querySelector('.req-err');
+        if (err) err.textContent = '';
+      }
+    }
+  }, true);
+
 })(); 
 </script>
-<!-- === /HM Sync Helpers v27c === -->
+<!-- === /HM Sync Helpers v27d === -->
 
 </body>
 </html>
