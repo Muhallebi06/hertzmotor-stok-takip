@@ -1004,112 +1004,88 @@
 <!-- === /HM Sync Helpers v27d === -->
 
 
-<!-- LIVE SYNC HOTFIX START -->
+<!-- HARD RTDB REFRESH v2 START -->
 <script type="module">
-  // Live-sync for RTDB docs/<docId>: ensures onValue listener + updatedAt on writes.
-  // Non-invasive: if app already initialized Firebase, we reuse it; otherwise we import modules.
-  (async () => {
-    let appInitOk = false;
-    try {
-      // If previous script defined window.firebaseApp or similar, skip re-init
-      appInitOk = !!(window.firebaseApp || window._firebaseAppInited);
-    } catch (_) {}
+  // Aggressive RTDB listener: reloads page when doc changes (old working model).
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, onValue, update, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-    // Try modular import if not present
-    let initializeApp, getDatabase, ref, child, onValue, update, get, serverTimestamp;
-    try {
-      // Prefer existing module globals if app already imported
-      if (window.firebase && window.firebase.database) {
-        // compat v8 style available; we will dynamically import modular just for types
-        const mod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
-        ({ getDatabase, ref, child, onValue, update, get, serverTimestamp } = mod);
-        const appMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
-        ({ initializeApp } = appMod);
+  // Reuse existing config if defined
+  const cfg = window.firebaseConfig || {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    databaseURL: "YOUR_DB_URL",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_BUCKET",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+  try { initializeApp(cfg); } catch(e){ /* already initialized */ }
+
+  const db = getDatabase();
+  const params = new URLSearchParams(location.search);
+  const docId = params.get("doc") || "default";
+  const docRef = ref(db, "docs/" + docId);
+
+  // Self-write suppression
+  let selfWrite = 0;
+  function suppressBrief(){ selfWrite++; setTimeout(()=>selfWrite=Math.max(0,selfWrite-1), 1200); }
+
+  // Expose helper: bump updatedAt so others reload too
+  window.bumpDocChange = async function(){
+    suppressBrief();
+    await update(docRef, { updatedAt: Date.now() });
+  };
+
+  // If your own flows call update(ref(..., 'docs/<doc>')), no need to change;
+  // this listener watches the whole doc and refreshes when anything changes.
+  let initial = true;
+  let lastSig = null;
+  function sigOf(data){
+    try{
+      const p = data?.products || [];
+      const l = data?.logs || [];
+      return JSON.stringify({
+        u: data?.updatedAt || 0,
+        pc: p.length, lc: l.length,
+        ph: p.length ? (p[p.length-1]?.sku || p[p.length-1]?.name || p[p.length-1]?.id || '') : '',
+        lh: l.length ? (l[l.length-1]?.t || l[l.length-1]?.msg || '') : ''
+      });
+    }catch(_){ return String(Math.random()); }
+  }
+
+  onValue(docRef, (snap)=>{
+    const data = snap.val() || {};
+    const sig = sigOf(data);
+    if (lastSig === null){ lastSig = sig; initial = false; return; }
+    if (sig !== lastSig){
+      lastSig = sig;
+      if (selfWrite > 0){
+        // ignore our own immediate write to avoid loop
+        selfWrite--;
       } else {
-        const appMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
-        const dbMod  = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
-        ({ initializeApp } = appMod);
-        ({ getDatabase, ref, child, onValue, update, get, serverTimestamp } = dbMod);
-      }
-    } catch (e) {
-      console.warn('Firebase modules import failed (network blocked?). Live sync disabled.', e);
-      return;
-    }
-
-    const cfg = window.firebaseConfig || {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      databaseURL: "YOUR_DB_URL",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_BUCKET",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
-    try { initializeApp(cfg); window._firebaseAppInited = true; } catch (e) { /* already inited */ }
-
-    const db = getDatabase();
-    const params = new URLSearchParams(location.search);
-    const docId  = params.get("doc") || "default";
-    const docRef = ref(db, "docs/" + docId);
-
-    // Debounced reload helper
-    let lastUpdatedAt = null;
-    let selfWriteTick = 0;
-    const debounce = (fn, ms=400)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
-    const softReload = debounce(()=>{
-      if (typeof window.renderAll === 'function') {
-        // custom renderer if app defines
-        window.renderAll(window.__lastDocData||{});
-      } else if (typeof window.renderProducts === 'function' || typeof window.renderLogs === 'function') {
-        const d = window.__lastDocData||{products:[],logs:[]};
-        if (window.renderProducts) window.renderProducts(d.products||[]);
-        if (window.renderLogs)     window.renderLogs(d.logs||[]);
-      } else {
-        // fallback
+        // Force a full reload (hard refresh feel)
         location.reload();
       }
-    }, 250);
+    }
+  });
 
-    onValue(docRef, (snap) => {
-      const data = snap.val() || { products: [], logs: [], updatedAt: 0 };
-      window.__lastDocData = data;
-      // Only react if not our own immediate write
-      if (data.updatedAt && data.updatedAt !== lastUpdatedAt) {
-        lastUpdatedAt = data.updatedAt;
-        if (selfWriteTick > 0) {
-          selfWriteTick--;
-        } else {
-          softReload();
-        }
+  // Optional: wrap common saves if available
+  const oldPersist = window.persistProducts;
+  window.persistProducts = async function(products){
+    try{
+      if (typeof oldPersist === 'function'){
+        suppressBrief();
+        await oldPersist(products);
       } else {
-        // initial mount without updatedAt change -> render once if possible
-        if (typeof window.renderProducts === 'function') window.renderProducts(data.products||[]);
-        if (typeof window.renderLogs === 'function') window.renderLogs(data.logs||[]);
+        suppressBrief();
+        await update(docRef, { products });
       }
-    });
-
-    // Public helper to update atomically and bump updatedAt
-    window.saveDocAtomic = async function(payload){
-      const patch = { ...(payload||{}), updatedAt: Date.now() };
-      selfWriteTick++;
-      return update(docRef, patch);
-    };
-
-    // Optional convenience wrappers (used by some flows)
-    window.persistProducts = async (products) => saveDocAtomic({ products });
-    window.appendLog = async (entry) => {
-      try {
-        const s = await get(child(docRef, "logs"));
-        const logs = s.exists() ? (s.val() || []) : [];
-        logs.push(entry);
-        await saveDocAtomic({ logs });
-      } catch (e) {
-        console.error('appendLog failed', e);
-      }
-    };
-  })();
+      await window.bumpDocChange();
+    }catch(e){ console.error('persistProducts failed', e); }
+  };
 </script>
-<!-- LIVE SYNC HOTFIX END -->
+<!-- HARD RTDB REFRESH v2 END -->
 
 </body>
 </html>
