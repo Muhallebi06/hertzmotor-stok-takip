@@ -771,7 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v5): start AFTER login to avoid reload while typing === -->
+<!-- === RTDB Real-time Sync (v6): post-auth listener + safe reload fallback === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -829,6 +829,7 @@
     };
 
     let lastApplied = null;
+    let lastReloadAt = 0;
     onValue(rootRef, (snap) => {
       const v = snap.val();
       if(!v || typeof v !== "object") return;
@@ -843,13 +844,22 @@
         if (typeof window.render === "function") {
           window.render();
         } else {
-          // No forced reload here (prevents login input being interrupted)
+          const now = Date.now();
+          if (now - lastReloadAt > 800) { // throttle
+            lastReloadAt = now;
+            location.reload();
+          }
         }
       } catch(e){
-        console.warn("render() çağrısı hata:", e);
+        const now = Date.now();
+        if (now - lastReloadAt > 800) {
+          lastReloadAt = now;
+          location.reload();
+        }
       }
     });
 
+    // Seed cloud if empty
     setTimeout(() => {
       onValue(rootRef, (s) => {
         if(!s.exists()){
@@ -864,7 +874,7 @@
   if (isAuthed()) startSync();
   else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
-<!-- === /RTDB Sync v5 === -->
+<!-- === /RTDB Sync v6 === -->
 
 </body>
 </html>
