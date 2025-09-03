@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="tr" class="scroll-smooth">
 <head>
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hertz Motor — Stok Takip</title>
@@ -912,10 +915,13 @@
 <!-- === HM Product Form Enhancer v31 END === -->
 
 
-<!-- RTDB SIMPLE BRIDGE v36 START -->
+
+
+
+<!-- RTDB REALTIME ANY-CHANGE RELOAD v38 START -->
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   const fallbackCfg = {
     apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
@@ -934,99 +940,71 @@
   const docId  = params.get("doc") || "default";
   const docRef = ref(db, "docs/" + docId);
 
+  // --- Helpers
   function safeJSON(s){ try { return JSON.parse(s); } catch(_) { return null; } }
-  function extractLocal(){
-    let products = null, logs = null;
+  function detectStateKey(){
+    let bestKey = null, bestScore = -1;
     for (let i=0;i<localStorage.length;i++){
-      const v = safeJSON(localStorage.getItem(localStorage.key(i)));
+      const k = localStorage.key(i);
+      const v = safeJSON(localStorage.getItem(k));
       if (!v || typeof v !== 'object') continue;
-      if (products === null && Array.isArray(v.products)) products = v.products;
-      if (logs     === null && Array.isArray(v.logs))     logs     = v.logs;
+      const score = (Array.isArray(v.products)?10:0) + (Array.isArray(v.logs)?3:0);
+      if (score > bestScore){ bestScore = score; bestKey = k; }
     }
-    if (!Array.isArray(products)) products = [];
-    if (!Array.isArray(logs)) logs = [];
-    return { products, logs };
+    return bestKey || "hm_state";
   }
-  function sigOf(obj){
-    const p = Array.isArray(obj.products) ? obj.products : [];
-    const l = Array.isArray(obj.logs) ? obj.logs : [];
-    const pt = p.length ? (p[p.length-1].sku || p[p.length-1].name || p[p.length-1].id || '') : '';
-    const lt = l.length ? (l[l.length-1].msg || l[l.length-1].t || '') : '';
-    return p.length + "|" + pt + "#" + l.length + "|" + lt;
-  }
+  const STATE_KEY = detectStateKey();
 
-  let lastSentSig = "";
-  async function pushIfChanged(){
-    const st = extractLocal();
-    const s  = sigOf(st);
-    if (s && s !== lastSentSig){
-      lastSentSig = s;
-      try {
-        await update(docRef, { products: st.products, logs: st.logs, updatedAt: Date.now() });
-      } catch(e){ console.warn("RTDB push failed", e); }
-    }
-  }
-
-  // Hooks + periodic
-  ['click','submit','change','keyup'].forEach(ev=>document.addEventListener(ev, ()=> setTimeout(pushIfChanged, 120), true));
-  const _set = localStorage.setItem.bind(localStorage);
-  const _rem = localStorage.removeItem.bind(localStorage);
-  const _clr = localStorage.clear.bind(localStorage);
-  localStorage.setItem = function(k,v){ const r=_set(k,v); setTimeout(pushIfChanged, 60); return r; };
-  localStorage.removeItem = function(k){ const r=_rem(k); setTimeout(pushIfChanged, 60); return r; };
-  localStorage.clear = function(){ const r=_clr(); setTimeout(pushIfChanged, 60); return r; };
-  setInterval(pushIfChanged, 1000);
-</script>
-<!-- RTDB SIMPLE BRIDGE v36 END -->
-
-
-<!-- HARD RTDB REFRESH v36 START -->
-<script type="module">
-  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-
-  const fallbackCfg = {
-    apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
-    authDomain: "hertz-stok-takip.firebaseapp.com",
-    databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "hertz-stok-takip",
-    storageBucket: "hertz-stok-takip.firebasestorage.app",
-    messagingSenderId: "512663727455",
-    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
-  };
-  const cfg = window.firebaseConfig || fallbackCfg;
-  const app = (getApps && getApps().length) ? getApps()[0] : initializeApp(cfg);
-  const db  = getDatabase(app);
-
-  const params = new URLSearchParams(location.search);
-  const docId  = params.get("doc") || "default";
-  const docRef = ref(db, "docs/" + docId);
-
-  let ready = false;
-  let lastSig = null;
-  function sigOf(data){
-    const p = Array.isArray(data?.products) ? data.products : [];
-    const l = Array.isArray(data?.logs) ? data.logs : [];
-    const pt = p.length ? (p[p.length-1].sku || p[p.length-1].name || p[p.length-1].id || '') : '';
-    const lt = l.length ? (l[l.length-1].msg || l[l.length-1].t || '') : '';
-    return p.length + "|" + pt + "#" + l.length + "|" + lt;
+  function readLocal(){ const raw = safeJSON(localStorage.getItem(STATE_KEY))||{}; return { products: Array.isArray(raw.products)?raw.products:[], logs: Array.isArray(raw.logs)?raw.logs:[] }; }
+  function stateSig(s){
+    const p = Array.isArray(s.products)?s.products:[];
+    const l = Array.isArray(s.logs)?s.logs:[];
+    const tailP = p.length ? (p[p.length-1].sku || p[p.length-1].name || p[p.length-1].id || '') : '';
+    const tailL = l.length ? (l[l.length-1].msg || l[l.length-1].t || '') : '';
+    return p.length + "|" + tailP + "#" + l.length + "|" + tailL;
   }
   function hardReload(){
     const u = new URL(location.href);
     u.searchParams.set("_r", Date.now().toString());
     location.replace(u.toString());
   }
+
+  // --- Outbound: push when local != last RTDB signature
+  let lastRTDBSig = "";
+  let lastPushedSig = "";
+  function tryPush(){
+    const st = readLocal();
+    const sig = stateSig(st);
+    if (sig && sig !== lastRTDBSig && sig !== lastPushedSig){
+      lastPushedSig = sig;
+      update(docRef, { products: st.products, logs: st.logs, updatedAt: Date.now() })
+        .catch(e=>console.warn('RTDB update failed', e));
+    }
+  }
+  // Hooks + periodic
+  ['click','submit','change','keyup'].forEach(ev=>document.addEventListener(ev, ()=> setTimeout(tryPush, 120), true));
+  const _set = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function(k,v){ const r=_set(k,v); setTimeout(tryPush, 60); return r; };
+  const _rem = localStorage.removeItem.bind(localStorage);
+  localStorage.removeItem = function(k){ const r=_rem(k); setTimeout(tryPush, 60); return r; };
+  const _clr = localStorage.clear.bind(localStorage);
+  localStorage.clear = function(){ const r=_clr(); setTimeout(tryPush, 60); return r; };
+  setInterval(tryPush, 1000);
+
+  // --- Inbound: reload on ANY change after initial
+  let initial = true;
   onValue(docRef, (snap)=>{
     const data = snap.val() || {};
-    const s = sigOf(data);
-    if (!ready){ ready = true; lastSig = s; return; }
-    if (s !== lastSig){
-      lastSig = s;
+    const incoming = { products: data.products||[], logs: data.logs||[] };
+    const sig = stateSig(incoming);
+    if (initial){ initial = false; lastRTDBSig = sig; return; }
+    if (sig !== lastRTDBSig){
+      lastRTDBSig = sig;
       hardReload();
     }
   });
 </script>
-<!-- HARD RTDB REFRESH v36 END -->
+<!-- RTDB REALTIME ANY-CHANGE RELOAD v38 END -->
 
 </body>
 </html>
