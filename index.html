@@ -635,9 +635,8 @@
 
 <!-- === Firebase Live Sync (guarded by login) === -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { get, getDatabase, onDisconnect, onValue, ref, set, update} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getDatabase, ref, onValue, update, set, onDisconnect, runTransaction, get } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
   // Config
   const firebaseConfig = {
     apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
@@ -648,7 +647,12 @@
     messagingSenderId: "512663727455",
     appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
   };
-
+  // Init (idempotent)
+  const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+  // Expose for other scripts
+  window.DB = db;
+  // Ensure startSync exists
   function startSync(){
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
@@ -661,6 +665,16 @@
         try{
           const dataRef = ref(db, `app/hertz_stok/data`);
           const snap = await get(dataRef);
+          const remote = snap.val() || { products: [], logs: [], updatedAt: Date.now() 
+      // Live data read
+      const dataRef = ref(window.DB, `app/hertz_stok/data`);
+      onValue(dataRef, (snap)=>{
+        const remote = snap.val() || { products: [], logs: [], updatedAt: Date.now() 
+      // Soft refresh signal
+      async function refreshFromRTDB(){
+        try{
+          const dataRef = ref(window.DB, `app/hertz_stok/data`);
+          const snap = await get(dataRef);
           const remote = snap.val() || { products: [], logs: [], updatedAt: Date.now() };
           state.products = Array.isArray(remote.products) ? remote.products : [];
           state.logs     = Array.isArray(remote.logs) ? remote.logs : [];
@@ -668,87 +682,28 @@
         }catch(e){ console.warn('soft refresh failed', e); }
       }
       try{
-        const reloadRef = ref(db, `app/hertz_stok/reload`);
+        const reloadRef = ref(window.DB, `app/hertz_stok/reload`);
         onValue(reloadRef, (snap)=>{
           const v = snap.val();
           if(!v || !v.ts) return;
           if(!window.__lastReloadTs || v.ts > window.__lastReloadTs){
             window.__lastReloadTs = v.ts;
-            if (Date.now() - v.ts < 5000) { // ignore old markers
-              setTimeout(()=>{ location.reload(); }, 800);
+            if (Date.now() - v.ts < 5000) {
+              setTimeout(()=>{ refreshFromRTDB(); }, 800);
             }
           }
         });
       }catch(e){ console.warn('reload listener error', e); }
-        }`);
-    const presRef = ref(db, `docs/${DOC_ID}/presence`);
-    const meId    = crypto.randomUUID();
-    const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
-    set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
-    onDisconnect(meRef).remove();
-
-    const APP_LS_KEY = "stokTakip.v1";
-    const EMPTY_DATA = { products: [], logs: [], updatedAt: Date.now() };
-    const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
-    const push = (obj)=> update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now() })
-                          .catch(err => console.error("Buluta yazma hatası:", err));
-
-    // Hook LS
-    const _setItem    = localStorage.setItem.bind(localStorage);
-    const _removeItem = localStorage.removeItem.bind(localStorage);
-    const _clear      = localStorage.clear.bind(localStorage);
-
-    localStorage.setItem = function(k, v){
-      _setItem(k, v);
-      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(safeParse(v)||{});
-    };
-    localStorage.removeItem = function(k){
-      _removeItem(k);
-      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(EMPTY_DATA);
-    };
-    localStorage.clear = function(){ _clear(); push(EMPTY_DATA); };
-
-    if (typeof window.save === "function") {
-      const __orig = window.save;
-      window.save = function(){ try{ __orig(); }catch(e){ console.error(e); } 
-        const raw = localStorage.getItem(APP_LS_KEY);
-        if (raw) push(safeParse(raw)||{}); else push(EMPTY_DATA);
-      };
-    }
-
-    let lastSent = null;
-    setInterval(() => {
-      const now = localStorage.getItem(APP_LS_KEY);
-      if (now !== lastSent) { lastSent = now; if (now) push(safeParse(now)||{}); else push(EMPTY_DATA); }
-    }, 1000);
-
-    onValue(rootRef, (snap) => {
-      const v = snap.val();
-      if(!v || typeof v !== "object") return;
-      const { products = [], logs = [] } = v;
-      const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-      if (JSON.stringify(local.products||[]) === JSON.stringify(products) &&
-          JSON.stringify(local.logs||[])     === JSON.stringify(logs)) return;
-      localStorage.setItem(APP_LS_KEY, JSON.stringify({ products, logs }));
-      try { if (typeof render === "function") render(); } catch(e){ console.warn("render() çağrısı hata:", e); }
-    });
-
-    setTimeout(() => {
-      onValue(rootRef, (snap) => {
-        if(!snap.exists()){
-          const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-          set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now() }).catch(console.error);
+        }      // Live data read
+      const dataRef = ref(window.DB, `app/hertz_stok/data`);
+      onValue(dataRef, (snap)=>{
+        const remote = snap.val() || { products: [], logs: [], updatedAt: Date.now() };
+        state.products = Array.isArray(remote.products) ? remote.products : [];
+        state.logs     = Array.isArray(remote.logs) ? remote.logs : [];
+        if (typeof render === 'function') render();
+      });
         }
-      }, { onlyOnce: true });
-    }, 300);
-
-    onValue(presRef, (snap) => {
-      const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
-      const el = document.getElementById("statusOnline");
-      if (el) el.textContent = `Çevrimiçi: ${n}`;
-    });
-  }
-
+  // Auto-start after auth
   if (sessionStorage.getItem("auth_ok") === "1") startSync();
   else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
