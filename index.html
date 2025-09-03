@@ -771,7 +771,26 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v15): robust username detection === -->
+<!-- === RTDB Real-time Sync (v16): toast restored + username column in history === -->
+<style>
+  #hmToast{
+    position:fixed; right:16px; bottom:16px; z-index:99990; display:none;
+    background:#111827; color:#e5e7eb; border:1px solid #374151; border-radius:12px; padding:12px 14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35); font:14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    opacity:0; transform: translateY(8px); transition: opacity .35s ease, transform .35s ease;
+  }
+  #hmToast.show{ display:block; opacity:1; transform: translateY(0); }
+  #hmToast.fade{ opacity:0; transform: translateY(6px); }
+  #hmToast .msg{opacity:.98; white-space:pre-wrap}
+  #hmToast button{
+    margin-left:10px; border:1px solid #cc7a44; background:linear-gradient(120deg,#cd6928,#de7a39);
+    color:#fff; border-radius:8px; padding:6px 10px; cursor:pointer;
+  }
+  /* History "Kullanıcı" column style */
+  .user-col{ opacity:.9; font-weight:600; }
+</style>
+<div id="hmToast"><span class="msg">Güncelleme</span><button id="hmToastReload">Yenile</button></div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -792,43 +811,66 @@
   const url = new URL(location.href);
   const DOC_ID = url.searchParams.get("doc") || "stoktakip-paylasimli-orta-oda";
 
-  // ---- Username detection (many fallbacks) ----
+  // Username detection
   function pickName(){
     const s = sessionStorage, l = localStorage, q = new URLSearchParams(location.search);
-    const keys = [
-      "auth_user","user","username","currentUser","login_user","aktifKullanici","kullanici","kullanıcı",
-      "stokTakip.user","stokTakip_user","hm_user"
-    ];
-    for (const k of keys){
-      if (s.getItem && s.getItem(k)) return s.getItem(k);
-      if (l.getItem && l.getItem(k)) return l.getItem(k);
-    }
+    const keys = ["auth_user","user","username","currentUser","login_user","aktifKullanici","kullanici","kullanıcı","stokTakip.user","stokTakip_user","hm_user"];
+    for (const k of keys){ if (s.getItem && s.getItem(k)) return s.getItem(k); if (l.getItem && l.getItem(k)) return l.getItem(k); }
     if (q.get("user")) return q.get("user");
-    // Try to read from DOM if visible (e.g., element with id currentUser or data-username)
-    const el = document.querySelector("#currentUser, [data-username]");
-    if (el) return (el.getAttribute("data-username") || el.textContent || "").trim();
+    const el = document.querySelector("#currentUser, [data-username]"); if (el) return (el.getAttribute("data-username")||el.textContent||"").trim();
     return "Bilinmeyen";
   }
-  const ME_NAME = pickName();
-  // Persist so future sessions see it
-  try { sessionStorage.setItem("auth_user", ME_NAME); } catch {}
+  const ME_NAME = pickName(); try{ sessionStorage.setItem("auth_user", ME_NAME); }catch{}
 
   const APP_LS_KEY = "stokTakip.v1";
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
-  const contentHash = (obj)=>{
-    try { return JSON.stringify(obj).length + ":" + (JSON.stringify(obj)||"").slice(0,64); } catch { return Math.random()+""; }
-  };
+  const contentHash = (obj)=>{ try { return JSON.stringify(obj).length + ":" + (JSON.stringify(obj)||"").slice(0,64); } catch { return Math.random()+""; } };
   const fmtTR = (n)=> new Intl.NumberFormat('tr-TR').format(Math.abs(Number(n)||0));
   const clip = (s, n=48)=> (s||"").toString().length>n ? (s||"").toString().slice(0,n-1)+"…" : (s||"");
 
   // Toast helpers
   const toast = document.getElementById("hmToast");
   const toastMsg = toast ? toast.querySelector(".msg") : null;
+  const toastBtn = document.getElementById("hmToastReload");
+  if (toastBtn) toastBtn.addEventListener("click", ()=> location.reload());
   function showToastThenReload(msg, holdMs=1300, fadeMs=350){
     if (toastMsg) toastMsg.textContent = msg;
     if (!toast) { setTimeout(()=>location.reload(), holdMs); return; }
     toast.classList.remove("fade"); toast.classList.add("show");
     setTimeout(()=>{ toast.classList.add("fade"); setTimeout(()=> location.reload(), fadeMs); }, holdMs);
+  }
+
+  // Add "Kullanıcı" column to history table and fill from logs
+  function enhanceHistoryTable(){
+    const data = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
+    const logs = Array.isArray(data.logs) ? data.logs : [];
+    // Find table with Tarih/Ürün headers
+    const tables = Array.from(document.querySelectorAll("table"));
+    let target = null;
+    for (const t of tables){
+      const ths = Array.from(t.querySelectorAll("thead th, tr th, thead td")).map(x=> (x.textContent||"").trim().toLowerCase());
+      if (ths.some(x=>x.includes("tarih")) && ths.some(x=>x.includes("ürün")||x.includes("urun"))) { target = t; break; }
+    }
+    if (!target) return;
+
+    // Insert header if not present
+    const headRow = target.querySelector("thead tr") || target.querySelector("tr");
+    if (headRow && !Array.from(headRow.children).some(x=> /kullanıcı|kullanici/i.test(x.textContent))){
+      const th = document.createElement("th"); th.textContent = "Kullanıcı"; headRow.appendChild(th);
+    }
+
+    // Fill rows (assume newest first like logs.reverse maybe). We'll match by index from bottom/top.
+    const bodyRows = Array.from(target.querySelectorAll("tbody tr")).length ? Array.from(target.querySelectorAll("tbody tr")) : Array.from(target.querySelectorAll("tr")).slice(1);
+    if (!bodyRows.length) return;
+
+    // Align logs length with rows; try to map last N logs to first N rows
+    const recent = logs.slice(-bodyRows.length).reverse(); // newest first
+    bodyRows.forEach((tr, i)=>{
+      const l = recent[i] || {};
+      let cell = tr.querySelector(".user-col");
+      if (!cell){ cell = document.createElement("td"); cell.className = "user-col"; tr.appendChild(cell); }
+      cell.textContent = (l.by || l.user || l.kullanici || l.kullanıcı || ME_NAME || "—");
+    });
   }
 
   function startSync(){
@@ -845,11 +887,10 @@
 
     const rootRef = ref(db, `docs/${DOC_ID}`);
 
-    // Debounced + deduplicated LS -> RTDB, enrich last log with user name
-    const _setItem    = localStorage.setItem.bind(localStorage);
+    // Debounced LS -> RTDB with 'by' enrichment
+    const _setItem = localStorage.setItem.bind(localStorage);
     const _removeItem = localStorage.removeItem.bind(localStorage);
-    const _clear      = localStorage.clear.bind(localStorage);
-
+    const _clear = localStorage.clear.bind(localStorage);
     let lastSentStr = null, pushTimer = null;
     function schedulePushFrom(valueStr, lastAction="update"){
       if (valueStr === lastSentStr && lastAction==="update") return;
@@ -867,71 +908,32 @@
         }).catch(err => console.error("Buluta yazma hatası:", err));
       }, 200);
     }
-
-    localStorage.setItem = function(k, v){
-      const cur = localStorage.getItem(k);
-      _setItem(k, v);
-      if (k === APP_LS_KEY) {
-        if (cur === v) return;
-        schedulePushFrom(v, "update");
-      }
-    };
-    localStorage.removeItem = function(k){
-      const existed = localStorage.getItem(k) != null;
-      _removeItem(k);
-      if (k === APP_LS_KEY && existed) schedulePushFrom(JSON.stringify({ products: [], logs: [] }), "clear");
-    };
-    localStorage.clear = function(){
-      const had = localStorage.getItem(APP_LS_KEY) != null;
-      _clear();
-      if (had) schedulePushFrom(JSON.stringify({ products: [], logs: [] }), "clear");
-    };
+    localStorage.setItem = function(k, v){ const cur = localStorage.getItem(k); _setItem(k, v); if (k===APP_LS_KEY && cur!==v) schedulePushFrom(v, "update"); };
+    localStorage.removeItem = function(k){ const existed = localStorage.getItem(k)!=null; _removeItem(k); if (k===APP_LS_KEY && existed) schedulePushFrom(JSON.stringify({products:[],logs:[]}), "clear"); };
+    localStorage.clear = function(){ const had = localStorage.getItem(APP_LS_KEY)!=null; _clear(); if (had) schedulePushFrom(JSON.stringify({products:[],logs:[]}), "clear"); };
 
     // Diff helpers
     const keyFields=["id","kod","code","stokKodu","stok_kodu","skod"];
     const nameFields=["ad","adı","adi","isim","name","urun","ürün","product","title"];
     const qtyFields=["adet","miktar","stok","qty","quantity","amount"];
-    const getLabel = it => {
-      for (const k of nameFields) if (it && (k in it) && String(it[k]).trim()!=="") return String(it[k]);
-      for (const k of keyFields) if (it && (k in it) && String(it[k]).trim()!=="") return String(it[k]);
-      return "ürün";
-    };
-    const getKey = it => {
-      for (const k of keyFields) if (it && (k in it)) return String(it[k]);
-      for (const k of nameFields) if (it && (k in it)) return String(it[k]);
-      return JSON.stringify(it);
-    };
-    const getQty = it => {
-      for (const k of qtyFields) if (it && typeof it[k] === "number") return it[k];
-      for (const k of qtyFields) if (it && typeof it[k] === "string" && it[k].trim()!=="" && !isNaN(Number(it[k]))) return Number(it[k]);
-      return 0;
-    };
-    const mapByKeyFull = list => {
-      const m = new Map(); (list||[]).forEach(x=> m.set(getKey(x), { qty:getQty(x), label:getLabel(x) })); return m;
-    };
-    const diffProducts = (prev, curr) => {
-      const a = mapByKeyFull(prev||[]), b = mapByKeyFull(curr||[]);
-      const keys = new Set([...a.keys(), ...b.keys()]); const changes = [];
-      for (const k of keys){
-        const qa = a.get(k)?.qty || 0, qb = b.get(k)?.qty || 0;
-        const lbl = (b.get(k)?.label || a.get(k)?.label || "ürün"); const d = qb-qa;
-        if (d!==0) changes.push({ key:k, label:lbl, delta:d });
-      }
-      return changes.sort((x,y)=> Math.abs(y.delta)-Math.abs(x.delta));
-    };
+    const getLabel = it => { for (const k of nameFields) if (it && (k in it) && String(it[k]).trim()!=="") return String(it[k]); for (const k of keyFields) if (it && (k in it) && String(it[k]).trim()!=="") return String(it[k]); return "ürün"; };
+    const getKey = it => { for (const k of keyFields) if (it && (k in it)) return String(it[k]); for (const k of nameFields) if (it && (k in it)) return String(it[k]); return JSON.stringify(it); };
+    const getQty = it => { for (const k of qtyFields) if (it && typeof it[k] === "number") return it[k]; for (const k of qtyFields) if (it && typeof it[k] === "string" && it[k].trim()!=="" && !isNaN(Number(it[k]))) return Number(it[k]); return 0; };
+    const mapByKeyFull = list => { const m=new Map(); (list||[]).forEach(x=> m.set(getKey(x), { qty:getQty(x), label:getLabel(x) })); return m; };
+    const diffProducts = (prev, curr) => { const a=mapByKeyFull(prev||[]), b=mapByKeyFull(curr||[]); const keys=new Set([...a.keys(),...b.keys()]); const changes=[]; for(const k of keys){ const qa=a.get(k)?.qty||0, qb=b.get(k)?.qty||0; const lbl=(b.get(k)?.label||a.get(k)?.label||"ürün"); const d=qb-qa; if(d!==0) changes.push({ key:k, label:lbl, delta:d }); } return changes.sort((x,y)=> Math.abs(y.delta)-Math.abs(x.delta)); };
 
-    // Real-time apply with toast
+    // Apply + toast on foreign updates
     let lastApplied=0, prevHash=null, prevProducts=null, primed=false;
     onValue(rootRef, (snap) => {
       const v = snap.val(); if(!v || typeof v!=="object") return;
       const { products=[], logs=[], updatedAt=0, updatedBy=null, updatedByName="Biri", lastAction="update" } = v;
       const h = contentHash({products, logs});
 
-      if (!primed){ primed=true; lastApplied=updatedAt; prevHash=h; prevProducts=products;
-        try{ localStorage.setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{}; return; }
+      if (!primed){ primed=true; lastApplied=updatedAt; prevHash=h; prevProducts=products; try{ localStorage.setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{}; enhanceHistoryTable(); return; }
 
       if (updatedAt <= lastApplied) return;
-      try{ localStorage.setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{}
+      try{ localStorage.setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{};
+      enhanceHistoryTable();
 
       if (updatedBy && updatedBy===meId){ lastApplied=updatedAt; prevHash=h; prevProducts=products; return; }
       if (h === prevHash){ lastApplied=updatedAt; return; }
@@ -958,6 +960,8 @@
       }
 
       lastApplied=updatedAt; prevHash=h; prevProducts=products;
+      // Show toast and reload
+      const t = document.getElementById("hmToast"); if (t){ t.style.display="block"; }
       showToastThenReload(msg, 1300, 350);
     });
 
@@ -973,13 +977,17 @@
         }
       }, { onlyOnce: true });
     }, 300);
+
+    // Try to enhance table after initial render and on navigation
+    setTimeout(enhanceHistoryTable, 800);
+    document.addEventListener("rtdb_sync", enhanceHistoryTable);
   }
 
   const isAuthed = () => (sessionStorage.getItem("auth_ok") === "1");
   if (isAuthed()) startSync();
   else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
-<!-- === /RTDB Sync v15 === -->
+<!-- === /RTDB Sync v16 === -->
 
 </body>
 </html>
