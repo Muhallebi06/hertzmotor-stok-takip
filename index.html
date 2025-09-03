@@ -771,7 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v24): LS+SS poller, deep hash, in-place apply === -->
+<!-- === RTDB Real-time Sync (v25): shared canonical key + mirror all keys === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -791,47 +791,37 @@
 
   const DOC_ID = new URL(location.href).searchParams.get("doc") || "stoktakip-paylasimli-orta-oda";
 
-  // Utils
+  // --- Utils ---
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
   const isStockPayload = (obj)=> obj && typeof obj==="object" && ("products" in obj || "logs" in obj);
-  const stable = (obj)=>{
-    try{
-      return JSON.stringify(obj, Object.keys(obj).sort());
-    }catch{ return ""; }
-  };
-  const hash = (str)=>{
-    let h=0, i=0, len=str.length|0; for(; i<len; i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
-    return h.toString(16);
+  const mergePayload = (a,b)=>{
+    const out = { products:[], logs:[] };
+    try { out.products = Array.isArray(b?.products) ? b.products : (Array.isArray(a?.products) ? a.products : []); } catch{}
+    try { out.logs     = Array.isArray(b?.logs)     ? b.logs     : (Array.isArray(a?.logs)     ? a.logs     : []); } catch{}
+    return out;
   };
 
-  function findCanonicalKey(area){
-    for (let i=0;i<area.length;i++){
-      const k = area.key(i);
-      const v = safeParse(area.getItem(k));
-      if (isStockPayload(v)) return k;
+  // Canonical "shared" key all tabs/users will mirror to
+  const CANON = "stokTakip.shared";
+
+  // Discover ALL stock keys in both storages
+  function discoverStockKeys(){
+    const keys = new Set();
+    for (let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if (isStockPayload(safeParse(localStorage.getItem(k)))) keys.add(k);
     }
-    return null;
+    for (let i=0;i<sessionStorage.length;i++){
+      const k = sessionStorage.key(i);
+      if (isStockPayload(safeParse(sessionStorage.getItem(k)))) keys.add(k);
+    }
+    // Always include canonical
+    keys.add(CANON);
+    return keys;
   }
+  const STOCK_KEYS = discoverStockKeys();
 
-  // Canonical keys for both storages
-  let LSK = findCanonicalKey(localStorage) || "stokTakip.v1";
-  let SSK = findCanonicalKey(sessionStorage); // may be null
-
-  const rootRef = ref(db, `docs/${DOC_ID}`);
-
-  // Presence (optional UI)
-  const presRef = ref(db, `docs/${DOC_ID}/presence`);
-  const meId = crypto.randomUUID();
-  const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
-  set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
-  onDisconnect(meRef).remove();
-  onValue(presRef, (snap) => {
-    const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
-    const el = document.getElementById("statusOnline");
-    if (el) el.textContent = `Çevrimiçi: ${n}`;
-  });
-
-  // Bind originals
+  // Originals
   const _ls = {
     setItem: localStorage.setItem.bind(localStorage),
     removeItem: localStorage.removeItem.bind(localStorage),
@@ -843,114 +833,111 @@
     clear: sessionStorage.clear.bind(sessionStorage),
   };
 
-  // Keep last remote write hash to avoid echo
-  let lastRemoteStr = null, lastRemoteTs = 0, lastRemoteHash = "";
-
-  // Keep last pushed hash (from this client)
-  let lastPushedHash = "";
-
-  function payloadFrom(area, key){
-    if (!key) return null;
-    return safeParse(area.getItem(key) || "null");
+  // Mirror write to ALL keys helper (avoid event loops)
+  let applyingRemote = false;
+  function writeAll(str){
+    applyingRemote = true;
+    try { for (const k of STOCK_KEYS) _ls.setItem(k, str); } catch{}
+    applyingRemote = false;
   }
 
-  function currentPayload(){
-    // Prefer localStorage, else sessionStorage
-    let p = payloadFrom(localStorage, LSK);
-    if (isStockPayload(p)) return p;
-    p = payloadFrom(sessionStorage, SSK);
-    if (isStockPayload(p)) return p;
-    return null;
+  const rootRef = ref(db, `docs/${DOC_ID}`);
+
+  // Push to RTDB
+  let lastPushedStr = null;
+  function pushRTDB(str, lastAction="update"){
+    if (!str) return;
+    if (str === lastPushedStr && lastAction==="update") return;
+    lastPushedStr = str;
+    const obj = safeParse(str) || {};
+    update(rootRef, {
+      products: obj.products||[], logs: obj.logs||[],
+      updatedAt: Date.now(), lastAction
+    }).catch(console.error);
   }
 
-  function pushRTDBFromPayload(obj, lastAction="update"){
-    try{
-      update(rootRef, {
-        products: obj.products||[], logs: obj.logs||[],
-        updatedAt: Date.now(), lastAction
-      }).catch(console.error);
-    }catch(e){}
-  }
-
-  function considerPush(area, key, newValStr, lastAction="update"){
-    const obj = safeParse(newValStr);
+  // Intercepts: ANY storage write with stock payload -> mirror to CANON + push
+  function onStorageWrite(area, k, v){
+    if (applyingRemote) return; // ignore writes we ourselves mirror
+    const obj = safeParse(v);
     if (!isStockPayload(obj)) return;
-    const h = hash(stable({products: obj.products||[], logs: obj.logs||[]}));
-    // Ignore immediate echoes from remote apply
-    const isRemoteEcho = (newValStr === lastRemoteStr) && (Date.now()-lastRemoteTs < 3000);
-    if (isRemoteEcho) return;
-    if (h === lastPushedHash) return;
-    lastPushedHash = h;
-    pushRTDBFromPayload(obj, lastAction);
+    STOCK_KEYS.add(k);
+    STOCK_KEYS.add(CANON);
+    // Merge with CANON (prefer new value's arrays)
+    const canonObj = safeParse(localStorage.getItem(CANON) || "null") || {};
+    const merged = mergePayload(canonObj, obj);
+    const str = JSON.stringify(merged);
+    // Mirror to all known keys (including the originally written key and CANON)
+    writeAll(str);
+    // Push to cloud
+    pushRTDB(str, "update");
+    // Notify UI (in-place apply without reload)
+    notifyRender(CANON, str);
   }
 
-  // Override methods for BOTH storages
-  localStorage.setItem = function(k, v){ _ls.setItem(k, v); if (isStockPayload(safeParse(v))) { LSK = k; considerPush(localStorage, k, v, "update"); } };
-  localStorage.removeItem = function(k){ const existed = localStorage.getItem(k)!=null; _ls.removeItem(k); if (existed && (k===LSK)) { considerPush(localStorage, k, JSON.stringify({products:[],logs:[]}), "clear"); } };
-  localStorage.clear = function(){ const had = localStorage.length>0; _ls.clear(); if (had) { considerPush(localStorage, LSK, JSON.stringify({products:[],logs:[]}), "clear"); } };
+  localStorage.setItem = function(k,v){ _ls.setItem(k,v); onStorageWrite(localStorage,k,v); };
+  sessionStorage.setItem = function(k,v){ _ss.setItem(k,v); onStorageWrite(sessionStorage,k,v); };
+  localStorage.removeItem = function(k){ _ls.removeItem(k); if (STOCK_KEYS.has(k)) { const str = JSON.stringify({products:[],logs:[]}); writeAll(str); pushRTDB(str,"clear"); notifyRender(CANON,str);} };
+  sessionStorage.removeItem = function(k){ _ss.removeItem(k); if (STOCK_KEYS.has(k)) { const str = JSON.stringify({products:[],logs:[]}); writeAll(str); pushRTDB(str,"clear"); notifyRender(CANON,str);} };
+  localStorage.clear = function(){ _ls.clear(); const str = JSON.stringify({products:[],logs:[]}); writeAll(str); pushRTDB(str,"clear"); notifyRender(CANON,str); };
+  sessionStorage.clear = function(){ _ss.clear(); const str = JSON.stringify({products:[],logs:[]}); writeAll(str); pushRTDB(str,"clear"); notifyRender(CANON,str); };
 
-  sessionStorage.setItem = function(k, v){ _ss.setItem(k, v); if (isStockPayload(safeParse(v))) { SSK = k; considerPush(sessionStorage, k, v, "update"); } };
-  sessionStorage.removeItem = function(k){ const existed = sessionStorage.getItem(k)!=null; _ss.removeItem(k); if (existed && (k===SSK)) { considerPush(sessionStorage, k, JSON.stringify({products:[],logs:[]}), "clear"); } };
-  sessionStorage.clear = function(){ const had = sessionStorage.length>0; _ss.clear(); if (had) { considerPush(sessionStorage, SSK, JSON.stringify({products:[],logs:[]}), "clear"); } };
-
-  // Pollers: catch writes bypassing setItem (for both storages)
-  let lastLS = localStorage.getItem(LSK);
-  let lastSS = SSK ? sessionStorage.getItem(SSK) : null;
+  // Also add a small poller to catch non-setItem writes
+  let lastCanonStr = localStorage.getItem(CANON);
   setInterval(()=>{
-    const newLSK = findCanonicalKey(localStorage) || LSK;
-    const newSSK = findCanonicalKey(sessionStorage) || SSK;
-    if (newLSK !== LSK) { LSK = newLSK; lastLS = localStorage.getItem(LSK); }
-    if (newSSK !== SSK) { SSK = newSSK; lastSS = SSK ? sessionStorage.getItem(SSK) : null; }
+    // Re-discover dynamically added keys
+    for (let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if (isStockPayload(safeParse(localStorage.getItem(k)))) STOCK_KEYS.add(k); }
+    for (let i=0;i<sessionStorage.length;i++){ const k=sessionStorage.key(i); if (isStockPayload(safeParse(sessionStorage.getItem(k)))) STOCK_KEYS.add(k); }
 
-    const curL = localStorage.getItem(LSK);
-    if (curL !== lastLS){ lastLS = curL; considerPush(localStorage, LSK, curL||"{}", "update"); }
-    if (SSK){
-      const curS = sessionStorage.getItem(SSK);
-      if (curS !== lastSS){ lastSS = curS; considerPush(sessionStorage, SSK, curS||"{}", "update"); }
-    }
-  }, 500);
+    const cur = localStorage.getItem(CANON);
+    if (cur !== lastCanonStr){ lastCanonStr = cur; onStorageWrite(localStorage, CANON, cur||"{}"); }
+  }, 600);
 
-  // In-place apply from RTDB (no reload, no toast)
-  function applyInPlace(products, logs){
-    const obj = {products: products||[], logs: logs||[]};
-    const str = JSON.stringify(obj);
-    lastRemoteStr = str; lastRemoteTs = Date.now(); lastRemoteHash = hash(stable(obj));
-
-    try{
-      if (LSK){ _ls.setItem(LSK, str); } else { _ls.setItem("stokTakip.v1", str); LSK = "stokTakip.v1"; }
-    }catch{}
-    try{
-      // Hooks
+  // In-place UI notify
+  function notifyRender(key, str){
+    try {
       if (typeof window.renderStok === "function") { window.renderStok(); return; }
       if (window.app && typeof window.app.render === "function") { window.app.render(); return; }
-      document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { key: LSK } }));
-      // synthetic storage
-      const evt = new StorageEvent("storage", { key: LSK, newValue: str, storageArea: localStorage });
+      document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { key, value: str } }));
+      const evt = new StorageEvent("storage", { key, newValue: str, storageArea: localStorage });
       window.dispatchEvent(evt);
-    }catch{}
+    } catch {}
   }
 
+  // Apply from RTDB: mirror to CANON + ALL keys, notify UI (NO reload, NO toast)
   let primed=false, lastApplied=0;
   onValue(rootRef, (snap) => {
     const v = snap.val(); if(!v || typeof v!=="object") return;
     const { products=[], logs=[], updatedAt=0 } = v;
-    if (!primed){ primed = true; lastApplied = updatedAt; applyInPlace(products, logs); return; }
-    if (updatedAt <= lastApplied) return;
-    lastApplied = updatedAt;
-    applyInPlace(products, logs);
+    if (!primed){
+      primed = true; lastApplied = updatedAt;
+    } else {
+      if (updatedAt <= lastApplied) return;
+      lastApplied = updatedAt;
+    }
+    const str = JSON.stringify({products, logs});
+    writeAll(str);
+    notifyRender(CANON, str);
   });
 
-  // Seed DB if empty
+  // Seed from any existing key if DB empty
   setTimeout(()=>{
     onValue(rootRef, (s)=>{
       if(!s.exists()){
-        const p = currentPayload() || {products:[], logs:[]};
-        set(rootRef, { products: p.products||[], logs: p.logs||[], updatedAt: Date.now(), lastAction: "seed" }).catch(console.error);
+        // Merge from all known keys
+        let acc = {products:[], logs:[]};
+        for (const k of STOCK_KEYS){
+          const o = safeParse(localStorage.getItem(k) || "null"); 
+          if (isStockPayload(o)) acc = mergePayload(acc, o);
+        }
+        const str = JSON.stringify(acc);
+        writeAll(str);
+        set(rootRef, { ...acc, updatedAt: Date.now(), lastAction: "seed" }).catch(console.error);
       }
     }, { onlyOnce: true });
   }, 400);
 </script>
-<!-- === /RTDB Sync v24 === -->
+<!-- === /RTDB Sync v25 === -->
 
 </body>
 </html>
