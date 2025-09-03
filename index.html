@@ -1019,24 +1019,7 @@
 </script>
 <!-- RTDB COMMIT-SMART RELOAD v41 END -->
 
-<script>
-(function(){
-  const addBtn = document.getElementById('btnAdd');
-  const logout = document.getElementById('logoutBtn');
-  if(addBtn && logout){
-    const row = addBtn.closest('div');
-    if(row){
-      row.appendChild(logout);
-      // push to far right
-      row.style.display = 'flex';
-      row.style.flexWrap = 'wrap';
-      row.style.alignItems = 'center';
-      logout.classList.add('ml-auto','px-3','py-2','rounded-xl','border','border-slate-300','bg-white');
-      logout.style.marginLeft = 'auto';
-    }
-  }
-})();
-</script>
+
 
 
 <script>
@@ -1067,6 +1050,70 @@
           await update(ref(window.DB, `app/hertz_stok/data`), { products: state.products, logs: state.logs, updatedAt: Date.now() });
         }
       }catch(e){ console.warn('save wrapper RTDB failed', e); }
+    })();
+  };
+})();
+</script>
+
+
+<script>
+(function(){
+  const addBtn = document.getElementById('btnAdd');
+  const logout = document.getElementById('logoutBtn');
+  if(addBtn && logout){
+    const row = addBtn.closest('div');
+    if(row){
+      row.appendChild(logout);
+      // remove any inline styles that could cause "floating"
+      row.removeAttribute('style');
+      // style same as others
+      logout.className = 'ml-auto px-3 py-2 rounded-xl border border-slate-300 bg-white';
+      logout.removeAttribute('style');
+    }
+  }
+})();
+</script>
+
+
+<script>
+// Realtime-only mode: disable local storage for stokTakip keys, and override save() to write only RTDB.
+(function(){
+  try{
+    const _set = localStorage.setItem.bind(localStorage);
+    const _get = localStorage.getItem.bind(localStorage);
+    const _rem = localStorage.removeItem.bind(localStorage);
+    const block = (k)=> k && /stoktakip|stokTakip|LS_KEY/i.test(String(k));
+    localStorage.setItem = (k,v)=>{ if(block(k)) return; try{ _set(k,v);}catch(e){} };
+    localStorage.getItem = (k)=>{ if(block(k)) return null; try{ return _get(k);}catch(e){ return null; } };
+    localStorage.removeItem = (k)=>{ if(block(k)) return; try{ _rem(k);}catch(e){} };
+  }catch(_){}
+
+  // Strong override of save(): only RTDB, no local
+  window.save = function(){
+    (async()=>{
+      try{
+        if(window.DB && typeof ref==='function' && typeof runTransaction==='function'){
+          const dataRef = ref(window.DB, `app/hertz_stok/data`);
+          await runTransaction(dataRef, (curr)=>{
+            const remote = curr || { products: [], logs: [], updatedAt: 0 };
+            // Merge by SKU (case-insensitive)
+            const map = new Map();
+            (remote.products||[]).forEach(p=> map.set(String(p.sku||'').toLowerCase(), p));
+            (state.products||[]).forEach(p=> map.set(String(p.sku||'').toLowerCase(), p));
+            const products = Array.from(map.values());
+            // Merge logs
+            const seen = new Set();
+            const mergedLogs = [];
+            [...(remote.logs||[]), ...(state.logs||[])].forEach(l=>{
+              const k = l.id || l.t || JSON.stringify(l);
+              if(seen.has(k)) return; seen.add(k); mergedLogs.push(l);
+            });
+            return { products, logs: mergedLogs.slice(0,5000), updatedAt: Date.now() };
+          }, { applyLocally:false });
+        } else if(window.DB && typeof ref==='function' && typeof update==='function'){
+          await update(ref(window.DB, `app/hertz_stok/data`), { products: state.products, logs: state.logs, updatedAt: Date.now() });
+        }
+      }catch(e){ console.warn('RTDB save failed', e); }
     })();
   };
 })();
