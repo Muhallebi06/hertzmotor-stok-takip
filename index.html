@@ -771,13 +771,22 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === HM Sync Helpers v27 (SKU auto + remove 'Oluştur' + dynamic fields + validation) === -->
+
+
+
+<!-- === HM Sync Helpers v27b (robust category select + safe validation + UI tidy) === -->
+<style>
+  #dynamicFields{margin-top:8px}
+  #dynamicFields .dyn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  #dynamicFields .dyn-field{display:flex;flex-direction:column}
+  #dynamicFields .dyn-field label{margin-bottom:4px;opacity:.9}
+  #milKoduErr{color:#c0392b;font-size:12px;margin-top:4px}
+</style>
 <script>
 (function(){
   const form = document.getElementById('productForm') || document.querySelector('form');
   if(!form) return;
 
-  // ---- Utilities ----
   const trMap = { 'ş':'s','Ş':'s','ğ':'g','Ğ':'g','ı':'i','İ':'i','ç':'c','Ç':'c','ö':'o','Ö':'o','ü':'u','Ü':'u' };
   const deTR = (s)=> String(s||'').replace(/[şŞğĞıİçÇöÖüÜ]/g, ch => trMap[ch] || ch);
   const norm = (s)=> deTR(String(s||'').toLowerCase()).replace(/\s+/g,' ').trim();
@@ -790,11 +799,30 @@
     }
     return null;
   };
-  const catEl = qn(['category','kategori','urunTuru','urunCesidi','productCategory','cat']);
-  const skuEl = qn(['sku','stokKodu','stok_kodu','code','kod']);
-  if(!catEl || !skuEl) return;
 
-  // ---- 1) Remove "Oluştur" button(s) in a robust way ----
+  function findCategorySelect(){
+    let el = qn(['category','kategori','urunCesidi','urunTuru','productCategory','cat']);
+    const kw = ['stator','rotor','mil','rotorlu','taslan','motor','sargili','paketli','gövde','govde'];
+    function looksLikeCategory(sel){
+      if (!sel || sel.tagName!=='SELECT') return false;
+      for (let i=0;i<sel.options.length;i++){
+        const t = norm(sel.options[i].text || sel.options[i].value || '');
+        if (kw.some(k=>t.includes(k))) return true;
+      }
+      return false;
+    }
+    if (!el || (el.tagName==='SELECT' && !looksLikeCategory(el))){
+      const selects = Array.from(form.querySelectorAll('select'));
+      const cand = selects.find(looksLikeCategory);
+      if (cand) el = cand;
+    }
+    return el;
+  }
+
+  const catSel = findCategorySelect();
+  const skuEl  = qn(['sku','stokKodu','stok_kodu','code','kod']);
+  if(!catSel || !skuEl){ return; }
+
   function removeOlusturButtons(){
     const btns = Array.from(document.querySelectorAll('button, .btn, [role="button"]'));
     for (const el of btns){
@@ -802,22 +830,19 @@
       const nm  = (el.getAttribute('name')||'').toLowerCase();
       const id  = (el.id||'').toLowerCase();
       if (txt === 'oluştur' || txt === 'olustur' || nm.includes('createsku') || id.includes('createsku') || id.includes('generatesku')) {
-        el.remove();
+        el.style.display = 'none'; el.remove();
       }
     }
   }
   removeOlusturButtons();
-  // in case UI re-renders
-  const mo = new MutationObserver(removeOlusturButtons);
-  mo.observe(document.body, {childList:true, subtree:true});
+  new MutationObserver(removeOlusturButtons).observe(document.body, {childList:true, subtree:true});
 
-  // ---- 2) SKU Auto (definitive mapping) ----
   function getCategoryText(){
-    const val = catEl.value;
-    const optText = (catEl.tagName==='SELECT')
-      ? (catEl.options[catEl.selectedIndex >= 0 ? catEl.selectedIndex : 0]?.text || '')
+    const val = catSel.value;
+    const optText = (catSel.tagName==='SELECT')
+      ? (catSel.options[catSel.selectedIndex >= 0 ? catSel.selectedIndex : 0]?.text || '')
       : '';
-    return val && String(val).length>=2 ? val : optText;
+    return val && String(val).length >= 2 ? val : optText;
   }
   function pickPrefix(catText){
     const t = norm(catText);
@@ -835,15 +860,14 @@
   function safeParse(x){ try{return JSON.parse(x);}catch(_){return null;} }
   function collectProducts(){
     const out=[];
-    function scan(area){
-      for(let i=0;i<area.length;i++){
-        const k = area.key(i);
-        const v = safeParse(area.getItem(k));
-        if(v && v.products) out.push(...v.products);
-      }
+    for (const area of [localStorage, sessionStorage]){
+      try{
+        for(let i=0;i<area.length;i++){
+          const v = safeParse(area.getItem(area.key(i)));
+          if(v && v.products) out.push(...v.products);
+        }
+      }catch(_){}
     }
-    try{scan(localStorage);}catch(_){}
-    try{scan(sessionStorage);}catch(_){}
     return out;
   }
   function getSku(it){ return it?.sku || it?.stokKodu || it?.code || it?.kod || ''; }
@@ -870,18 +894,15 @@
       skuEl.value = suggestSku(catText);
     }
   }
-  catEl.addEventListener('change', ()=>updateSku(true));
-  catEl.addEventListener('input',  ()=>updateSku(true));
+  ['change','input'].forEach(ev=> catSel.addEventListener(ev, ()=>updateSku(true)));
   form.addEventListener('submit', ()=>updateSku(true), true);
   updateSku(false);
 
-  // ---- 3) Dynamic fields (category-specific inputs) ----
-  const afterEl = catEl.closest('.form-group') || catEl.closest('div') || catEl;
+  const afterEl = catSel.closest('.form-group') || catSel.closest('div') || catSel;
   let host = document.getElementById('dynamicFields');
   if(!host){
     host = document.createElement('div');
     host.id = 'dynamicFields';
-    host.style.marginTop = '8px';
     afterEl.parentNode.insertBefore(host, afterEl.nextSibling);
   }
   function h(tag, attrs={}, children=[]){
@@ -909,18 +930,17 @@
     return wrap;
   }
   function buildDyn(catText){
-    const t = String(catText||'').toLowerCase();
-    const grid = h('div', {class:'dyn-grid'});
+    const t = norm(catText);
     host.innerHTML='';
-
+    const grid = h('div', {class:'dyn-grid'});
     const soketOpts = ['Soketli','Düz klemensli','Ters klemensli'];
     const ykrOpts   = ['Standart','YKR','YKL'];
 
-    if (t.includes('sargılı') || t.includes('sargili')){
+    if (t.includes('sargili') && t.includes('paket')){
       grid.appendChild(field('kw', 'Kilowat (kW)', 'number'));
       grid.appendChild(field('devir', 'Devir (rpm)', 'number'));
       grid.appendChild(field('voltaj', 'Voltaj (V)', 'number'));
-    } else if (t.includes('paketli') && (t.includes('gövde') || t.includes('govde'))){
+    } else if (t.includes('paketli') && (t.includes('govde') || t.includes('gövde'))){
       grid.appendChild(field('devir', 'Devir (rpm)', 'number'));
       grid.appendChild(field('kw', 'Kilowat (kW)', 'number'));
       grid.appendChild(field('voltaj', 'Voltaj (V)', 'number'));
@@ -935,16 +955,15 @@
       grid.appendChild(field('soketTipi', 'Soket/Klemens', 'select', soketOpts));
       grid.appendChild(field('ykr_ykl', 'YKR / YKL', 'select', ykrOpts));
       grid.appendChild(field('milTipi', 'Mil Tipi', 'text'));
-    } else if (t.includes('mil')){
+    } else if (t.includes('mil') && !t.includes('rotor')){
       grid.appendChild(field('milKodu', 'Mil Kodu', 'text'));
     }
     if (grid.children.length) host.appendChild(grid);
   }
+  ['change','input'].forEach(ev=> catSel.addEventListener(ev, ()=> buildDyn(getCategoryText())));
   buildDyn(getCategoryText());
-  catEl.addEventListener('change', ()=> buildDyn(getCategoryText()));
-  catEl.addEventListener('input',  ()=> buildDyn(getCategoryText()));
 
-  // ---- 4) Validation: milKodu required only for mil categories ----
+  // Validation: only for mil categories
   const milEl = qn(['milKodu','mil_kodu','milCode','milcode','mil']);
   function isMilCategory(){
     const t = norm(getCategoryText());
@@ -954,41 +973,32 @@
     if (t.includes('mil') || t.includes('saft') || t.includes('shaft')) return true;
     return false;
   }
+  function clearError(){ const el = document.getElementById('milKoduErr'); if (el) el.textContent=''; }
   function ensureErrorHolder(){
     let el = document.getElementById('milKoduErr');
     if (!el){
-      el = document.createElement('div');
-      el.id = 'milKoduErr';
-      el.style.color = '#c0392b';
-      el.style.fontSize = '12px';
-      el.style.marginTop = '4px';
-      if (milEl && milEl.parentNode) milEl.parentNode.appendChild(el);
-      else form.appendChild(el);
+      const host = (milEl && milEl.parentNode) ? milEl.parentNode : form;
+      el = document.createElement('div'); el.id='milKoduErr'; el.style.color='#c0392b'; el.style.fontSize='12px'; el.style.marginTop='4px';
+      host.appendChild(el);
     }
     return el;
   }
-  function clearError(){ const el = document.getElementById('milKoduErr'); if (el) el.textContent = ''; }
   function validateMilKodu(){
     clearError();
     if (!isMilCategory()) return true;
     const val = (milEl ? String(milEl.value||'').trim() : '');
     if (val) return true;
-    ensureErrorHolder().textContent = 'Mil türlerinde Mil Kodu zorunludur.';
+    ensureErrorHolder().textContent='Mil türlerinde Mil Kodu zorunludur.';
     return false;
   }
   form.addEventListener('submit', function(e){
     if (!validateMilKodu()){
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      return false;
+      e.preventDefault(); e.stopImmediatePropagation(); return false;
     }
   }, true);
-  if (catEl){ catEl.addEventListener('change', clearError); catEl.addEventListener('input', clearError); }
-  if (milEl){ milEl.addEventListener('input', clearError); }
-
 })(); 
 </script>
-<!-- === /HM Sync Helpers v27 === -->
+<!-- === /HM Sync Helpers v27b === -->
 
 </body>
 </html>
