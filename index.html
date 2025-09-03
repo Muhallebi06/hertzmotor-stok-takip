@@ -771,7 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v23): LS poller + in-place apply === -->
+<!-- === RTDB Real-time Sync (v24): LS+SS poller, deep hash, in-place apply === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -794,17 +794,32 @@
   // Utils
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
   const isStockPayload = (obj)=> obj && typeof obj==="object" && ("products" in obj || "logs" in obj);
-  function findCanonicalKey(){
-    for (let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      const v = safeParse(localStorage.getItem(k));
+  const stable = (obj)=>{
+    try{
+      return JSON.stringify(obj, Object.keys(obj).sort());
+    }catch{ return ""; }
+  };
+  const hash = (str)=>{
+    let h=0, i=0, len=str.length|0; for(; i<len; i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
+    return h.toString(16);
+  };
+
+  function findCanonicalKey(area){
+    for (let i=0;i<area.length;i++){
+      const k = area.key(i);
+      const v = safeParse(area.getItem(k));
       if (isStockPayload(v)) return k;
     }
-    return "stokTakip.v1";
+    return null;
   }
-  let APP_LS_KEY = findCanonicalKey();
 
-  // Presence (optional)
+  // Canonical keys for both storages
+  let LSK = findCanonicalKey(localStorage) || "stokTakip.v1";
+  let SSK = findCanonicalKey(sessionStorage); // may be null
+
+  const rootRef = ref(db, `docs/${DOC_ID}`);
+
+  // Presence (optional UI)
   const presRef = ref(db, `docs/${DOC_ID}/presence`);
   const meId = crypto.randomUUID();
   const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
@@ -816,118 +831,126 @@
     if (el) el.textContent = `Çevrimiçi: ${n}`;
   });
 
-  const rootRef = ref(db, `docs/${DOC_ID}`);
+  // Bind originals
+  const _ls = {
+    setItem: localStorage.setItem.bind(localStorage),
+    removeItem: localStorage.removeItem.bind(localStorage),
+    clear: localStorage.clear.bind(localStorage),
+  };
+  const _ss = {
+    setItem: sessionStorage.setItem.bind(sessionStorage),
+    removeItem: sessionStorage.removeItem.bind(sessionStorage),
+    clear: sessionStorage.clear.bind(sessionStorage),
+  };
 
-  // Bind originals to avoid loops
-  const _setItem = localStorage.setItem.bind(localStorage);
-  const _removeItem = localStorage.removeItem.bind(localStorage);
-  const _clear = localStorage.clear.bind(localStorage);
+  // Keep last remote write hash to avoid echo
+  let lastRemoteStr = null, lastRemoteTs = 0, lastRemoteHash = "";
 
-  let justLocalChange = false;
-  let lastSentStr = null, pushTimer = null;
+  // Keep last pushed hash (from this client)
+  let lastPushedHash = "";
 
-  // Remember last value written by RTDB apply, so poller won't echo
-  let lastRemoteStr = null;
-  let lastRemoteTs = 0;
+  function payloadFrom(area, key){
+    if (!key) return null;
+    return safeParse(area.getItem(key) || "null");
+  }
 
-  function pushToCloudFrom(valueStr, lastAction="update"){
-    if (!justLocalChange && lastAction==="update") return;
-    if (valueStr === lastSentStr && lastAction==="update") { justLocalChange=false; return; }
-    lastSentStr = valueStr;
-    if (pushTimer) clearTimeout(pushTimer);
-    pushTimer = setTimeout(()=>{
-      const obj = safeParse(valueStr) || {};
+  function currentPayload(){
+    // Prefer localStorage, else sessionStorage
+    let p = payloadFrom(localStorage, LSK);
+    if (isStockPayload(p)) return p;
+    p = payloadFrom(sessionStorage, SSK);
+    if (isStockPayload(p)) return p;
+    return null;
+  }
+
+  function pushRTDBFromPayload(obj, lastAction="update"){
+    try{
       update(rootRef, {
         products: obj.products||[], logs: obj.logs||[],
         updatedAt: Date.now(), lastAction
       }).catch(console.error);
-      justLocalChange = false;
-    }, 100);
+    }catch(e){}
   }
 
-  // Intercept setItem/removeItem/clear (catches most frameworks)
-  localStorage.setItem = function(k, v){
-    const pre = localStorage.getItem(k);
-    justLocalChange = (pre !== v);
-    _setItem(k, v);
-    const obj = safeParse(v);
-    if (isStockPayload(obj)) APP_LS_KEY = k;
-    if (isStockPayload(obj)) pushToCloudFrom(v, "update");
-  };
-  localStorage.removeItem = function(k){
-    const existed = localStorage.getItem(k)!=null;
-    justLocalChange = existed;
-    _removeItem(k);
-    if (k===APP_LS_KEY || existed) pushToCloudFrom(JSON.stringify({products:[], logs:[]}), "clear");
-  };
-  localStorage.clear = function(){
-    const had = localStorage.length>0;
-    justLocalChange = had;
-    _clear();
-    pushToCloudFrom(JSON.stringify({products:[], logs:[]}), "clear");
-  };
+  function considerPush(area, key, newValStr, lastAction="update"){
+    const obj = safeParse(newValStr);
+    if (!isStockPayload(obj)) return;
+    const h = hash(stable({products: obj.products||[], logs: obj.logs||[]}));
+    // Ignore immediate echoes from remote apply
+    const isRemoteEcho = (newValStr === lastRemoteStr) && (Date.now()-lastRemoteTs < 3000);
+    if (isRemoteEcho) return;
+    if (h === lastPushedHash) return;
+    lastPushedHash = h;
+    pushRTDBFromPayload(obj, lastAction);
+  }
 
-  // --- NEW: LocalStorage POLLER (for writes that bypass setItem) ---
-  let lastSeenKey = APP_LS_KEY;
-  let lastSeenStr = localStorage.getItem(lastSeenKey);
+  // Override methods for BOTH storages
+  localStorage.setItem = function(k, v){ _ls.setItem(k, v); if (isStockPayload(safeParse(v))) { LSK = k; considerPush(localStorage, k, v, "update"); } };
+  localStorage.removeItem = function(k){ const existed = localStorage.getItem(k)!=null; _ls.removeItem(k); if (existed && (k===LSK)) { considerPush(localStorage, k, JSON.stringify({products:[],logs:[]}), "clear"); } };
+  localStorage.clear = function(){ const had = localStorage.length>0; _ls.clear(); if (had) { considerPush(localStorage, LSK, JSON.stringify({products:[],logs:[]}), "clear"); } };
+
+  sessionStorage.setItem = function(k, v){ _ss.setItem(k, v); if (isStockPayload(safeParse(v))) { SSK = k; considerPush(sessionStorage, k, v, "update"); } };
+  sessionStorage.removeItem = function(k){ const existed = sessionStorage.getItem(k)!=null; _ss.removeItem(k); if (existed && (k===SSK)) { considerPush(sessionStorage, k, JSON.stringify({products:[],logs:[]}), "clear"); } };
+  sessionStorage.clear = function(){ const had = sessionStorage.length>0; _ss.clear(); if (had) { considerPush(sessionStorage, SSK, JSON.stringify({products:[],logs:[]}), "clear"); } };
+
+  // Pollers: catch writes bypassing setItem (for both storages)
+  let lastLS = localStorage.getItem(LSK);
+  let lastSS = SSK ? sessionStorage.getItem(SSK) : null;
   setInterval(()=>{
-    // Re-scan to adapt if app changes the key
-    const k = findCanonicalKey();
-    if (k) lastSeenKey = k;
-    const cur = localStorage.getItem(lastSeenKey);
-    if (cur !== lastSeenStr){
-      // If the change equals lastRemoteStr shortly after RTDB apply, ignore
-      const isFromRemote = (cur === lastRemoteStr) && (Date.now() - lastRemoteTs < 3000);
-      justLocalChange = !isFromRemote;
-      lastSeenStr = cur;
-      if (isStockPayload(safeParse(cur))) pushToCloudFrom(cur || "{}", "update");
-    }
-  }, 700); // gentle poll
+    const newLSK = findCanonicalKey(localStorage) || LSK;
+    const newSSK = findCanonicalKey(sessionStorage) || SSK;
+    if (newLSK !== LSK) { LSK = newLSK; lastLS = localStorage.getItem(LSK); }
+    if (newSSK !== SSK) { SSK = newSSK; lastSS = SSK ? sessionStorage.getItem(SSK) : null; }
 
-  // In-place apply
+    const curL = localStorage.getItem(LSK);
+    if (curL !== lastLS){ lastLS = curL; considerPush(localStorage, LSK, curL||"{}", "update"); }
+    if (SSK){
+      const curS = sessionStorage.getItem(SSK);
+      if (curS !== lastSS){ lastSS = curS; considerPush(sessionStorage, SSK, curS||"{}", "update"); }
+    }
+  }, 500);
+
+  // In-place apply from RTDB (no reload, no toast)
   function applyInPlace(products, logs){
-    const str = JSON.stringify({products, logs});
-    try{ _setItem(APP_LS_KEY, str); lastRemoteStr = str; lastRemoteTs = Date.now(); }catch{}
-    // Try known hooks
-    if (typeof window.renderStok === "function") { try { window.renderStok(); return; } catch {} }
-    if (window.app && typeof window.app.render === "function") { try { window.app.render(); return; } catch {} }
-    // Broadcast events
-    try { document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { key: APP_LS_KEY } })); } catch {}
-    try {
-      const evt = new StorageEvent("storage", { key: APP_LS_KEY, newValue: str, storageArea: localStorage });
+    const obj = {products: products||[], logs: logs||[]};
+    const str = JSON.stringify(obj);
+    lastRemoteStr = str; lastRemoteTs = Date.now(); lastRemoteHash = hash(stable(obj));
+
+    try{
+      if (LSK){ _ls.setItem(LSK, str); } else { _ls.setItem("stokTakip.v1", str); LSK = "stokTakip.v1"; }
+    }catch{}
+    try{
+      // Hooks
+      if (typeof window.renderStok === "function") { window.renderStok(); return; }
+      if (window.app && typeof window.app.render === "function") { window.app.render(); return; }
+      document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { key: LSK } }));
+      // synthetic storage
+      const evt = new StorageEvent("storage", { key: LSK, newValue: str, storageArea: localStorage });
       window.dispatchEvent(evt);
-    } catch {}
+    }catch{}
   }
 
-  // Realtime listener
   let primed=false, lastApplied=0;
   onValue(rootRef, (snap) => {
     const v = snap.val(); if(!v || typeof v!=="object") return;
     const { products=[], logs=[], updatedAt=0 } = v;
-
-    if (!primed){
-      primed = true; lastApplied = updatedAt;
-      applyInPlace(products, logs);
-      return;
-    }
-
+    if (!primed){ primed = true; lastApplied = updatedAt; applyInPlace(products, logs); return; }
     if (updatedAt <= lastApplied) return;
     lastApplied = updatedAt;
     applyInPlace(products, logs);
   });
 
-  // Seed from local if DB empty
+  // Seed DB if empty
   setTimeout(()=>{
     onValue(rootRef, (s)=>{
       if(!s.exists()){
-        const k = findCanonicalKey(); if (k) APP_LS_KEY = k;
-        const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-        set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now(), lastAction: "seed" }).catch(console.error);
+        const p = currentPayload() || {products:[], logs:[]};
+        set(rootRef, { products: p.products||[], logs: p.logs||[], updatedAt: Date.now(), lastAction: "seed" }).catch(console.error);
       }
     }, { onlyOnce: true });
   }, 400);
 </script>
-<!-- === /RTDB Sync v23 === -->
+<!-- === /RTDB Sync v24 === -->
 
 </body>
 </html>
