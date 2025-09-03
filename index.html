@@ -783,12 +783,140 @@
 
 
 
-<!-- RTDB FOREIGN-ONLY REFRESH v29 START -->
+
+
+
+<!-- === HM Product Form Enhancer v31 START === -->
+<style>
+  #dynamicFields{margin-top:12px}
+  #dynamicFields .dyn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+  #dynamicFields .dyn-field{display:flex;flex-direction:column}
+  #dynamicFields .dyn-field label{margin-bottom:6px;opacity:.9;font-size:14px}
+  #dynamicFields .dyn-field input,#dynamicFields .dyn-field select{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d0d4dc;border-radius:10px;outline:none;font-size:14px;background:#fff}
+</style>
+<script>
+(function(){
+  const forms = Array.from(document.querySelectorAll('form'));
+  let form = null;
+  for (const f of forms){
+    if (f.querySelector('input[name="stokKodu"], input#stokKodu, input[name="sku"], input[name="code"], input[name="kod"]') &&
+        f.querySelector('select') && (f.querySelector('input[name="ad"], input[placeholder*="Ad"], input[name="name"]'))) {
+      form = f; break;
+    }
+  }
+  if (!form) return;
+
+  const deTRMap={'ş':'s','Ş':'s','ğ':'g','Ğ':'g','ı':'i','İ':'i','ç':'c','Ç':'c','ö':'o','Ö':'o','ü':'u','Ü':'u'};
+  const deTR=s=>String(s||'').replace(/[şŞğĞıİçÇöÖüÜ]/g,c=>deTRMap[c]||c);
+  const norm=s=>deTR(String(s||'').toLowerCase()).replace(/\s+/g,' ').trim();
+  const qn=(names)=>{ for(const n of names){ let el=form.querySelector(`[name="${n}"]`); if(el) return el; el=form.querySelector('#'+CSS.escape(n)); if(el) return el; } return null; };
+
+  function findCategorySelect(){
+    const selList = Array.from(form.querySelectorAll('select'));
+    const kw = ['stator','rotor','mil','rotorlu','taslan','motor','sargili','sargılı','paketli','gövde','govde'];
+    function looks(sel){ for (let i=0;i<sel.options.length;i++){ const t=norm(sel.options[i].text||sel.options[i].value||''); if (kw.some(k=>t.includes(k))) return true; } return false; }
+    let el = qn(['category','kategori','urunCesidi','urunTuru','productCategory','cat']);
+    if (!el || !looks(el)) el = Array.from(form.querySelectorAll('select')).find(looks);
+    return el||null;
+  }
+
+  const catSel = findCategorySelect();
+  const skuEl  = qn(['sku','stokKodu','stok_kodu','code','kod']);
+  if(!catSel || !skuEl) return;
+
+  function removeOlusturButtons(){
+    Array.from(form.querySelectorAll('button, .btn, [role="button"]')).forEach(el=>{
+      const t=(el.textContent||'').trim().toLowerCase();
+      const nm=(el.getAttribute('name')||'').toLowerCase();
+      const id=(el.id||'').toLowerCase();
+      if (t==='oluştur' || t==='olustur' || nm.includes('createsku') || id.includes('createsku') || id.includes('generatesku')){
+        el.style.display='none'; el.remove();
+      }
+    });
+  }
+  removeOlusturButtons();
+  new MutationObserver(removeOlusturButtons).observe(form,{childList:true,subtree:true});
+
+  function getCategoryText(){
+    const val = catSel.value;
+    const optText = (catSel.tagName==='SELECT') ? (catSel.options[catSel.selectedIndex>=0?catSel.selectedIndex:0]?.text||'') : '';
+    return val && String(val).length>=2 ? val : optText;
+  }
+  function pickPrefix(t){
+    t = norm(t);
+    if (t.includes('rotorlu') && t.includes('mil')) return 'RMIL';
+    if ((t.includes('taslan') || t.includes('taslama')) && t.includes('mil')) return 'TMIL';
+    if (t.includes('mil') && !t.includes('motor')) return 'MIL';
+    if (t.includes('stator')) return 'ST';
+    if (t.includes('rotor')) return 'RT';
+    if (t.includes('sargili') && t.includes('paket')) return 'SP';
+    if (t.includes('paketli') && (t.includes('gövde')||t.includes('govde'))) return 'PG';
+    if (t.includes('motor')) return 'MOT';
+    return 'PRD';
+  }
+  function safeJSON(x){try{return JSON.parse(x)}catch(_){return null}}
+  function collectProducts(){ const out=[]; for(const area of [localStorage,sessionStorage]){ try{ for(let i=0;i<area.length;i++){ const v=safeJSON(area.getItem(area.key(i))); if(v&&v.products) out.push(...v.products);} }catch(_){}} return out; }
+  function getSku(it){ return it?.sku||it?.stokKodu||it?.code||it?.kod||'' }
+  function maxNum(prefix,arr){ let m=0; const re=new RegExp('^'+prefix+'[-_]?([0-9]+)$','i'); for(const it of arr){ const code=String(getSku(it)||'').toUpperCase(); const mt=code.match(re); if(mt){ const n=parseInt(mt[1],10); if(!isNaN(n)&&n>m) m=n; }} return m; }
+  function suggestSku(cat){ const p=pickPrefix(cat); const n=maxNum(p,collectProducts())+1; return p+'-'+String(n).padStart(4,'0'); }
+  function updateSku(force){ const cat=getCategoryText(); if(!cat) return; const p=pickPrefix(cat); const cur=String(skuEl.value||'').toUpperCase(); if(force||!cur||!cur.startsWith(p)) skuEl.value=suggestSku(cat); }
+  ['change','input'].forEach(ev=>catSel.addEventListener(ev,()=>updateSku(true)));
+  form.addEventListener('submit',()=>updateSku(true));
+  updateSku(false);
+
+  const afterEl = catSel.closest('.form-group') || catSel.closest('div') || catSel;
+  let host = form.querySelector('#dynamicFields');
+  if(!host){ host=document.createElement('div'); host.id='dynamicFields'; afterEl.parentNode.insertBefore(host, afterEl.nextSibling); }
+
+  function h(tag,attrs={},children=[]){ const el=document.createElement(tag); for(const k in attrs){ if(k==='class') el.className=attrs[k]; else if(k==='text') el.textContent=attrs[k]; else el.setAttribute(k,attrs[k]); } children.forEach(c=>el.appendChild(c)); return el; }
+  function field(name,label,type='text',opts=null){ const wrap=h('div',{class:'dyn-field'}); const lab=h('label',{for:name,text:label}); let input; if(type==='select'){ input=h('select',{name,id:name}); (opts||[]).forEach(o=>input.appendChild(h('option',{value:o,text:o}))); } else { input=h('input',{type,name,id:name}); if(type==='number') input.setAttribute('step','any'); } input.required=true; wrap.appendChild(lab); wrap.appendChild(input); return wrap; }
+
+  function buildDyn(catText){
+    host.innerHTML='';
+    const t=norm(catText);
+    const grid=h('div',{class:'dyn-grid'});
+    const soketOpts=['Soketli','Düz klemensli','Ters klemensli'];
+    const ykrOpts=['Standart','YKR','YKL'];
+
+    if(t.includes('sargili')&&t.includes('paket')){
+      grid.appendChild(field('kw','Kilowat (kW)','number'));
+      grid.appendChild(field('devir','Devir (rpm)','number'));
+      grid.appendChild(field('voltaj','Voltaj (V)','number'));
+    } else if (t.includes('paketli')&&(t.includes('gövde')||t.includes('govde'))){
+      grid.appendChild(field('devir','Devir (rpm)','number'));
+      grid.appendChild(field('kw','Kilowat (kW)','number'));
+      grid.appendChild(field('voltaj','Voltaj (V)','number'));
+      grid.appendChild(field('musteri','Müşteri','text'));
+      grid.appendChild(field('soketTipi','Soket/Klemens','select',soketOpts));
+      grid.appendChild(field('ykr_ykl','YKR / YKL','select',ykrOpts));
+    } else if (t.includes('motor')){
+      grid.appendChild(field('musteri','Müşteri','text'));
+      grid.appendChild(field('devir','Devir (rpm)','number'));
+      grid.appendChild(field('kw','Kilowat (kW)','number'));
+      grid.appendChild(field('voltaj','Voltaj (V)','number'));
+      grid.appendChild(field('soketTipi','Soket/Klemens','select',soketOpts));
+      grid.appendChild(field('ykr_ykl','YKR / YKL','select',ykrOpts));
+      grid.appendChild(field('milTipi','Mil Tipi','text'));
+    } else if (t.includes('mil')){
+      grid.appendChild(field('milKodu','Mil Kodu','text'));
+      grid.appendChild(field('milTuru','Mil Türü','text'));
+    }
+
+    if (grid.children.length) host.appendChild(grid);
+  }
+  ['change','input'].forEach(ev=>catSel.addEventListener(ev,()=>buildDyn(getCategoryText())));
+  buildDyn(getCategoryText());
+
+})(); 
+</script>
+<!-- === HM Product Form Enhancer v31 END === -->
+
+
+<!-- RTDB FOREIGN-ONLY REFRESH v32 START -->
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
-  // Reuse existing config if provided globally; else fallback to known project
   const fallbackCfg = {
     apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
     authDomain: "hertz-stok-takip.firebaseapp.com",
@@ -802,325 +930,72 @@
   const app = (getApps && getApps().length) ? getApps()[0] : initializeApp(cfg);
   const db  = getDatabase(app);
 
-  // Stable clientId to distinguish self vs foreign writes
-  const ss = window.sessionStorage;
-  let clientId = ss.getItem("hm_client_id");
-  if (!clientId) { clientId = "c" + Math.random().toString(36).slice(2) + Date.now().toString(36); ss.setItem("hm_client_id", clientId); }
-
   const params = new URLSearchParams(location.search);
   const docId  = params.get("doc") || "default";
   const docRef = ref(db, "docs/" + docId);
 
-  // --- LOCAL->RTDB bridge (non-invasive):
-  // Detect app writes by watching localStorage and mirror to RTDB with a writer tag.
-  function safeJSON(s){ try { return JSON.parse(s); } catch(_) { return null; } }
-  function pickState(){
-    let best = { products:null, logs:null };
-    for (let i=0;i<localStorage.length;i++){
-      const v = safeJSON(localStorage.getItem(localStorage.key(i)));
-      if (v && typeof v === 'object' && (Array.isArray(v.products) || Array.isArray(v.logs))){
-        if (best.products==null && Array.isArray(v.products)) best.products = v.products;
-        if (best.logs==null && Array.isArray(v.logs)) best.logs = v.logs;
-      }
-    }
-    if (!best.products) best.products = [];
-    if (!best.logs) best.logs = [];
-    return best;
-  }
-
-  let lastLocalWriteAt = 0;
-  async function mirrorToRTDB(){
-    const st = pickState();
-    lastLocalWriteAt = Date.now();
-    try {
-      await update(docRef, { products: st.products, logs: st.logs, updatedAt: lastLocalWriteAt, _writerId: clientId });
-    } catch (e) {
-      console.warn("mirrorToRTDB failed", e);
-    }
-  }
-
-  // Patch localStorage mutators
+  // track local actions to avoid self-trigger refresh (no bridge, just detection)
+  let lastLocalActionAt = 0;
+  function markLocalAction(){ lastLocalActionAt = Date.now(); }
+  const actionTexts = ['kaydet','ekle','güncelle','guncelle','sil','stok','giriş','girisi','cikis','çıkış','save','add','update','delete'];
+  document.addEventListener('click', (e)=>{
+    const el = e.target.closest('button, [type="submit"], .btn, [role="button"]');
+    if (!el) return;
+    const t = (el.textContent||'').toLowerCase();
+    if (actionTexts.some(a=>t.includes(a))) markLocalAction();
+  }, true);
+  document.addEventListener('submit', ()=>markLocalAction(), true);
+  // Also mark when localStorage changes (app may persist locally)
   const _set = localStorage.setItem.bind(localStorage);
   const _rem = localStorage.removeItem.bind(localStorage);
   const _clr = localStorage.clear.bind(localStorage);
-  localStorage.setItem = function(k,v){ const r=_set(k,v); queueMirror(); return r; };
-  localStorage.removeItem = function(k){ const r=_rem(k); queueMirror(); return r; };
-  localStorage.clear = function(){ const r=_clr(); queueMirror(); return r; };
+  localStorage.setItem = function(k,v){ markLocalAction(); return _set(k,v); };
+  localStorage.removeItem = function(k){ markLocalAction(); return _rem(k); };
+  localStorage.clear = function(){ markLocalAction(); return _clr(); };
 
-  // Also observe common user actions to catch flows that don't touch storage immediately
-  ['submit','click','change'].forEach(ev=> document.addEventListener(ev, ()=>queueMirror(), true));
+  // signature of products/logs only (ignore other fields like heartbeats)
+  function sigOf(data){
+    const p = Array.isArray(data?.products) ? data.products : [];
+    const l = Array.isArray(data?.logs) ? data.logs : [];
+    function tailSig(arr){
+      if (!arr.length) return '0|';
+      const t = arr[arr.length-1] || {};
+      const key = t.sku || t.name || t.id || t.kod || '';
+      const qty = t.qty || t.miktar || t.stock || t.stok || t.adet || '';
+      return arr.length + '|' + String(key).slice(0,32) + '|' + String(qty);
+    }
+    return tailSig(p) + '#' + tailSig(l);
+  }
 
-  let mirrorTimer = null;
-  function queueMirror(){ clearTimeout(mirrorTimer); mirrorTimer = setTimeout(mirrorToRTDB, 150); }
-
-  // --- RTDB->LOCAL: foreign-only hard reload
   let ready = false;
-  let reloading = false;
-  let lastSeenUpdatedAt = 0;
-  const debounce = (fn, ms=300)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; };
-
-  function hardReloadForeign(){
-    if (reloading) return;
-    reloading = true;
+  let prevSig = null;
+  let lastReloadAt = 0;
+  const RELOAD_COOLDOWN = 1200; // ms
+  const LOCAL_ACTION_WINDOW = 1500; // ms
+  function hardReload(){
+    const now = Date.now();
+    if (now - lastReloadAt < RELOAD_COOLDOWN) return;
+    lastReloadAt = now;
     const u = new URL(location.href);
-    u.searchParams.set("_r", Date.now().toString());
+    u.searchParams.set("_r", String(now));
     location.replace(u.toString());
   }
-  const scheduleReload = debounce(hardReloadForeign, 200);
 
   onValue(docRef, (snap)=>{
     const data = snap.val() || {};
-    if (!ready){ ready = true; lastSeenUpdatedAt = data.updatedAt || 0; return; }
-
-    const updatedAt = data.updatedAt || 0;
-    const writerId  = data._writerId || null;
-
-    // Only reload if the change is foreign (writerId != me) OR
-    // if no writerId set (legacy writer), AND avoid thrashing right after our own write
-    const isRecentSelf = (Date.now() - lastLocalWriteAt) < 1200;
-    const isForeign = writerId && writerId !== clientId;
-    const isLegacy  = !writerId && updatedAt && updatedAt !== lastSeenUpdatedAt;
-
-    if ((isForeign || isLegacy) && !isRecentSelf){
-      lastSeenUpdatedAt = updatedAt;
-      scheduleReload();
-    } else {
-      // ignore our own write; just update last seen
-      lastSeenUpdatedAt = updatedAt || lastSeenUpdatedAt;
+    const sig  = sigOf(data);
+    if (!ready){ ready = true; prevSig = sig; return; }
+    if (sig !== prevSig){
+      prevSig = sig;
+      const now = Date.now();
+      const isSelfWindow = (now - lastLocalActionAt) < LOCAL_ACTION_WINDOW;
+      if (!isSelfWindow){
+        hardReload();
+      } // else: ignore our own immediate write
     }
-  }, (err)=>{
-    console.warn("onValue error", err);
   });
-
-  // Expose manual trigger for debugging
-  window.hmSyncNow = mirrorToRTDB;
 </script>
-<!-- RTDB FOREIGN-ONLY REFRESH v29 END -->
-
-
-<!-- === HM Product Form Enhancer v30 START === -->
-<style>
-  /* Scope styles to dynamicFields only to avoid global UI regressions */
-  #dynamicFields{margin-top:12px}
-  #dynamicFields .dyn-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-    gap:12px;
-  }
-  #dynamicFields .dyn-field{display:flex;flex-direction:column}
-  #dynamicFields .dyn-field label{margin-bottom:6px;opacity:.9;font-size:14px}
-  #dynamicFields .dyn-field input,
-  #dynamicFields .dyn-field select{
-    width:100%; box-sizing:border-box;
-    padding:10px 12px;
-    border:1px solid #d0d4dc; border-radius:10px; outline:none;
-    font-size:14px; background:#fff;
-  }
-  #dynamicFields .req-err{color:#c0392b;font-size:12px;margin-top:4px}
-</style>
-<script>
-(function(){
-  // Find the Product Add form robustly (Ürün Ekle modal/form)
-  const forms = Array.from(document.querySelectorAll('form'));
-  let form = null;
-  for (const f of forms){
-    const hasSku = f.querySelector('input[name="sku"], input[name="stokKodu"], input#stokKodu, input[name="code"], input[name="kod"]');
-    const hasSelect = f.querySelector('select');
-    const hasName = f.querySelector('input[name="ad"], input[placeholder*="Ad"], input[name="name"]');
-    if (hasSku && hasSelect && hasName){ form = f; break; }
-  }
-  if (!form) return;
-
-  const trMap = { 'ş':'s','Ş':'s','ğ':'g','Ğ':'g','ı':'i','İ':'i','ç':'c','Ç':'c','ö':'o','Ö':'o','ü':'u','Ü':'u' };
-  const deTR = (s)=> String(s||'').replace(/[şŞğĞıİçÇöÖüÜ]/g, ch => trMap[ch] || ch);
-  const norm = (s)=> deTR(String(s||'').toLowerCase()).replace(/\s+/g,' ').trim();
-  const qn = (names)=>{
-    for (const n of names){
-      let el = form.querySelector(`[name="${n}"]`);
-      if (el) return el;
-      el = form.querySelector('#'+CSS.escape(n));
-      if (el) return el;
-    }
-    return null;
-  };
-
-  // Pick category select by scanning options (stator/rotor/mil/motor/sargılı/paketli gövde)
-  function findCategorySelect(){
-    const selList = Array.from(form.querySelectorAll('select'));
-    const kw = ['stator','rotor','mil','rotorlu','taslan','motor','sargili','sargılı','paketli','gövde','govde'];
-    function looksLikeCategory(sel){
-      for (let i=0;i<sel.options.length;i++){
-        const t = norm(sel.options[i].text || sel.options[i].value || '');
-        if (kw.some(k => t.includes(k))) return true;
-      }
-      return false;
-    }
-    let el = qn(['category','kategori','urunCesidi','urunTuru','productCategory','cat']);
-    if (!el || !looksLikeCategory(el)){
-      el = selList.find(looksLikeCategory);
-    }
-    return el || null;
-  }
-
-  const catSel = findCategorySelect();
-  const skuEl  = qn(['sku','stokKodu','stok_kodu','code','kod']);
-  if(!catSel || !skuEl) return;
-
-  // Remove any 'Oluştur' button (even if UI re-renders)
-  function removeOlusturButtons(){
-    Array.from(form.querySelectorAll('button, .btn, [role="button"]')).forEach(el=>{
-      const t=(el.textContent||'').trim().toLowerCase();
-      const nm=(el.getAttribute('name')||'').toLowerCase();
-      const id=(el.id||'').toLowerCase();
-      if (t==='oluştur' || t==='olustur' || nm.includes('createsku') || id.includes('createsku') || id.includes('generatesku')){
-        el.style.display='none'; el.remove();
-      }
-    });
-  }
-  removeOlusturButtons();
-  new MutationObserver(removeOlusturButtons).observe(form, {childList:true, subtree:true});
-
-  // SKU auto
-  function getCategoryText(){
-    const val = catSel.value;
-    const optText = (catSel.tagName==='SELECT')
-      ? (catSel.options[catSel.selectedIndex >= 0 ? catSel.selectedIndex : 0]?.text || '')
-      : '';
-    return val && String(val).length>=2 ? val : optText;
-  }
-  function pickPrefix(catText){
-    const t = norm(catText);
-    if (t.includes('rotorlu') && t.includes('mil')) return 'RMIL';
-    if ((t.includes('taslan') || t.includes('taslama')) && t.includes('mil')) return 'TMIL';
-    if (t.includes('mil') && !t.includes('motor')) return 'MIL';
-    if (t.includes('stator')) return 'ST';
-    if (t.includes('rotor')) return 'RT';
-    if (t.includes('sargili') && t.includes('paket')) return 'SP';
-    if (t.includes('paketli') && (t.includes('gövde') || t.includes('govde'))) return 'PG';
-    if (t.includes('motor')) return 'MOT';
-    return 'PRD';
-  }
-  function safeParse(x){ try{return JSON.parse(x);}catch(_){return null;} }
-  function collectProducts(){
-    const out=[];
-    for (const area of [localStorage, sessionStorage]){
-      try{
-        for(let i=0;i<area.length;i++){
-          const v = safeParse(area.getItem(area.key(i)));
-          if(v && v.products) out.push(...v.products);
-        }
-      }catch(_){}
-    }
-    return out;
-  }
-  function getSku(it){ return it?.sku || it?.stokKodu || it?.code || it?.kod || ''; }
-  function maxNum(prefix, arr){
-    let m=0; const re=new RegExp('^'+prefix+'[-_]?([0-9]+)$','i');
-    for(const it of arr){
-      const code = String(getSku(it)||'').toUpperCase();
-      const mt = code.match(re);
-      if(mt){ const n=parseInt(mt[1],10); if(!isNaN(n) && n>m) m=n; }
-    }
-    return m;
-  }
-  function suggestSku(catText){
-    const p = pickPrefix(catText);
-    const n = maxNum(p, collectProducts()) + 1;
-    return p + '-' + String(n).padStart(4,'0');
-  }
-  function updateSku(force){
-    const catText = getCategoryText();
-    if(!catText) return;
-    const p = pickPrefix(catText);
-    const cur = String(skuEl.value||'').toUpperCase();
-    if (force || !cur || !cur.startsWith(p)){
-      skuEl.value = suggestSku(catText);
-    }
-  }
-  ['change','input'].forEach(ev=> catSel.addEventListener(ev, ()=>updateSku(true)));
-  form.addEventListener('submit', ()=>updateSku(true), true);
-  updateSku(false);
-
-  // Dynamic fields
-  const afterEl = catSel.closest('.form-group') || catSel.closest('div') || catSel;
-  let host = form.querySelector('#dynamicFields');
-  if(!host){
-    host = document.createElement('div');
-    host.id = 'dynamicFields';
-    afterEl.parentNode.insertBefore(host, afterEl.nextSibling);
-  }
-  function h(tag, attrs={}, children=[]){
-    const el = document.createElement(tag);
-    for(const k in attrs){
-      if(k==='class') el.className = attrs[k];
-      else if(k==='text') el.textContent = attrs[k];
-      else el.setAttribute(k, attrs[k]);
-    }
-    for(const c of children) el.appendChild(c);
-    return el;
-  }
-  function field(name, label, type='text', opts=null){
-    const wrap = h('div', {class:'dyn-field'});
-    const lab = h('label', {for:name, text:label});
-    let input;
-    if(type==='select'){
-      input = h('select', {name, id:name});
-      (opts||[]).forEach(opt=> input.appendChild(h('option', {value:opt, text:opt})));
-    }else{
-      input = h('input', {type, name, id:name});
-      if(type==='number'){ input.setAttribute('step','any'); }
-    }
-    // All dynamic fields are required (except minStock, note which are not here)
-    input.required = true;
-    wrap.appendChild(lab); wrap.appendChild(input);
-    return wrap;
-  }
-  function buildDyn(catText){
-    host.innerHTML='';
-    const t = norm(catText);
-    const grid = h('div', {class:'dyn-grid'});
-    const soketOpts = ['Soketli','Düz klemensli','Ters klemensli'];
-    const ykrOpts   = ['Standart','YKR','YKL'];
-
-    if (t.includes('sargili') && t.includes('paket')){
-      grid.appendChild(field('kw', 'Kilowat (kW)', 'number'));
-      grid.appendChild(field('devir', 'Devir (rpm)', 'number'));
-      grid.appendChild(field('voltaj', 'Voltaj (V)', 'number'));
-    } else if (t.includes('paketli') && (t.includes('gövde') || t.includes('govde'))){
-      grid.appendChild(field('devir', 'Devir (rpm)', 'number'));
-      grid.appendChild(field('kw', 'Kilowat (kW)', 'number'));
-      grid.appendChild(field('voltaj', 'Voltaj (V)', 'number'));
-      grid.appendChild(field('musteri', 'Müşteri', 'text'));
-      grid.appendChild(field('soketTipi', 'Soket/Klemens', 'select', soketOpts));
-      grid.appendChild(field('ykr_ykl', 'YKR / YKL', 'select', ykrOpts));
-    } else if (t.includes('motor')){
-      grid.appendChild(field('musteri', 'Müşteri', 'text'));
-      grid.appendChild(field('devir', 'Devir (rpm)', 'number'));
-      grid.appendChild(field('kw', 'Kilowat (kW)', 'number'));
-      grid.appendChild(field('voltaj', 'Voltaj (V)', 'number'));
-      grid.appendChild(field('soketTipi', 'Soket/Klemens', 'select', soketOpts));
-      grid.appendChild(field('ykr_ykl', 'YKR / YKL', 'select', ykrOpts));
-      grid.appendChild(field('milTipi', 'Mil Tipi', 'text'));
-    } else if (t.includes('mil')){
-      // Mil, Rotorlu Mil, Taşlanmış Mil -> Mil Kodu + Mil Türü
-      grid.appendChild(field('milKodu', 'Mil Kodu', 'text'));
-      grid.appendChild(field('milTuru', 'Mil Türü', 'text'));
-    }
-    if (grid.children.length) host.appendChild(grid);
-  }
-  ['change','input'].forEach(ev=> catSel.addEventListener(ev, ()=> buildDyn(getCategoryText())));
-  buildDyn(getCategoryText());
-
-  // Native required errors cleanup
-  form.addEventListener('input', (e)=>{
-    const el = e.target;
-    const wrap = el.closest('.dyn-field'); if (!wrap) return;
-    const err = wrap.querySelector('.req-err'); if (err) err.textContent = '';
-  }, true);
-
-})(); 
-</script>
-<!-- === HM Product Form Enhancer v30 END === -->
+<!-- RTDB FOREIGN-ONLY REFRESH v32 END -->
 
 </body>
 </html>
