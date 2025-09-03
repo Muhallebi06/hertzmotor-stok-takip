@@ -771,7 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v18): always sync foreign changes + reliable 'by' === -->
+<!-- === RTDB Real-time Sync (v19): always-on sync + flexible LS key + robust by === -->
 <style>
   #hmToast{
     position:fixed; right:16px; bottom:16px; z-index:99990; display:none;
@@ -810,7 +810,6 @@
   const url = new URL(location.href);
   const DOC_ID = url.searchParams.get("doc") || "stoktakip-paylasimli-orta-oda";
 
-  // Username detection
   function pickName(){
     const s = sessionStorage, l = localStorage, q = new URLSearchParams(location.search);
     const keys = ["auth_user","user","username","currentUser","login_user","aktifKullanici","kullanici","kullanıcı","stokTakip.user","stokTakip_user","hm_user"];
@@ -821,7 +820,6 @@
   }
   const ME_NAME = pickName(); try{ sessionStorage.setItem("auth_user", ME_NAME); }catch{}
 
-  const APP_LS_KEY = "stokTakip.v1";
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
   const fmtTR = (n)=> new Intl.NumberFormat('tr-TR').format(Math.abs(Number(n)||0));
 
@@ -837,7 +835,19 @@
     setTimeout(()=>{ toast.classList.add("fade"); setTimeout(()=> location.reload(), fadeMs); }, holdMs);
   }
 
-  // Enhance history table
+  // Detect canonical LS key dynamically
+  const isStockPayload = (obj)=> obj && typeof obj==="object" && ("products" in obj || "logs" in obj);
+  function findCanonicalKey(){
+    for (let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      const v = safeParse(localStorage.getItem(k));
+      if (isStockPayload(v)) return k;
+    }
+    return "stokTakip.v1"; // fallback
+  }
+  let APP_LS_KEY = findCanonicalKey();
+
+  // Enhance history
   function enhanceHistoryTable(){
     const data = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
     const logs = Array.isArray(data.logs) ? data.logs : [];
@@ -877,46 +887,58 @@
 
     const rootRef = ref(db, `docs/${DOC_ID}`);
 
-    // Originals for safe LS writes
+    // Originals
     const _setItem = localStorage.setItem.bind(localStorage);
     const _removeItem = localStorage.removeItem.bind(localStorage);
     const _clear = localStorage.clear.bind(localStorage);
 
-    // Flag local vs remote changes
     let justLocalChange = false;
     let lastSentStr = null, pushTimer = null;
 
-    function schedulePushFrom(valueStr, lastAction="update"){
-      if (!justLocalChange && lastAction==="update") return; // push only for local updates
+    function pushToCloudFrom(valueStr, lastAction="update"){
+      if (!justLocalChange && lastAction==="update") return;
       if (valueStr === lastSentStr && lastAction==="update") { justLocalChange=false; return; }
       lastSentStr = valueStr;
       if (pushTimer) clearTimeout(pushTimer);
       pushTimer = setTimeout(()=>{
-        const obj = safeParse(valueStr) || {};
-        // Ensure logs[].by exists for local writes
+        let obj = safeParse(valueStr); if (!obj || typeof obj!=="object") obj = {};
         if (justLocalChange){
           if (!Array.isArray(obj.logs)) obj.logs = [];
-          if (!obj.logs.length){
-            obj.logs.push({ ts: Date.now(), type: "update", by: ME_NAME, note: "Otomatik" });
-          } else {
-            const last = obj.logs[obj.logs.length-1];
-            if (last){ if (!last.by) last.by = ME_NAME; if (!last.user) last.user = ME_NAME; }
-          }
+          if (!obj.logs.length) obj.logs.push({ ts: Date.now(), type: lastAction, by: ME_NAME });
+          else { const last = obj.logs[obj.logs.length-1]; if (last){ if (!last.by) last.by = ME_NAME; if (!last.user) last.user = ME_NAME; } }
         }
         update(rootRef, {
           products: obj.products||[], logs: obj.logs||[],
           updatedAt: Date.now(), updatedBy: meId, updatedByName: ME_NAME, lastAction
-        }).catch(err => console.error("Buluta yazma hatası:", err));
+        }).catch(console.error);
         justLocalChange = false;
-      }, 180);
+      }, 160);
     }
 
-    // LS overrides: mark only local mutations
-    localStorage.setItem = function(k, v){ const cur = localStorage.getItem(k); justLocalChange = (k===APP_LS_KEY && cur!==v); _setItem(k, v); if (k===APP_LS_KEY) schedulePushFrom(v, "update"); };
-    localStorage.removeItem = function(k){ const existed = localStorage.getItem(k)!=null; justLocalChange = (k===APP_LS_KEY && existed); _removeItem(k); if (k===APP_LS_KEY && existed) schedulePushFrom(JSON.stringify({products:[],logs:[]}), "clear"); };
-    localStorage.clear = function(){ const had = localStorage.getItem(APP_LS_KEY)!=null; justLocalChange = had; _clear(); if (had) schedulePushFrom(JSON.stringify({products:[],logs:[]}), "clear"); };
+    // Override ANY LS writes, detect canonical payload
+    localStorage.setItem = function(k, v){
+      const pre = localStorage.getItem(k);
+      justLocalChange = (pre !== v);
+      _setItem(k, v);
+      // If this key contains stock payload or we didn't have a canonical yet, update APP_LS_KEY
+      const obj = safeParse(v);
+      if (isStockPayload(obj)) APP_LS_KEY = k;
+      if (isStockPayload(obj)) pushToCloudFrom(v, "update");
+    };
+    localStorage.removeItem = function(k){
+      const existed = localStorage.getItem(k)!=null;
+      justLocalChange = existed;
+      _removeItem(k);
+      if (k===APP_LS_KEY || existed){ pushToCloudFrom(JSON.stringify({products:[], logs:[]}), "clear"); }
+    };
+    localStorage.clear = function(){
+      const had = localStorage.length>0;
+      justLocalChange = had;
+      _clear();
+      pushToCloudFrom(JSON.stringify({products:[], logs:[]}), "clear");
+    };
 
-    // Diff for toast message
+    // Diff helpers for toast
     const keyFields=["id","kod","code","stokKodu","stok_kodu","skod"];
     const nameFields=["ad","adı","adi","isim","name","urun","ürün","product","title"];
     const qtyFields=["adet","miktar","stok","qty","quantity","amount"];
@@ -926,9 +948,10 @@
     const mapByKeyFull = list => { const m=new Map(); (list||[]).forEach(x=> m.set(getKey(x), { qty:getQty(x), label:getLabel(x) })); return m; };
     const diffProducts = (prev, curr) => { const a=mapByKeyFull(prev||[]), b=mapByKeyFull(curr||[]); const keys=new Set([...a.keys(),...b.keys()]); const changes=[]; for(const k of keys){ const qa=a.get(k)?.qty||0, qb=b.get(k)?.qty||0; const lbl=(b.get(k)?.label||a.get(k)?.label||"ürün"); const d=qb-qa; if(d!==0) changes.push({ key:k, label:lbl, delta:d }); } return changes.sort((x,y)=> Math.abs(y.delta)-Math.abs(x.delta)); };
 
-    // Apply + toast on foreign updates (ALWAYS reload on foreign newer)
+    // Apply + toast on foreign updates (always)
     let lastApplied=0, prevProducts=null, primed=false;
-    onValue(rootRef, (snap) => {
+    const root = ref(db, `docs/${DOC_ID}`);
+    onValue(root, (snap) => {
       const v = snap.val(); if(!v || typeof v!=="object") return;
       const { products=[], logs=[], updatedAt=0, updatedBy=null, updatedByName="Biri", lastAction="update" } = v;
 
@@ -940,7 +963,6 @@
 
       if (updatedBy && updatedBy===meId){ lastApplied=updatedAt; prevProducts=products; return; }
 
-      // Toast message (single vs multi)
       const changes = diffProducts(prevProducts, products);
       let msg="";
       if (lastAction==="clear"){
@@ -961,13 +983,11 @@
 
     // Seed if empty
     setTimeout(()=>{
-      onValue(ref(db, `docs/${DOC_ID}`), (s)=>{
+      onValue(root, (s)=>{
         if(!s.exists()){
+          const dataKey = findCanonicalKey(); if (dataKey) APP_LS_KEY = dataKey;
           const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-          set(ref(db, `docs/${DOC_ID}`), {
-            products: local.products||[], logs: local.logs||[],
-            updatedAt: Date.now(), updatedByName: ME_NAME, lastAction: "seed"
-          }).catch(console.error);
+          set(root, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now(), updatedByName: ME_NAME, lastAction: "seed" }).catch(console.error);
         }
       }, { onlyOnce: true });
     }, 300);
@@ -976,11 +996,10 @@
     document.addEventListener("rtdb_sync", enhanceHistoryTable);
   }
 
-  const isAuthed = () => (sessionStorage.getItem("auth_ok") === "1");
-  if (isAuthed()) startSync();
-  else document.addEventListener("auth_ok", startSync, { once: true });
+  // v19: ALWAYS start sync (even before login), so other devices don't miss events
+  startSync();
 </script>
-<!-- === /RTDB Sync v18 === -->
+<!-- === /RTDB Sync v19 === -->
 
 </body>
 </html>
