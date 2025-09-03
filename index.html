@@ -771,7 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v22): in-place apply, no toast/no reload === -->
+<!-- === RTDB Real-time Sync (v23): LS poller + in-place apply === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -804,7 +804,7 @@
   }
   let APP_LS_KEY = findCanonicalKey();
 
-  // Presence (optional UI)
+  // Presence (optional)
   const presRef = ref(db, `docs/${DOC_ID}/presence`);
   const meId = crypto.randomUUID();
   const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
@@ -826,6 +826,10 @@
   let justLocalChange = false;
   let lastSentStr = null, pushTimer = null;
 
+  // Remember last value written by RTDB apply, so poller won't echo
+  let lastRemoteStr = null;
+  let lastRemoteTs = 0;
+
   function pushToCloudFrom(valueStr, lastAction="update"){
     if (!justLocalChange && lastAction==="update") return;
     if (valueStr === lastSentStr && lastAction==="update") { justLocalChange=false; return; }
@@ -838,10 +842,10 @@
         updatedAt: Date.now(), lastAction
       }).catch(console.error);
       justLocalChange = false;
-    }, 120);
+    }, 100);
   }
 
-  // Watch ANY LS writes; push only for stock payloads
+  // Intercept setItem/removeItem/clear (catches most frameworks)
   localStorage.setItem = function(k, v){
     const pre = localStorage.getItem(k);
     justLocalChange = (pre !== v);
@@ -863,22 +867,39 @@
     pushToCloudFrom(JSON.stringify({products:[], logs:[]}), "clear");
   };
 
-  // In-place apply: after RTDB pull, write LS via original setItem and ping render hooks
+  // --- NEW: LocalStorage POLLER (for writes that bypass setItem) ---
+  let lastSeenKey = APP_LS_KEY;
+  let lastSeenStr = localStorage.getItem(lastSeenKey);
+  setInterval(()=>{
+    // Re-scan to adapt if app changes the key
+    const k = findCanonicalKey();
+    if (k) lastSeenKey = k;
+    const cur = localStorage.getItem(lastSeenKey);
+    if (cur !== lastSeenStr){
+      // If the change equals lastRemoteStr shortly after RTDB apply, ignore
+      const isFromRemote = (cur === lastRemoteStr) && (Date.now() - lastRemoteTs < 3000);
+      justLocalChange = !isFromRemote;
+      lastSeenStr = cur;
+      if (isStockPayload(safeParse(cur))) pushToCloudFrom(cur || "{}", "update");
+    }
+  }, 700); // gentle poll
+
+  // In-place apply
   function applyInPlace(products, logs){
-    try{ _setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{}
-    // 1) If your app exposes a render/refetch function, call it:
+    const str = JSON.stringify({products, logs});
+    try{ _setItem(APP_LS_KEY, str); lastRemoteStr = str; lastRemoteTs = Date.now(); }catch{}
+    // Try known hooks
     if (typeof window.renderStok === "function") { try { window.renderStok(); return; } catch {} }
     if (window.app && typeof window.app.render === "function") { try { window.app.render(); return; } catch {} }
-    // 2) Broadcast custom event
+    // Broadcast events
     try { document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { key: APP_LS_KEY } })); } catch {}
-    // 3) Fire a synthetic 'storage' event so any listeners react (even same tab)
     try {
-      const evt = new StorageEvent("storage", { key: APP_LS_KEY, newValue: localStorage.getItem(APP_LS_KEY), storageArea: localStorage });
+      const evt = new StorageEvent("storage", { key: APP_LS_KEY, newValue: str, storageArea: localStorage });
       window.dispatchEvent(evt);
     } catch {}
   }
 
-  // Realtime listener: no reload, no toast; just in-place apply
+  // Realtime listener
   let primed=false, lastApplied=0;
   onValue(rootRef, (snap) => {
     const v = snap.val(); if(!v || typeof v!=="object") return;
@@ -899,13 +920,14 @@
   setTimeout(()=>{
     onValue(rootRef, (s)=>{
       if(!s.exists()){
+        const k = findCanonicalKey(); if (k) APP_LS_KEY = k;
         const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
         set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now(), lastAction: "seed" }).catch(console.error);
       }
     }, { onlyOnce: true });
   }, 400);
 </script>
-<!-- === /RTDB Sync v22 === -->
+<!-- === /RTDB Sync v23 === -->
 
 </body>
 </html>
