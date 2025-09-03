@@ -19,20 +19,15 @@
     .no-scrollbar::-webkit-scrollbar{ display:none; }
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
   </style>
-</head>
+
+    <script>const $=(s,r=document)=>r.querySelector(s); const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));</script>
+    </head>
 <body class="bg-slate-50 text-slate-800">
 
 <!-- === Simple Login Gate (user: hertz / pass: hertz) === -->
 <style>
-  #authGate {
-    position: fixed; inset: 0; display: grid; place-items: center; z-index: 99999;
-    background: radial-gradient(1000px 600px at 30% 20%, rgba(205,105,40,.08), transparent 60%) , #0b1220;
-    color: #e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  }
-  #authCard {
-    width: min(380px, 92vw); background: #111827; border: 1px solid #1f2937; border-radius: 14px;
-    padding: 22px 22px 16px; box-shadow: 0 10px 40px rgba(0,0,0,.35);
-  }
+  #authGate { position: fixed; inset:0; display:grid; place-items:center; z-index:99999; background: radial-gradient(1000px 600px at 30% 20%, rgba(205,105,40,.08), transparent 60%), #0b1220; color:#e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+  #authCard { width: min(92vw, 440px); margin: 0 auto; background:#111827; border:1px solid #374151; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.3);}
   #authCard h2 { margin: 0 0 8px; font-size: 18px; color: #f3f4f6; }
   #authCard p  { margin: 0 0 16px; font-size: 13px; color: #94a3b8; }
   .row { display: grid; gap: 8px; margin: 10px 0 12px; }
@@ -200,43 +195,6 @@
 </script>
 <!-- === /Login Gate === -->
 
-    <script>
-    // --- Auth logic ---
-    (function(){
-      const RL='role', UN='user';
-      const gate = document.getElementById('authGate');
-      const form = document.getElementById('authForm');
-      const err = document.getElementById('authErr');
-      const btnLogout = document.getElementById('logoutBtn');
-      function showGate(){ if(gate){ gate.style.display='flex'; } }
-      function hideGate(){ if(gate){ gate.style.display='none'; } }
-      window.openLogin = showGate;
-      window.logout = function(){
-        try{ sessionStorage.removeItem(RL); sessionStorage.removeItem(UN); }catch(e){}
-        applyRoleUI && applyRoleUI(); try{sessionStorage.removeItem('auth_ok');}catch(e){};
-        showGate();
-      };
-      btnLogout && btnLogout.addEventListener('click', ()=> window.logout());
-
-      form && form.addEventListener('submit', function(e){
-        e.preventDefault();
-        const u = (document.getElementById('authUser')?.value || '').trim().toLowerCase();
-        const p = (document.getElementById('authPass')?.value || '').trim();
-        if(!u || !p){ err && (err.textContent='Lütfen kullanıcı adı ve şifre girin.'); return; }
-        // Basit kural: şifre 'hertz' ise giriş kabul. u === 'admin' ise admin rolü ver.
-        const role = (u==='admin') ? 'admin' : 'user';
-        if(p!=='hertz'){ err && (err.textContent='Şifre hatalı.'); return; }
-        try{ sessionStorage.setItem(RL, role); sessionStorage.setItem(UN, u); }catch(e){}
-        hideGate(); applyRoleUI && applyRoleUI(); try{sessionStorage.setItem('auth_ok','1');}catch(e){}; document.dispatchEvent(new Event('auth_ok'));
-      });
-
-      // İlk yüklemede
-      const role = sessionStorage.getItem(RL);
-      if(!role){ showGate(); } else { hideGate(); applyRoleUI && applyRoleUI(); try{sessionStorage.setItem('auth_ok','1');}catch(e){}; document.dispatchEvent(new Event('auth_ok')); }
-    })();
-    </script>
-    
-
 
   <header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200">
     <div class="mx-auto max-w-7xl px-3 md:px-4 py-3 flex items-center gap-3">
@@ -251,7 +209,7 @@
         <button id="btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
         <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
         <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-        <button id="btnClearAll" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm verileri sil</button>
+        <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
       </div>
     </div>
   </header>
@@ -511,8 +469,7 @@
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
 
     function load(){ try{ const raw=localStorage.getItem(LS_KEY); if(!raw) return; const data=JSON.parse(raw); state.products=data.products||[]; state.logs=data.logs||[]; }catch(e){ console.error('Yükleme hatası',e);} }
-    function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({products:state.products,logs:state.logs})); }catch(e){ console.error('Kaydetme hatası',e);} try{ if(window.DB && typeof ref==='function' && typeof update==='function'){ update(ref(window.DB, `docs/${DOC_ID}/data`), { products: state.products, logs: state.logs, updatedAt: Date.now() }); } }catch(_e){}
-      render(); }
+    function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({products:state.products,logs:state.logs})); }catch(e){ console.error('Kaydetme hatası',e);} render(); }
 
     const fmt=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(v):n};
     const nowISO=()=>new Date().toISOString();
@@ -528,7 +485,7 @@
       const listMobile=$('#listMobile'); listMobile.innerHTML='';
 
       let list=[...state.products];
-      if(q) list=list.filter(p=>(((p.name||'')+' '+(p.sku||'')+' '+(p.note||'')+' '+(CATEGORY_LABEL[p.category]||''))).toLowerCase().includes(q));
+      if(q) list=list.filter(p=>(p.name+' '+p.sku+' '+(p.note||'')+' '+(CATEGORY_LABEL[p.category]||'')).toLowerCase().includes(q));
       if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
 
       // Sıralama
@@ -621,7 +578,7 @@
     $('#btnImport').addEventListener('click',()=>$('#fileInput').click());
     $('#fileInput').addEventListener('change',e=>{ const f=e.target.files?.[0]; if(f) importJSONFile(f); e.target.value=''; });
 
-    $('#btnClearAll').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
+    $('#btnClear').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
 
     $('#search').addEventListener('input',render);
     $('#onlyLow').addEventListener('change',render);
@@ -685,28 +642,32 @@
     appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
   };
 
-  function startSync(){const app = initializeApp(firebaseConfig);
+  function startSync(){
+    const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
 
-    const urlDoc = new URLSearchParams(location.search).get("doc");
-    const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
+    const DOC_ID = 'hertz-stok';
     const rootRef = ref(db, `docs/${DOC_ID
       window.DB = db;
-      const APP_LS_KEY = "stokTakip.v1";
-      const EMPTY_DATA = { products: [], logs: [], updatedAt: Date.now() };
-
-      const dataRef = ref(db, `docs/${DOC_ID}/data`);
+      const dataRef = ref(db, `app/hertz_stok/data`);
       onValue(dataRef, (snap)=>{
-        const remote = snap.val() || EMPTY_DATA;
+        const remote = snap.val() || { products: [], logs: [], updatedAt: Date.now() };
         state.products = Array.isArray(remote.products) ? remote.products : [];
         state.logs     = Array.isArray(remote.logs) ? remote.logs : [];
-        try{ localStorage.setItem(APP_LS_KEY, JSON.stringify(remote)); }catch(e){}
+        try{ localStorage.setItem(LS_KEY, JSON.stringify(remote)); }catch(e){}
         if (typeof render === 'function') render();
-      }, { onlyOnce: false });
+      });
+      // Presence (optional)
+      try{
+        const meId  = crypto.randomUUID();
+        const meRef = ref(db, `app/hertz_stok/presence/${meId}`);
+        set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
+        onDisconnect(meRef).remove();
+      }catch(_){}
         }`);
-    const presRef = ref(db, `docs/${DOC_ID}/presence`);
+    const presRef = ref(db, `app/hertz_stok/presence`);
     const meId    = crypto.randomUUID();
-    const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
+    const meRef   = ref(db, `app/hertz_stok/presence/${meId}`);
     set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
     onDisconnect(meRef).remove();
 
@@ -1082,95 +1043,6 @@
   });
 </script>
 <!-- RTDB COMMIT-SMART RELOAD v41 END -->
-
-
-    <script>
-    // --- Product dialog & SKU ---
-    (function(){
-      const dialog = document.getElementById('productDialog');
-      const form = document.getElementById('productForm');
-      const btnAutoSku = document.getElementById('btnAutoSku');
-      const btnCancel = document.getElementById('productCancelBtn');
-      const title = document.getElementById('productDialogTitle');
-
-      const PREFIX = {
-        stator:'ST', rotor:'RT', mil:'MIL', rotorluMil:'RM', taslanmisMil:'TM',
-        sargiliPaket:'SP', paketliGovde:'PG', motor:'M'
-      };
-
-      function genSku(){
-        const cat = form.category?.value || 'GEN';
-        const pre = PREFIX[cat] || 'GEN';
-        // Basit benzersiz numara: tarih + kısa random
-        const now = new Date();
-        const part = now.getFullYear().toString().slice(2)+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
-        const rand = Math.random().toString(36).slice(2,6).toUpperCase();
-        return pre+'-'+part+'-'+rand;
-      }
-      window.genSku = genSku;
-
-      window.openProductDialog = function(p=null){
-        title.textContent = p ? 'Ürünü Düzenle' : 'Ürün Ekle';
-        form.reset();
-        if(p){
-          for(const [k,v] of Object.entries(p)){
-            if(form[k]!==undefined && form[k]!=null){
-              form[k].value = v;
-            }
-          }
-        } else {
-          if(form.sku) form.sku.value = genSku();
-          if(form.min) form.min.value = 0;
-        }
-        dialog?.showModal();
-      };
-      function closeDialog(){ dialog?.close(); }
-      btnCancel && btnCancel.addEventListener('click', closeDialog);
-      btnAutoSku && btnAutoSku.addEventListener('click', ()=>{ if(form.sku) form.sku.value = genSku(); });
-
-      // Save / upsert
-      form && form.addEventListener('submit', function(e){
-        e.preventDefault();
-        const data = Object.fromEntries(new FormData(form).entries());
-        if(!data.sku || !data.name){ alert('Ad ve stok kodu zorunlu.'); return; }
-        // normalize types
-        data.min = Number(data.min||0);
-        data.qty = Number(data.qty||0);
-        data.id = data.id || ('p_'+Date.now());
-        // upsert by sku
-        let ex = state.products.find(p=> (p.sku||'').toLowerCase() === data.sku.toLowerCase());
-        if(ex){
-          Object.assign(ex, data);
-          state.logs.push({t:Date.now(), type:'update', sku: data.sku, qty: data.qty||0, note:'Ürün güncellendi'});
-        } else {
-          // default qty 0; kullanıcı stok hareketinden giriş yapabilir
-          data.qty = data.qty||0;
-          state.products.push(data);
-          state.logs.push({t:Date.now(), type:'create', sku: data.sku, qty: data.qty||0, note:'Yeni ürün'});
-        }
-        save && save();
-        render && render();
-        closeDialog();
-      });
-    })();
-    </script>
-    
-<script>document.getElementById('btnAdd')?.addEventListener('click',()=>openProductDialog());</script>
-
-<script>
-(function(){
-  const form = document.getElementById('productForm');
-  if(form){
-    form.addEventListener('keydown', (e)=>{
-      if(e.key === 'Enter' && !e.shiftKey){
-        // Eğer focus bir textarea ise ve shift yoksa yine de kaydet
-        e.preventDefault();
-        form.requestSubmit?.();
-      }
-    });
-  }
-})();
-</script>
 
 </body>
 </html>
