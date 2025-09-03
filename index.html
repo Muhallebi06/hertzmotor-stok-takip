@@ -915,14 +915,12 @@
 <!-- === HM Product Form Enhancer v31 END === -->
 
 
-
-
-
-<!-- RTDB REALTIME ANY-CHANGE RELOAD v38 START -->
+<!-- RTDB ULTRA-SIMPLE BROADCAST v39 START -->
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { getDatabase, ref, onValue, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
+  // --- Firebase init (reuse if already inited)
   const fallbackCfg = {
     apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
     authDomain: "hertz-stok-takip.firebaseapp.com",
@@ -936,75 +934,48 @@
   const app = (getApps && getApps().length) ? getApps()[0] : initializeApp(cfg);
   const db  = getDatabase(app);
 
+  // --- Doc selection (?doc=...)
   const params = new URLSearchParams(location.search);
   const docId  = params.get("doc") || "default";
   const docRef = ref(db, "docs/" + docId);
 
-  // --- Helpers
-  function safeJSON(s){ try { return JSON.parse(s); } catch(_) { return null; } }
-  function detectStateKey(){
-    let bestKey = null, bestScore = -1;
-    for (let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      const v = safeJSON(localStorage.getItem(k));
-      if (!v || typeof v !== 'object') continue;
-      const score = (Array.isArray(v.products)?10:0) + (Array.isArray(v.logs)?3:0);
-      if (score > bestScore){ bestScore = score; bestKey = k; }
-    }
-    return bestKey || "hm_state";
-  }
-  const STATE_KEY = detectStateKey();
-
-  function readLocal(){ const raw = safeJSON(localStorage.getItem(STATE_KEY))||{}; return { products: Array.isArray(raw.products)?raw.products:[], logs: Array.isArray(raw.logs)?raw.logs:[] }; }
-  function stateSig(s){
-    const p = Array.isArray(s.products)?s.products:[];
-    const l = Array.isArray(s.logs)?s.logs:[];
-    const tailP = p.length ? (p[p.length-1].sku || p[p.length-1].name || p[p.length-1].id || '') : '';
-    const tailL = l.length ? (l[l.length-1].msg || l[l.length-1].t || '') : '';
-    return p.length + "|" + tailP + "#" + l.length + "|" + tailL;
-  }
+  // --- INBOUND: Reload on ANY change after initial (no writer checks, no signatures)
+  let initial = true;
   function hardReload(){
     const u = new URL(location.href);
     u.searchParams.set("_r", Date.now().toString());
     location.replace(u.toString());
   }
-
-  // --- Outbound: push when local != last RTDB signature
-  let lastRTDBSig = "";
-  let lastPushedSig = "";
-  function tryPush(){
-    const st = readLocal();
-    const sig = stateSig(st);
-    if (sig && sig !== lastRTDBSig && sig !== lastPushedSig){
-      lastPushedSig = sig;
-      update(docRef, { products: st.products, logs: st.logs, updatedAt: Date.now() })
-        .catch(e=>console.warn('RTDB update failed', e));
-    }
-  }
-  // Hooks + periodic
-  ['click','submit','change','keyup'].forEach(ev=>document.addEventListener(ev, ()=> setTimeout(tryPush, 120), true));
-  const _set = localStorage.setItem.bind(localStorage);
-  localStorage.setItem = function(k,v){ const r=_set(k,v); setTimeout(tryPush, 60); return r; };
-  const _rem = localStorage.removeItem.bind(localStorage);
-  localStorage.removeItem = function(k){ const r=_rem(k); setTimeout(tryPush, 60); return r; };
-  const _clr = localStorage.clear.bind(localStorage);
-  localStorage.clear = function(){ const r=_clr(); setTimeout(tryPush, 60); return r; };
-  setInterval(tryPush, 1000);
-
-  // --- Inbound: reload on ANY change after initial
-  let initial = true;
-  onValue(docRef, (snap)=>{
-    const data = snap.val() || {};
-    const incoming = { products: data.products||[], logs: data.logs||[] };
-    const sig = stateSig(incoming);
-    if (initial){ initial = false; lastRTDBSig = sig; return; }
-    if (sig !== lastRTDBSig){
-      lastRTDBSig = sig;
-      hardReload();
-    }
+  onValue(docRef, (_snap)=>{
+    if (initial){ initial = false; return; }
+    // Any change under docs/<docId> -> reload this page
+    hardReload();
   });
+
+  // --- OUTBOUND: Broadcast a tick on user actions & storage changes (guaranteed change)
+  function broadcastTick(){
+    // Always update unique fields so RTDB change is guaranteed
+    update(docRef, { _tick: Date.now(), _srv: serverTimestamp(), _rnd: Math.random() })
+      .catch(e=>console.warn('broadcast tick failed', e));
+  }
+
+  // Aggressively hook user interactions
+  ['click','submit','change','keyup','keydown','input'].forEach(ev=>{
+    document.addEventListener(ev, ()=> setTimeout(broadcastTick, 50), true);
+  });
+
+  // Also hook storage ops (some flows only touch localStorage)
+  const _set = localStorage.setItem.bind(localStorage);
+  const _rem = localStorage.removeItem.bind(localStorage);
+  const _clr = localStorage.clear.bind(localStorage);
+  localStorage.setItem = function(k,v){ const r=_set(k,v); setTimeout(broadcastTick, 50); return r; };
+  localStorage.removeItem = function(k){ const r=_rem(k); setTimeout(broadcastTick, 50); return r; };
+  localStorage.clear = function(){ const r=_clr(); setTimeout(broadcastTick, 50); return r; };
+
+  // Safety net: periodic heartbeat to ensure liveness
+  setInterval(broadcastTick, 5000);
 </script>
-<!-- RTDB REALTIME ANY-CHANGE RELOAD v38 END -->
+<!-- RTDB ULTRA-SIMPLE BROADCAST v39 END -->
 
 </body>
 </html>
