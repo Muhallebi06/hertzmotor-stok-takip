@@ -771,7 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v9): reload only on foreign, newer changes === -->
+<!-- === RTDB Real-time Sync (v10): reload only on real foreign changes; suppress no-ops === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -794,9 +794,11 @@
 
   const APP_LS_KEY = "stokTakip.v1";
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
+  const contentHash = (obj)=>{
+    try { return JSON.stringify(obj).length + ":" + (JSON.stringify(obj)||"").slice(0,64); } catch { return Math.random()+""; }
+  };
 
   function startSync(){
-    // Presence
     const presRef = ref(db, `docs/${DOC_ID}/presence`);
     const meId = crypto.randomUUID();
     const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
@@ -808,55 +810,85 @@
       if (el) el.textContent = `Çevrimiçi: ${n}`;
     });
 
-    // Data path
     const rootRef = ref(db, `docs/${DOC_ID}`);
 
-    // Push helper
-    const push = (obj)=> update(rootRef, {
-      products: obj.products||[], logs: obj.logs||[],
-      updatedAt: Date.now(), updatedBy: meId
-    }).catch(err => console.error("Buluta yazma hatası:", err));
-
-    // Mirror LS -> RTDB
+    // Debounced + deduplicated LS -> RTDB
     const _setItem    = localStorage.setItem.bind(localStorage);
     const _removeItem = localStorage.removeItem.bind(localStorage);
     const _clear      = localStorage.clear.bind(localStorage);
 
+    let lastSentStr = null;
+    let pushTimer = null;
+    function schedulePushFrom(valueStr){
+      if (valueStr === lastSentStr) return;
+      lastSentStr = valueStr;
+      if (pushTimer) clearTimeout(pushTimer);
+      pushTimer = setTimeout(()=>{
+        const obj = safeParse(valueStr) || {};
+        update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now(), updatedBy: meId })
+          .catch(err => console.error("Buluta yazma hatası:", err));
+      }, 250);
+    }
+
     localStorage.setItem = function(k, v){
+      const cur = localStorage.getItem(k);
       _setItem(k, v);
-      if (k === APP_LS_KEY) push(safeParse(v) || {});
+      if (k === APP_LS_KEY) {
+        if (cur === v) return;
+        schedulePushFrom(v);
+      }
     };
     localStorage.removeItem = function(k){
+      const existed = localStorage.getItem(k) != null;
       _removeItem(k);
-      if (k === APP_LS_KEY) push({ products: [], logs: [] });
+      if (k === APP_LS_KEY && existed) {
+        schedulePushFrom(JSON.stringify({ products: [], logs: [] }));
+      }
     };
     localStorage.clear = function(){
+      const had = localStorage.getItem(APP_LS_KEY) != null;
       _clear();
-      push({ products: [], logs: [] });
+      if (had) schedulePushFrom(JSON.stringify({ products: [], logs: [] }));
     };
 
-    // Only reload on *foreign* newer updates
+    // RTDB -> UI (only foreign, newer, content-changed)
     let lastApplied = 0;
+    let prevHash = null;
+    let primed = false;
+
     onValue(rootRef, (snap) => {
       const v = snap.val();
       if(!v || typeof v !== "object") return;
       const { products = [], logs = [], updatedAt = 0, updatedBy = null } = v;
+      const h = contentHash({products, logs});
 
-      // Ignore snapshots that are not newer
+      if (!primed){
+        primed = true;
+        lastApplied = updatedAt;
+        prevHash = h;
+        try { _setItem(APP_LS_KEY, JSON.stringify({ products, logs })); } catch {}
+        return;
+      }
+
       if (updatedAt <= lastApplied) return;
-      lastApplied = updatedAt;
 
-      // Update local state used by the app
+      // Update local cache
       try { _setItem(APP_LS_KEY, JSON.stringify({ products, logs })); } catch {}
 
-      // If this change is mine, do nothing (I already have latest UI)
-      if (updatedBy && updatedBy === meId) return;
+      // If mine -> accept but don't reload
+      if (updatedBy && updatedBy === meId) {
+        lastApplied = updatedAt; prevHash = h; return;
+      }
 
-      // Foreign change and newer -> full refresh so everyone sees the same
+      // If content didn't change, skip
+      if (h === prevHash) { lastApplied = updatedAt; return; }
+
+      // Foreign & newer & changed -> reload
+      lastApplied = updatedAt; prevHash = h;
       location.reload();
     });
 
-    // Seed if cloud empty
+    // Seed if empty
     setTimeout(() => {
       onValue(rootRef, (s) => {
         if(!s.exists()){
@@ -871,7 +903,7 @@
   if (isAuthed()) startSync();
   else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
-<!-- === /RTDB Sync v9 === -->
+<!-- === /RTDB Sync v10 === -->
 
 </body>
 </html>
