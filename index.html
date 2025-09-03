@@ -771,7 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync (v17): fix push loops + correct authoring === -->
+<!-- === RTDB Real-time Sync (v18): always sync foreign changes + reliable 'by' === -->
 <style>
   #hmToast{
     position:fixed; right:16px; bottom:16px; z-index:99990; display:none;
@@ -823,23 +823,21 @@
 
   const APP_LS_KEY = "stokTakip.v1";
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
-  const contentHash = (obj)=>{ try { return JSON.stringify(obj).length + ":" + (JSON.stringify(obj)||"").slice(0,64); } catch { return Math.random()+""; } };
   const fmtTR = (n)=> new Intl.NumberFormat('tr-TR').format(Math.abs(Number(n)||0));
-  const clip = (s, n=48)=> (s||"").toString().length>n ? (s||"").toString().slice(0,n-1)+"…" : (s||"");
 
   // Toast
   const toast = document.getElementById("hmToast");
   const toastMsg = toast ? toast.querySelector(".msg") : null;
   const toastBtn = document.getElementById("hmToastReload");
   if (toastBtn) toastBtn.addEventListener("click", ()=> location.reload());
-  function showToastThenReload(msg, holdMs=1300, fadeMs=350){
+  function showToastThenReload(msg, holdMs=1200, fadeMs=350){
     if (toastMsg) toastMsg.textContent = msg;
     if (!toast) { setTimeout(()=>location.reload(), holdMs); return; }
     toast.classList.remove("fade"); toast.classList.add("show");
     setTimeout(()=>{ toast.classList.add("fade"); setTimeout(()=> location.reload(), fadeMs); }, holdMs);
   }
 
-  // Enhance history table with "Kullanıcı" column
+  // Enhance history table
   function enhanceHistoryTable(){
     const data = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
     const logs = Array.isArray(data.logs) ? data.logs : [];
@@ -879,42 +877,46 @@
 
     const rootRef = ref(db, `docs/${DOC_ID}`);
 
-    // --- Bind originals to avoid feedback loop ---
+    // Originals for safe LS writes
     const _setItem = localStorage.setItem.bind(localStorage);
     const _removeItem = localStorage.removeItem.bind(localStorage);
     const _clear = localStorage.clear.bind(localStorage);
 
-    // Flag to know if LS change is local user action
+    // Flag local vs remote changes
     let justLocalChange = false;
     let lastSentStr = null, pushTimer = null;
 
     function schedulePushFrom(valueStr, lastAction="update"){
-      if (!justLocalChange && lastAction==="update") return; // do not push RTDB for remote-applied LS
+      if (!justLocalChange && lastAction==="update") return; // push only for local updates
       if (valueStr === lastSentStr && lastAction==="update") { justLocalChange=false; return; }
       lastSentStr = valueStr;
       if (pushTimer) clearTimeout(pushTimer);
-      const authorName = ME_NAME;
       pushTimer = setTimeout(()=>{
         const obj = safeParse(valueStr) || {};
-        // Only when local, mark last log with author
-        if (justLocalChange && Array.isArray(obj.logs) && obj.logs.length){
-          const last = obj.logs[obj.logs.length-1];
-          if (last){ if (!last.by) last.by = authorName; if (!last.user) last.user = authorName; }
+        // Ensure logs[].by exists for local writes
+        if (justLocalChange){
+          if (!Array.isArray(obj.logs)) obj.logs = [];
+          if (!obj.logs.length){
+            obj.logs.push({ ts: Date.now(), type: "update", by: ME_NAME, note: "Otomatik" });
+          } else {
+            const last = obj.logs[obj.logs.length-1];
+            if (last){ if (!last.by) last.by = ME_NAME; if (!last.user) last.user = ME_NAME; }
+          }
         }
         update(rootRef, {
           products: obj.products||[], logs: obj.logs||[],
-          updatedAt: Date.now(), updatedBy: meId, updatedByName: authorName, lastAction
+          updatedAt: Date.now(), updatedBy: meId, updatedByName: ME_NAME, lastAction
         }).catch(err => console.error("Buluta yazma hatası:", err));
         justLocalChange = false;
-      }, 200);
+      }, 180);
     }
 
-    // Override LS methods for LOCAL mutations only
+    // LS overrides: mark only local mutations
     localStorage.setItem = function(k, v){ const cur = localStorage.getItem(k); justLocalChange = (k===APP_LS_KEY && cur!==v); _setItem(k, v); if (k===APP_LS_KEY) schedulePushFrom(v, "update"); };
     localStorage.removeItem = function(k){ const existed = localStorage.getItem(k)!=null; justLocalChange = (k===APP_LS_KEY && existed); _removeItem(k); if (k===APP_LS_KEY && existed) schedulePushFrom(JSON.stringify({products:[],logs:[]}), "clear"); };
     localStorage.clear = function(){ const had = localStorage.getItem(APP_LS_KEY)!=null; justLocalChange = had; _clear(); if (had) schedulePushFrom(JSON.stringify({products:[],logs:[]}), "clear"); };
 
-    // Diff helpers
+    // Diff for toast message
     const keyFields=["id","kod","code","stokKodu","stok_kodu","skod"];
     const nameFields=["ad","adı","adi","isim","name","urun","ürün","product","title"];
     const qtyFields=["adet","miktar","stok","qty","quantity","amount"];
@@ -924,51 +926,37 @@
     const mapByKeyFull = list => { const m=new Map(); (list||[]).forEach(x=> m.set(getKey(x), { qty:getQty(x), label:getLabel(x) })); return m; };
     const diffProducts = (prev, curr) => { const a=mapByKeyFull(prev||[]), b=mapByKeyFull(curr||[]); const keys=new Set([...a.keys(),...b.keys()]); const changes=[]; for(const k of keys){ const qa=a.get(k)?.qty||0, qb=b.get(k)?.qty||0; const lbl=(b.get(k)?.label||a.get(k)?.label||"ürün"); const d=qb-qa; if(d!==0) changes.push({ key:k, label:lbl, delta:d }); } return changes.sort((x,y)=> Math.abs(y.delta)-Math.abs(x.delta)); };
 
-    // Apply + toast on foreign updates
-    let lastApplied=0, prevHash=null, prevProducts=null, primed=false;
+    // Apply + toast on foreign updates (ALWAYS reload on foreign newer)
+    let lastApplied=0, prevProducts=null, primed=false;
     onValue(rootRef, (snap) => {
       const v = snap.val(); if(!v || typeof v!=="object") return;
       const { products=[], logs=[], updatedAt=0, updatedBy=null, updatedByName="Biri", lastAction="update" } = v;
-      const h = contentHash({products, logs});
 
-      if (!primed){
-        primed=true; lastApplied=updatedAt; prevHash=h; prevProducts=products;
-        try{ _setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{};
-        enhanceHistoryTable();
-        return;
-      }
-
+      if (!primed){ primed=true; lastApplied=updatedAt; prevProducts=products; try{ _setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{}; enhanceHistoryTable(); return; }
       if (updatedAt <= lastApplied) return;
+
       try{ _setItem(APP_LS_KEY, JSON.stringify({products, logs})); }catch{};
       enhanceHistoryTable();
 
-      if (updatedBy && updatedBy===meId){ lastApplied=updatedAt; prevHash=h; prevProducts=products; return; }
-      if (h === prevHash){ lastApplied=updatedAt; return; }
+      if (updatedBy && updatedBy===meId){ lastApplied=updatedAt; prevProducts=products; return; }
 
-      // Build toast
-      const fmt = n => new Intl.NumberFormat('tr-TR').format(Math.abs(Number(n)||0));
+      // Toast message (single vs multi)
+      const changes = diffProducts(prevProducts, products);
       let msg="";
       if (lastAction==="clear"){
         msg = `${updatedByName} tüm verileri sildi.`;
+      } else if (changes.length===1){
+        const c=changes[0]; msg = c.delta>0 ? `${updatedByName} → ${fmtTR(c.delta)} adet "${c.label}" eklendi` : `${updatedByName} → ${fmtTR(-c.delta)} adet "${c.label}" çıkış yapıldı`;
+      } else if (changes.length>1){
+        const total = fmtTR(changes.reduce((s,c)=> s + Math.abs(c.delta), 0)); const count = changes.length;
+        const top3 = changes.slice(0,3).map(c=> `${c.delta>0?"+":"-"}${fmtTR(Math.abs(c.delta))} "${c.label}"`).join(", ");
+        msg = `${updatedByName} → ${count} ürün, toplam ${total} adet güncellendi` + (top3?`\n${top3}`:"");
       } else {
-        const changes = diffProducts(prevProducts, products);
-        if (changes.length===1){
-          const c = changes[0];
-          msg = c.delta>0 ? `${updatedByName} → ${fmt(c.delta)} adet "${c.label}" eklendi`
-                          : `${updatedByName} → ${fmt(-c.delta)} adet "${c.label}" çıkış yapıldı`;
-        } else if (changes.length>1){
-          const total = fmt(changes.reduce((s,c)=> s+Math.abs(c.delta),0));
-          const count = changes.length;
-          const top3 = changes.slice(0,3).map(c=> `${c.delta>0?"+":"-"}${fmt(Math.abs(c.delta))} "${c.label}"`).join(", ");
-          msg = `${updatedByName} → ${count} ürün, toplam ${total} adet güncellendi` + (top3?`\n${top3}`:"");
-        } else {
-          msg = `${updatedByName} stokları güncelledi.`;
-        }
+        msg = `${updatedByName} stokları güncelledi.`;
       }
-
-      lastApplied=updatedAt; prevHash=h; prevProducts=products;
+      lastApplied=updatedAt; prevProducts=products;
       const t = document.getElementById("hmToast"); if (t){ t.style.display="block"; }
-      showToastThenReload(msg, 1300, 350);
+      showToastThenReload(msg, 1200, 350);
     });
 
     // Seed if empty
@@ -992,7 +980,7 @@
   if (isAuthed()) startSync();
   else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
-<!-- === /RTDB Sync v17 === -->
+<!-- === /RTDB Sync v18 === -->
 
 </body>
 </html>
