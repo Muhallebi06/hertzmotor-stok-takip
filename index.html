@@ -1004,88 +1004,72 @@
 <!-- === /HM Sync Helpers v27d === -->
 
 
-<!-- HARD RTDB REFRESH v2 START -->
+<!-- HARD RTDB REFRESH v3 START -->
 <script type="module">
-  // Aggressive RTDB listener: reloads page when doc changes (old working model).
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getDatabase, ref, onValue, update, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  // Strict RTDB listener that forces a hard reload on ANY change under docs/<docId>.
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
-  // Reuse existing config if defined
-  const cfg = window.firebaseConfig || {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    databaseURL: "YOUR_DB_URL",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_BUCKET",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  const fallbackCfg = {
+    apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
+    authDomain: "hertz-stok-takip.firebaseapp.com",
+    databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "hertz-stok-takip",
+    storageBucket: "hertz-stok-takip.firebasestorage.app",
+    messagingSenderId: "512663727455",
+    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
   };
-  try { initializeApp(cfg); } catch(e){ /* already initialized */ }
+  const cfg = window.firebaseConfig || fallbackCfg;
+  const app = (getApps && getApps().length) ? getApps()[0] : initializeApp(cfg);
+  const db  = getDatabase(app);
 
-  const db = getDatabase();
   const params = new URLSearchParams(location.search);
-  const docId = params.get("doc") || "default";
-  const docRef = ref(db, "docs/" + docId);
+  const docId  = params.get("doc") || "default";
 
-  // Self-write suppression
-  let selfWrite = 0;
-  function suppressBrief(){ selfWrite++; setTimeout(()=>selfWrite=Math.max(0,selfWrite-1), 1200); }
-
-  // Expose helper: bump updatedAt so others reload too
-  window.bumpDocChange = async function(){
-    suppressBrief();
-    await update(docRef, { updatedAt: Date.now() });
-  };
-
-  // If your own flows call update(ref(..., 'docs/<doc>')), no need to change;
-  // this listener watches the whole doc and refreshes when anything changes.
-  let initial = true;
-  let lastSig = null;
-  function sigOf(data){
-    try{
-      const p = data?.products || [];
-      const l = data?.logs || [];
-      return JSON.stringify({
-        u: data?.updatedAt || 0,
-        pc: p.length, lc: l.length,
-        ph: p.length ? (p[p.length-1]?.sku || p[p.length-1]?.name || p[p.length-1]?.id || '') : '',
-        lh: l.length ? (l[l.length-1]?.t || l[l.length-1]?.msg || '') : ''
-      });
-    }catch(_){ return String(Math.random()); }
+  // Prepare robust reload that busts cache
+  function hardReload(){
+    const u = new URL(location.href);
+    u.searchParams.set("_r", Date.now().toString());
+    location.replace(u.toString());
   }
 
-  onValue(docRef, (snap)=>{
-    const data = snap.val() || {};
-    const sig = sigOf(data);
-    if (lastSig === null){ lastSig = sig; initial = false; return; }
-    if (sig !== lastSig){
-      lastSig = sig;
-      if (selfWrite > 0){
-        // ignore our own immediate write to avoid loop
-        selfWrite--;
-      } else {
-        // Force a full reload (hard refresh feel)
-        location.reload();
-      }
-    }
-  });
+  // Watch a few strategic paths. If some fail due to rules, others will still work.
+  const paths = [
+    `docs/${docId}`,
+    `docs/${docId}/products`,
+    `docs/${docId}/logs`
+  ];
 
-  // Optional: wrap common saves if available
-  const oldPersist = window.persistProducts;
-  window.persistProducts = async function(products){
+  let ready = false;
+  let initCount = 0;
+  const maxInit = paths.length;
+
+  function markReadySoon(){
+    if (!ready){
+      // If some listeners never fire, still get ready after a short grace
+      setTimeout(()=>{ ready = true; }, 600);
+    }
+  }
+  paths.forEach(p => {
     try{
-      if (typeof oldPersist === 'function'){
-        suppressBrief();
-        await oldPersist(products);
-      } else {
-        suppressBrief();
-        await update(docRef, { products });
-      }
-      await window.bumpDocChange();
-    }catch(e){ console.error('persistProducts failed', e); }
-  };
+      const r = ref(db, p);
+      onValue(r, (snap)=>{
+        if (!ready){
+          initCount++;
+          if (initCount >= maxInit){ ready = true; }
+          markReadySoon();
+          return;
+        }
+        // After initial snapshots, ANY change triggers hard reload
+        hardReload();
+      }, (err)=>{
+        // Ignore permission errors; still allow others to mark ready
+        markReadySoon();
+      });
+    }catch(_){ /* ignore */ }
+  });
 </script>
-<!-- HARD RTDB REFRESH v2 END -->
+<!-- HARD RTDB REFRESH v3 END -->
 
 </body>
 </html>
