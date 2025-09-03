@@ -636,7 +636,7 @@
 <!-- === Firebase Live Sync (guarded by login) === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { get, getDatabase, onDisconnect, onValue, ref, set, update} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   // Config
   const firebaseConfig = {
@@ -656,7 +656,17 @@
     const urlDoc = new URLSearchParams(location.search).get("doc");
     const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
     const rootRef = ref(db, `docs/${DOC_ID
-      // Global reload signal: when any client writes a fresh ts, every client reloads after 800ms
+      // Global reload signal: soft-refresh (no full reload)
+      async function refreshFromRTDB(){
+        try{
+          const dataRef = ref(db, `app/hertz_stok/data`);
+          const snap = await get(dataRef);
+          const remote = snap.val() || { products: [], logs: [], updatedAt: Date.now() };
+          state.products = Array.isArray(remote.products) ? remote.products : [];
+          state.logs     = Array.isArray(remote.logs) ? remote.logs : [];
+          if (typeof render === 'function') render();
+        }catch(e){ console.warn('soft refresh failed', e); }
+      }
       try{
         const reloadRef = ref(db, `app/hertz_stok/reload`);
         onValue(reloadRef, (snap)=>{
@@ -941,7 +951,7 @@
 <!-- RTDB COMMIT-SMART RELOAD v41 START -->
 <script type="module">
   import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { get, getDatabase, onValue, ref, update} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   // Firebase init
   const fallbackCfg = {
