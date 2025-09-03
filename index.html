@@ -771,7 +771,7 @@
 <!-- === /Non-admin guard === -->
 
 
-<!-- === RTDB Real-time Sync: robust listener + LS mirror (v4) === -->
+<!-- === RTDB Real-time Sync (v5): start AFTER login to avoid reload while typing === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
@@ -792,78 +792,79 @@
   const urlDoc = new URLSearchParams(location.search).get("doc");
   const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
 
-  const rootRef = ref(db, `docs/${DOC_ID}`);
-  const presRef = ref(db, `docs/${DOC_ID}/presence`);
-
-  // Presence
-  const meId = crypto.randomUUID();
-  const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
-  set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
-  onDisconnect(meRef).remove();
-
   const APP_LS_KEY = "stokTakip.v1";
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
-  const push = (obj)=> update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now() })
-                        .catch(err => console.error("Buluta yazma hatası:", err));
 
-  // Mirror LS -> RTDB
-  const _setItem    = localStorage.setItem.bind(localStorage);
-  const _removeItem = localStorage.removeItem.bind(localStorage);
-  const _clear      = localStorage.clear.bind(localStorage);
+  function startSync(){
+    const presRef = ref(db, `docs/${DOC_ID}/presence`);
+    const meId = crypto.randomUUID();
+    const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
+    set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
+    onDisconnect(meRef).remove();
+    onValue(presRef, (snap) => {
+      const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
+      const el = document.getElementById("statusOnline");
+      if (el) el.textContent = `Çevrimiçi: ${n}`;
+    });
 
-  localStorage.setItem = function(k, v){
-    _setItem(k, v);
-    if (k === APP_LS_KEY) push(safeParse(v) || {});
-  };
-  localStorage.removeItem = function(k){
-    _removeItem(k);
-    if (k === APP_LS_KEY) push({ products: [], logs: [], updatedAt: Date.now() });
-  };
-  localStorage.clear = function(){
-    _clear();
-    push({ products: [], logs: [], updatedAt: Date.now() });
-  };
+    const rootRef = ref(db, `docs/${DOC_ID}`);
+    const push = (obj)=> update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now() })
+                          .catch(err => console.error("Buluta yazma hatası:", err));
 
-  // RTDB -> UI: apply instantly
-  let lastApplied = null;
-  onValue(rootRef, (snap) => {
-    const v = snap.val();
-    if(!v || typeof v !== "object") return;
-    const { products = [], logs = [], updatedAt = 0 } = v;
-    if (lastApplied === updatedAt) return;
-    lastApplied = updatedAt;
+    const _setItem    = localStorage.setItem.bind(localStorage);
+    const _removeItem = localStorage.removeItem.bind(localStorage);
+    const _clear      = localStorage.clear.bind(localStorage);
 
-    try { _setItem(APP_LS_KEY, JSON.stringify({ products, logs })); } catch {}
-    document.dispatchEvent(new CustomEvent("rtdb_sync", { detail: { updatedAt } }));
+    localStorage.setItem = function(k, v){
+      _setItem(k, v);
+      if (k === APP_LS_KEY) push(safeParse(v) || {});
+    };
+    localStorage.removeItem = function(k){
+      _removeItem(k);
+      if (k === APP_LS_KEY) push({ products: [], logs: [], updatedAt: Date.now() });
+    };
+    localStorage.clear = function(){
+      _clear();
+      push({ products: [], logs: [], updatedAt: Date.now() });
+    };
 
-    try {
-      if (typeof window.render === "function") {
-        window.render();
-      } else {
-        setTimeout(() => { location.reload(); }, 300);
+    let lastApplied = null;
+    onValue(rootRef, (snap) => {
+      const v = snap.val();
+      if(!v || typeof v !== "object") return;
+      const { products = [], logs = [], updatedAt = 0 } = v;
+      if (lastApplied === updatedAt) return;
+      lastApplied = updatedAt;
+
+      try { _setItem(APP_LS_KEY, JSON.stringify({ products, logs })); } catch {}
+      document.dispatchEvent(new CustomEvent("rtdb_sync", { detail: { updatedAt } }));
+
+      try {
+        if (typeof window.render === "function") {
+          window.render();
+        } else {
+          // No forced reload here (prevents login input being interrupted)
+        }
+      } catch(e){
+        console.warn("render() çağrısı hata:", e);
       }
-    } catch(e){
-      console.warn("render() çağrısı hata:", e);
-      setTimeout(() => { location.reload(); }, 300);
-    }
-  });
+    });
 
-  onValue(presRef, (snap) => {
-    const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
-    const el = document.getElementById("statusOnline");
-    if (el) el.textContent = `Çevrimiçi: ${n}`;
-  });
+    setTimeout(() => {
+      onValue(rootRef, (s) => {
+        if(!s.exists()){
+          const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
+          set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now() }).catch(console.error);
+        }
+      }, { onlyOnce: true });
+    }, 300);
+  }
 
-  setTimeout(() => {
-    onValue(rootRef, (s) => {
-      if(!s.exists()){
-        const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-        set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now() }).catch(console.error);
-      }
-    }, { onlyOnce: true });
-  }, 300);
+  const isAuthed = () => (sessionStorage.getItem("auth_ok") === "1");
+  if (isAuthed()) startSync();
+  else document.addEventListener("auth_ok", startSync, { once: true });
 </script>
-<!-- === /RTDB Sync v4 === -->
+<!-- === /RTDB Sync v5 === -->
 
 </body>
 </html>
