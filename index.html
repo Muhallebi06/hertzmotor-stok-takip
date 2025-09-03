@@ -944,10 +944,7 @@
 
 
 
-
-
-
-<!-- === SKU FIX v6: kesin eşleşme haritası (ST, RT, MIL, RMIL, TMIL, SP, PG, MOT) === -->
+<!-- === SKU FIX v7: kesin harita (ST, RT, MIL, RMIL, TMIL, SP, PG, MOT) === -->
 <script>
 (function(){
   const form = document.getElementById('productForm') || document.querySelector('form');
@@ -956,30 +953,41 @@
   const skuEl = form.querySelector('[name="sku"],[name="stokKodu"],#sku,#stokKodu,[name="code"],[name="kod"]');
   if(!catEl || !skuEl) return;
 
-  // Türkçe karakterleri sadeleştir
+  // TR harf sadeleştirme ve normalize
   const trMap = { 'ş':'s','Ş':'s','ğ':'g','Ğ':'g','ı':'i','İ':'i','ç':'c','Ç':'c','ö':'o','Ö':'o','ü':'u','Ü':'u' };
   function deTR(s){ return String(s||'').replace(/[şŞğĞıİçÇöÖüÜ]/g, ch => trMap[ch] || ch); }
   function norm(s){ return deTR(String(s||'').toLowerCase()).replace(/\s+/g,' ').trim(); }
 
-  // Kesin harita: sıralama önemli (özgül kategoriler önce)
-  const RULES = [
-    { code:'RMIL', keys:['rotorlu mil','rotorlu mil','rotor mil'] },
-    { code:'TMIL', keys:['taslanmis mil','taslanmis','taslanmis mil','taslanmis şaft','taslanmis shaft'] },
-    { code:'MIL',  keys:['mil','saft','shaft'] }, // yalın mil/şaft
-    { code:'ST',   keys:['stator'] },
-    { code:'RT',   keys:['rotor'] },
-    { code:'SP',   keys:['sargili paket','sargili','sargili sac','sargili paket sac'] },
-    { code:'PG',   keys:['paketli govde','paket govde','paketli govde','paketli g','paketli govde'] }}, // 'gövde' varyantları
-    { code:'MOT',  keys:['motor'] },
-  ];
+  function getCategoryText(){
+    // value ya da option text
+    const val = catEl.value;
+    const optText = (catEl.tagName === 'SELECT')
+      ? (catEl.options[catEl.selectedIndex >= 0 ? catEl.selectedIndex : 0]?.text || '')
+      : '';
+    return val && String(val).length >= 2 ? val : optText;
+  }
 
+  // Kesin eşleştirme mantığı (özgül -> genel)
   function pickPrefix(catText){
     const t = norm(catText);
-    for (const r of RULES){
-      for (const k of r.keys){
-        if (t.includes(norm(k))) return r.code;
-      }
-    }
+    // Rotorlu Mil
+    if (t.includes('rotorlu') && t.includes('mil')) return 'RMIL';
+    if (t.includes('rotor') && t.includes('mil')) return 'RMIL';
+    // Taşlanmış Mil
+    if ((t.includes('taslan') || t.includes('taslama')) && t.includes('mil')) return 'TMIL';
+    // Mil (yalın)
+    if (t.includes('mil') || t.includes('saft') || t.includes('shaft')) return 'MIL';
+    // Stator
+    if (t.includes('stator')) return 'ST';
+    // Rotor
+    if (t.includes('rotor')) return 'RT';
+    // Sargılı Paket
+    if (t.includes('sargili') && t.includes('paket')) return 'SP';
+    // Paketli Gövde
+    if (t.includes('paketli') && (t.includes('govde') || t.includes('gövde'))) return 'PG';
+    // Motor
+    if (t.includes('motor')) return 'MOT';
+    // diğer
     return 'PRD';
   }
 
@@ -989,7 +997,8 @@
     const out=[];
     function scan(area){
       for(let i=0;i<area.length;i++){
-        const v = safeParse(area.getItem(area.key(i)));
+        const k = area.key(i);
+        const v = safeParse(area.getItem(k));
         if(v && v.products) out.push(...v.products);
       }
     }
@@ -999,46 +1008,40 @@
   }
   function getSku(it){ return it?.sku || it?.stokKodu || it?.code || it?.kod || ''; }
   function maxNum(prefix, arr){
-    let m=0; const re=new RegExp('^'+prefix+'[-_]?(\\d+)$','i');
+    let m=0; const re=new RegExp('^'+prefix+'[-_]?([0-9]+)$','i');
     for(const it of arr){
       const code = String(getSku(it)||'').toUpperCase();
       const mt = code.match(re);
-      if(mt){ const n=parseInt(mt[1],10); if(n>m) m=n; }
+      if(mt){ const n=parseInt(mt[1],10); if(!isNaN(n) && n>m) m=n; }
     }
     return m;
   }
-  function suggest(cat){
-    const p = pickPrefix(cat);
+  function suggestFrom(catText){
+    const p = pickPrefix(catText);
     const n = maxNum(p, collectProducts()) + 1;
     return p + '-' + String(n).padStart(4,'0');
   }
+
   function updateSku(force){
-    const cat = catEl.value || catEl.options?.[catEl.selectedIndex||0]?.text || '';
-    if(!cat) return;
-    const pref = pickPrefix(cat);
-    const cur  = String(skuEl.value||'').toUpperCase();
-    if (force || !cur || !cur.startsWith(pref)){
-      skuEl.value = suggest(cat);
+    const catText = getCategoryText();
+    if(!catText) return;
+    const p = pickPrefix(catText);
+    const cur = String(skuEl.value||'').toUpperCase();
+    if (force || !cur || !cur.startsWith(p)){
+      skuEl.value = suggestFrom(catText);
     }
   }
 
+  // Kategori değişince ve submit öncesi güncelle
   catEl.addEventListener('change', ()=>updateSku(true));
+  catEl.addEventListener('input',  ()=>updateSku(true));
   form.addEventListener('submit', ()=>updateSku(true), true);
-  updateSku(false);
 
-  // "Oluştur" butonunu kaldır (zaten otomatik)
-  const candidates = Array.from(document.querySelectorAll('button, .btn, [role="button"]'));
-  for (const el of candidates){
-    const txt = (el.textContent||'').trim().toLowerCase();
-    const nm  = (el.getAttribute('name')||'').toLowerCase();
-    const id  = (el.id||'').toLowerCase();
-    if (txt === 'oluştur' || txt === 'olustur' || nm.includes('createSku') || id.includes('createSku') || id.includes('generateSku')) {
-      el.remove();
-    }
-  }
+  // İlk açılışta
+  updateSku(false);
 })();
 </script>
-<!-- === /SKU FIX v6 === -->
+<!-- === /SKU FIX v7 === -->
 
 </body>
 </html>
