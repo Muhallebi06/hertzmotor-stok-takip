@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="tr" class="scroll-smooth">
 <head>
+  <link rel="manifest" href="manifest.webmanifest">
+
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hertz Motor — Stok Takip</title>
@@ -94,14 +96,14 @@
   function applyRoleUI(){
     const role = sessionStorage.getItem(RL);
     // 1) Hide clear-all button for non-admins by ID
-    const btnById = document.getElementById("btnClearAll");
+    const btnById = document.getElementById('btnClear');
     if (btnById) btnById.style.display = (role === "admin") ? "" : "none";
     // 2) Hide any button-like element that has text "tüm verileri sil"
     const candidates = document.querySelectorAll("button, a, [role='button'], .btn, .button");
     const norm = s => (s||"").toLowerCase().replace(/\s+/g, " ").trim();
     candidates.forEach(el => {
       const t = norm(el.textContent);
-      if (t.includes("tüm verileri sil") || t.includes("tum verileri sil")) {
+      if (t.includes("tüm verileri sil") || t.includes("tum verileri sil") || t.includes("tüm veriyi sil") || t.includes("tum veriyi sil")) {
         if (role !== "admin") el.style.display = "none";
       }
     });
@@ -580,7 +582,7 @@
     $('#btnImport').addEventListener('click',()=>$('#fileInput').click());
     $('#fileInput').addEventListener('change',e=>{ const f=e.target.files?.[0]; if(f) importJSONFile(f); e.target.value=''; });
 
-    $('#btnClear').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
+    $('#btnClear').addEventListener('click',()=>{ if (sessionStorage.getItem(RL) !== 'admin') { alert('Bu işlem yalnızca admin içindir.'); return; }  if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
 
     $('#search').addEventListener('input',render);
     $('#onlyLow').addEventListener('change',render);
@@ -747,7 +749,7 @@
     if (role === "admin") return; // admins see everything
 
     // 1) By ID
-    const byId = document.getElementById("btnClearAll");
+    const byId = document.getElementById('btnClear');
     if (byId) byId.style.display = "none";
 
     // 2) By text content (covers dynamically re-rendered buttons)
@@ -772,163 +774,7 @@
 
 
 <!-- === RTDB Real-time Sync (v26): pure polling, no overrides, in-place apply === -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
-    authDomain: "hertz-stok-takip.firebaseapp.com",
-    databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "hertz-stok-takip",
-    storageBucket: "hertz-stok-takip.appspot.com",
-    messagingSenderId: "512663727455",
-    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db  = getDatabase(app);
-
-  const DOC_ID = new URL(location.href).searchParams.get("doc") || "stoktakip-paylasimli-orta-oda";
-
-  // ---- utils ----
-  const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
-  const isStockPayload = (obj)=> obj && typeof obj==="object" && ("products" in obj || "logs" in obj);
-  const stable = (obj)=>{
-    try{ return JSON.stringify(obj, Object.keys(obj).sort()); } catch { return ""; }
-  };
-  const hash = (str)=>{
-    let h=0, i=0, len=str.length|0; for(; i<len; i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
-    return h.toString(16);
-  };
-
-  function discoverStockKeys(){
-    const keys = new Set();
-    for (let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      if (isStockPayload(safeParse(localStorage.getItem(k)))) keys.add(k);
-    }
-    for (let i=0;i<sessionStorage.length;i++){
-      const k = sessionStorage.key(i);
-      if (isStockPayload(safeParse(sessionStorage.getItem(k)))) keys.add(k);
-    }
-    // If none found, create default key so app can pick it up
-    if (keys.size === 0){
-      const def = "stokTakip.v1";
-      localStorage.setItem(def, JSON.stringify({products:[], logs:[]}));
-      keys.add(def);
-    }
-    return keys;
-  }
-
-  // Initial key set
-  let STOCK_KEYS = discoverStockKeys();
-
-  // Presence (optional)
-  const presRef = ref(db, `docs/${DOC_ID}/presence`);
-  const meId = crypto.randomUUID();
-  const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
-  set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
-  onDisconnect(meRef).remove();
-
-  const rootRef = ref(db, `docs/${DOC_ID}`);
-
-  // Local change detection (pure polling)
-  const lastHash = new Map(); // key -> hash
-  let debounceTimer = null, pendingPush = null;
-
-  function computeHashForKey(k){
-    const v = localStorage.getItem(k) ?? sessionStorage.getItem(k);
-    const obj = safeParse(v||"null");
-    if (!isStockPayload(obj)) return null;
-    return hash(stable({products: obj.products||[], logs: obj.logs||[]}));
-  }
-
-  function scanAndMaybePush(){
-    // Re-discover keys (new ones may appear)
-    const discovered = discoverStockKeys();
-    for (const k of discovered) STOCK_KEYS.add(k);
-
-    // Find the most recently changed stock payload among keys
-    let changedKey = null;
-    for (const k of STOCK_KEYS){
-      const h = computeHashForKey(k);
-      if (!h) continue;
-      if (lastHash.get(k) !== h){
-        lastHash.set(k, h);
-        changedKey = k;
-      }
-    }
-    if (!changedKey) return;
-
-    // Prepare payload from changedKey and push to RTDB (debounced)
-    const v = localStorage.getItem(changedKey) ?? sessionStorage.getItem(changedKey);
-    const obj = safeParse(v||"null");
-    if (!isStockPayload(obj)) return;
-    pendingPush = { products: obj.products||[], logs: obj.logs||[] };
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(()=>{
-      const payload = pendingPush; pendingPush = null;
-      update(rootRef, { products: payload.products, logs: payload.logs, updatedAt: Date.now(), lastAction: "update" }).catch(console.error);
-    }, 120);
-  }
-
-  // Kick off the poller
-  setInterval(scanAndMaybePush, 500);
-
-  // In-place UI notify
-  function notifyRender(){
-    try {
-      if (typeof window.renderStok === "function") { window.renderStok(); return; }
-      if (window.app && typeof window.app.render === "function") { window.app.render(); return; }
-      document.dispatchEvent(new CustomEvent("rtdb_data_changed"));
-      // Also emit a synthetic storage event for listeners
-      for (const k of STOCK_KEYS){
-        const v = localStorage.getItem(k);
-        const evt = new StorageEvent("storage", { key: k, newValue: v, storageArea: localStorage });
-        window.dispatchEvent(evt);
-      }
-    } catch {}
-  }
-
-  // Apply from RTDB: write to ALL detected keys with native setItem (no overrides), then notify
-  let primed=false, lastApplied=0;
-  onValue(rootRef, (snap) => {
-    const v = snap.val(); if(!v || typeof v!=="object") return;
-    const { products=[], logs=[], updatedAt=0 } = v;
-
-    if (!primed){ primed=true; lastApplied = updatedAt; }
-    else { if (updatedAt <= lastApplied) return; lastApplied = updatedAt; }
-
-    // Write payload to all known keys
-    const str = JSON.stringify({products, logs});
-    // Refresh key discovery before writing
-    STOCK_KEYS = discoverStockKeys();
-    for (const k of STOCK_KEYS){
-      try { localStorage.setItem(k, str); } catch {}
-    }
-    // Update lastHash so we don't echo back immediately
-    for (const k of STOCK_KEYS){ lastHash.set(k, hash(stable({products, logs}))); }
-
-    notifyRender();
-  });
-
-  // If DB empty, seed from any local key
-  setTimeout(()=>{
-    onValue(rootRef, (s)=>{
-      if(!s.exists()){
-        STOCK_KEYS = discoverStockKeys();
-        // Find first valid payload
-        let initial = {products:[], logs:[]};
-        for (const k of STOCK_KEYS){
-          const obj = safeParse(localStorage.getItem(k)||"null");
-          if (isStockPayload(obj)){ initial = obj; break; }
-        }
-        set(rootRef, { products: initial.products||[], logs: initial.logs||[], updatedAt: Date.now(), lastAction: "seed" }).catch(console.error);
-      }
-    }, { onlyOnce: true });
-  }, 400);
-</script>
 <!-- === /RTDB Sync v26 === -->
 
 </body>
