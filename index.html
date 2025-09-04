@@ -44,8 +44,9 @@
   }
   #authErr { min-height: 18px; color: #fca5a5; font-size: 12px; margin-top: 8px; }
   #logoutBtn {
-  display: none;
+  @apply px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-gray-100;
 }
+
 
 </style>
 <div id="authGate">
@@ -81,12 +82,12 @@
   const gate = document.getElementById("authGate");
   const form = document.getElementById("authForm");
   const err  = document.getElementById("authErr");
-  const out  = document.getElementById("logoutBtn");
+  const getOut = () => document.getElementById("logoutBtn");
 
   function openGate(){ gate.style.display = "grid"; }
   function closeGate(){
     gate.style.display = "none";
-    out.style.display = "inline-block";
+    const _out = getOut(); if (_out) { _out.style.display = "inline-block"; }
     document.dispatchEvent(new Event("auth_ok"));
     applyRoleUI();
   }
@@ -130,12 +131,12 @@
     }
   });
 
-  out.addEventListener("click", ()=>{
+  window.addEventListener("load", ()=>{ const _out = getOut(); if (_out) { _out.addEventListener("click", ()=>{
     sessionStorage.removeItem(KEY);
     sessionStorage.removeItem(UN);
     sessionStorage.removeItem(RL);
     location.reload();
-  });
+  }); }});
 
   // Apply role once content loads (in case auth_ok fired before areas exist)
   window.addEventListener("load", applyRoleUI);
