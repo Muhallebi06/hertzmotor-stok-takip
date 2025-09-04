@@ -299,7 +299,8 @@
             <option value="paketliGovde">Paketli Gövde</option>
             <option value="motor">Motor</option>
           
-            <option value="kapak">Kapak</option>
+            
+            <option value="rulman">Rulman</option><option value="kapak">Kapak</option>
             <option value="islenmisKapak">İşlenmiş Kapak</option>
             <option value="taslanmisKapak">Taşlanmış Kapak</option></select>
         </div>
@@ -477,8 +478,8 @@
     const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 
     // Kategori/etiket sabitleri
-    const CATEGORY_PREFIX={stator:'ST',rotor:'RT',mil:'MIL',rotorluMil:'RMIL',taslanmisMil:'TMIL',sargiliPaket:'SP',paketliGovde:'PG',motor:'MOT',kapak:'KAP',islenmisKapak:'IKAP',taslanmisKapak:'TKAP'};
-    const CATEGORY_LABEL={stator:'Stator',rotor:'Rotor',mil:'Mil',rotorluMil:'Rotorlu Mil',taslanmisMil:'Taşlanmış Mil',sargiliPaket:'Sargılı Paket',paketliGovde:'Paketli Gövde',motor:'Motor',kapak:'Kapak',islenmisKapak:'İşlenmiş Kapak',taslanmisKapak:'Taşlanmış Kapak'};
+    const CATEGORY_PREFIX={stator:'ST',rotor:'RT',mil:'MIL',rotorluMil:'RMIL',taslanmisMil:'TMIL',sargiliPaket:'SP',paketliGovde:'PG',motor:'MOT',kapak:'KAP',islenmisKapak:'IKAP',taslanmisKapak:'TKAP', rulman:'RUL'};
+    const CATEGORY_LABEL={stator:'Stator',rotor:'Rotor',mil:'Mil',rotorluMil:'Rotorlu Mil',taslanmisMil:'Taşlanmış Mil',sargiliPaket:'Sargılı Paket',paketliGovde:'Paketli Gövde',motor:'Motor',kapak:'Kapak',islenmisKapak:'İşlenmiş Kapak',taslanmisKapak:'Taşlanmış Kapak', rulman:'Rulman'};
 
     const state={products:[],logs:[]};
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
@@ -602,6 +603,8 @@ const form=$('#productForm'); const cat=form.category.value; $('[data-section="s
     }
 function prefixForCategory(cat){
       switch(cat){
+        case 'rulman': return 'RUL';
+
         case 'stator': return 'ST';
         case 'rotor': return 'RT';
         case 'mil': return 'MIL';
