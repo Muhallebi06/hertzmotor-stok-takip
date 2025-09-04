@@ -74,26 +74,8 @@
   document.addEventListener("auth_ok", applyRoleUI);
 })();
 
-// Header'daki çıkış butonu
-document.addEventListener('DOMContentLoaded', () => {
-  const btnLogoutHeader = document.getElementById('btnLogoutHeader');
-  if (btnLogoutHeader) {
-    btnLogoutHeader.addEventListener('click', () => {
-      try {
-        sessionStorage.removeItem('auth_ok');
-        sessionStorage.removeItem('auth_user');
-        sessionStorage.removeItem('role');
-      } catch(e) {
-        console.error("Session temizlenemedi:", e);
-      }
-      // Login sayfasına yönlendir
-      location.reload();
-    });
-  }
-});
 
-
-// Header'daki çıkış butonu (yedek JS bağlayıcı)
+// Header'daki çıkış butonu (JS bağlayıcı)
 (function(){
   try {
     var btnLogoutHeader = document.getElementById('btnLogoutHeader');
@@ -104,6 +86,26 @@ document.addEventListener('DOMContentLoaded', () => {
           sessionStorage.removeItem('auth_user');
           sessionStorage.removeItem('role');
         } catch(e) {}
+        location.reload();
+      });
+      btnLogoutHeader.dataset.bound = "1";
+    }
+  } catch(e) {}
+})();
+
+
+// Header'daki çıkış butonu (tek handler)
+(function(){
+  try {
+    var btnLogoutHeader = document.getElementById('btnLogoutHeader');
+    if (btnLogoutHeader && !btnLogoutHeader.dataset.bound) {
+      btnLogoutHeader.addEventListener('click', function(){
+        try {
+          sessionStorage.removeItem('auth_ok');
+          sessionStorage.removeItem('auth_user');
+          sessionStorage.removeItem('role');
+        } catch(e) {}
+        // Login kapısını göstermek için sayfayı yenile
         location.reload();
       });
       btnLogoutHeader.dataset.bound = "1";
@@ -180,9 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
         <button id="btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
         <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
         <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-        \1
-        <button id="btnLogoutHeader" class="px-3 py-2 rounded-xl border border-slate-300 bg-white" title="Oturumu kapat" onclick="try{sessionStorage.removeItem('auth_ok');sessionStorage.removeItem('auth_user');sessionStorage.removeItem('role');}catch(e){};location.reload();">Çıkış Yap</button>
-      </div>
+        <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
+        <button id="btnLogoutHeader" class="px-3 py-2 rounded-xl border border-slate-300 bg-white" title="Oturumu kapat">Çıkış Yap</button>
+        </div>
     </div>
   </header>
 
