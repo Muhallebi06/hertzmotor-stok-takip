@@ -319,14 +319,14 @@
           <label class="text-sm text-slate-600">Birim</label>
           <input name="unit" type="text" placeholder="adet, kg, m…" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
         </div>
-        <div>
+        <div id="materialSection" style="display:none;"><div>
           <label class="text-sm text-slate-600">Malzeme</label>
           <select name="material" class="w-full px-3 py-2 rounded-xl border border-slate-300">
             <option value="aluminyum">Alüminyum</option>
             <option value="celik">Çelik</option>
             <option value="plastik">Plastik</option>
           </select>
-        </div>
+        </div></div>
     
         <div>
           <label class="text-sm text-slate-600">Minimum Stok</label>
@@ -589,7 +589,16 @@
 
     function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=Array.isArray(data.products)?data.products:[]; state.logs=Array.isArray(data.logs)?data.logs:[]; save(); alert('İçe aktarıldı'); }catch(e){ alert('Dosya okunamadı: '+e.message); } }; reader.readAsText(file); }
 
-    function toggleConditionalSections(){ const form=$('#productForm'); const cat=form.category.value; $('[data-section="sargiliPaket"]').classList.toggle('hidden', cat!=='sargiliPaket'); $('[data-section="paketliGovde"]').classList.toggle('hidden', cat!=='paketliGovde'); const isMil=(cat==='mil'||cat==='rotorluMil'||cat==='taslanmisMil'); $('[data-section="mil"]').classList.toggle('hidden', !isMil); $('[data-section="motor"]').classList.toggle('hidden', cat!=='motor'); }
+    function toggleConditionalSections(){ const form=$('#productForm'); const cat=form.category.value; $('[data-section="sargiliPaket"]').classList.toggle('hidden', cat!=='sargiliPaket'); $('[data-section="paketliGovde"]').classList.toggle('hidden', cat!=='paketliGovde'); const isMil=(cat==='mil'||cat==='rotorluMil'||cat==='taslanmisMil'); $('[data-section="mil"]').classList.toggle('hidden', !isMil); $('[data-section="motor"]').classList.toggle('hidden', cat!=='motor'); 
+  const cat=form.category.value;
+  const mat=document.getElementById('materialSection');
+  if(cat==='kapak'||cat==='islenmisKapak'||cat==='taslanmisKapak'){
+    mat.style.display='block';
+  } else {
+    mat.style.display='none';
+    if(form.material) form.material.value='';
+  }
+}
 
     
     
