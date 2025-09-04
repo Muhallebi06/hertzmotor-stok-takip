@@ -212,6 +212,7 @@
         <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
         <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
         <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
+            <button id="logout-inline" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Çıkış</button>
       </div>
     </div>
   </header>
@@ -1031,5 +1032,31 @@ function ensureMaterialField() {
 </script>
 <!-- === /RTDB Sync v26 === -->
 
-</body>
-</html>
+
+<script>
+(function(){
+  try {
+    var inlineId = 'logout-inline';
+    var inline = document.getElementById(inlineId);
+    if (!inline) return;
+    // Sayfadaki mevcut "Çıkış" buton/bağlantısını bul (kendimiz hariç)
+    var candidates = Array.from(document.querySelectorAll('button, a')).filter(function(el){
+      return el.textContent && el.textContent.trim() === 'Çıkış' && el.id !== inlineId;
+    });
+    var orig = candidates.length ? candidates[0] : null;
+    if (orig) {
+      inline.addEventListener('click', function(e){ e.preventDefault(); orig.click(); });
+      // Orijinal buton layout'u bozmasın diye gizle
+      orig.style.display = 'none';
+    } else {
+      // Yedek: global fonksiyon isimlerini dene
+      var fn = window.logout || window.signOut || window.handleSignOut || window.onLogout;
+      if (typeof fn === 'function') {
+        inline.addEventListener('click', function(e){ e.preventDefault(); fn(); });
+      }
+    }
+  } catch (e) { console && console.warn && console.warn('Logout inline bridge failed:', e); }
+})();
+</script>
+
+</body></html>
