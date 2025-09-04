@@ -66,72 +66,76 @@
 
 
 
+
+
+
+<!-- logout-inline-bridge:start -->
 <script>
 (function(){
   var INLINE_ID = 'logout-inline';
-
-  function hideOriginalLogout() {
+  function hideOriginalLogout(){
     try {
       var inline = document.getElementById(INLINE_ID);
-      var candidates = Array.from(document.querySelectorAll('button, a')).filter(function(el){
+      // 'Çıkış' yazılı ve bizim inline olmayan buton/anchor'ları bul
+      var nodes = Array.prototype.slice.call(document.querySelectorAll('button, a'));
+      var candidates = nodes.filter(function(el){
         if (!el || el.id === INLINE_ID) return false;
-        var text = (el.textContent || '').trim();
-        return text === 'Çıkış';
+        var txt = (el.textContent || '').trim();
+        return txt === 'Çıkış';
       });
+      // Gizle ve işaretle
       candidates.forEach(function(el){
-        // Gizleyip işaretle (login sonrası tekrar gelse bile tanıyabilelim)
         el.style.display = 'none';
-        el.setAttribute('data-logout-hidden', '1');
+        el.setAttribute('data-logout-hidden','1');
       });
-
-      // Eğer orijinal buton bulunabildiyse, inline butonun click'ini ona köprüle
+      // Köprüle
       var orig = candidates.length ? candidates[0] : null;
       if (inline && orig && !inline._logoutBound) {
         inline.addEventListener('click', function(e){ e.preventDefault(); orig.click(); });
         inline._logoutBound = true;
       }
-    } catch (e) { /* no-op */ }
+    } catch (err) { /* yut */ }
   }
 
-  // Başlangıçta dene
+  // İlk yüklemede dene
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', hideOriginalLogout);
   } else {
     hideOriginalLogout();
   }
 
-  // DOM'a yeni eleman eklendikçe tekrar uygula (login akışında geri geliyorsa yakalar)
+  // Login/DOM değişimlerini yakalamak için observer
   try {
-    var obs = new MutationObserver(function(muts){
-      // Yalın kontrol: yeni node'lar arasında "Çıkış" yazılı bir buton var mı
+    var obs = new MutationObserver(function(mutations){
       var needHide = false;
-      for (var i=0;i<muts.length;i++){
-        var m = muts[i];
-        if (m.addedNodes) {
-          for (var j=0;j<m.addedNodes.length;j++){
-            var n = m.addedNodes[j];
-            if (!n || n.nodeType !== 1) continue;
-            if ((n.textContent || '').trim() === 'Çıkış') { needHide = True; break; }
-            // altlarında olabilir
-            var el = n.querySelector && n.querySelector('button, a');
-            if (el && (el.textContent || '').trim() === 'Çıkış') { needHide = true; break; }
-          }
+      for (var i=0; i<mutations.length; i++){
+        var m = mutations[i];
+        if (!m.addedNodes) continue;
+        for (var j=0; j<m.addedNodes.length; j++){
+          var n = m.addedNodes[j];
+          if (!n || n.nodeType !== 1) continue;
+          // Kendisi 'Çıkış' mı ya da içinde var mı?
+          var t = (n.textContent || '').trim();
+          if (t === 'Çıkış') { needHide = true; break; }
+          var any = n.querySelector && n.querySelector('button, a');
+          if (any && (any.textContent || '').trim() === 'Çıkış') { needHide = true; break; }
         }
         if (needHide) break;
       }
       if (needHide) hideOriginalLogout();
     });
     obs.observe(document.body || document.documentElement, {subtree:true, childList:true});
-  } catch (e) { /* observer yoksa sorun değil */ }
+  } catch (err) { /* destek yoksa sorun değil */ }
 
-  // Yedek: belirli aralıklarla kısa süreli tarama (login anında kaçarsa yakalar)
+  // Kısa süreli tarama (güvenlik ağı)
   var attempts = 0;
   var timer = setInterval(function(){
     attempts++;
     hideOriginalLogout();
-    if (attempts > 20) clearInterval(timer); // ~10 saniye
+    if (attempts > 20) clearInterval(timer);
   }, 500);
 })();
 </script>
+<!-- logout-inline-bridge:end -->
 
 </body></html>
