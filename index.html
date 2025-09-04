@@ -410,17 +410,10 @@
               </select>
             </div>
             <div>
-              <label class="text-sm text-slate-600">Kapak Çeşidi</label>
-              <select name="kapakC" class="w-full px-3 py-2 rounded-xl border border-slate-300">
-                <option value="AK">AK</option>
-                <option value="CK">CK</option>
-                <option value="CK/CR">CK/CR</option>
-              </select>
-            </div>
-            <div>
               <label class="text-sm text-slate-600">Mil Tipi</label>
               <input name="milType" type="text" placeholder="Örn: DIN 6885" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             
+            </div>
             <div>
               <label class="text-sm text-slate-600">Kapak Çeşidi</label>
               <select name="m_cover" class="w-full px-3 py-2 rounded-xl border border-slate-300">
@@ -591,6 +584,9 @@
     function refreshProductDialogUI(){
       try{
         toggleConditionalSections();
+        const covers = document.querySelectorAll('select[name=\"m_cover\"]');
+        if(covers.length>1){ for(let i=1;i<covers.length;i++){ const el=covers[i]; const wrap=el.closest('div'); (wrap||el).remove(); } }
+
         const form = document.getElementById('productForm');
         if(!form) return;
         // If new product (no id), keep SKU in sync with category prefix
