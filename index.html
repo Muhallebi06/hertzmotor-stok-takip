@@ -16,27 +16,6 @@
     .no-scrollbar::-webkit-scrollbar{ display:none; }
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
   </style>
-
-<script>
-// RTDB_ONLY_MODE: disable localStorage for stokTakip keys
-(function(){
-  try{
-    const S = localStorage;
-    const block = (k)=> /stoktakip|stokTakip|LS_KEY/i.test(String(k||''));
-    const _set = S.setItem.bind(S), _get=S.getItem.bind(S), _rem=S.removeItem.bind(S);
-    S.setItem   = (k,v)=> block(k) ? void 0 : _set(k,v);
-    S.getItem   = (k)=>  block(k) ? null : _get(k);
-    S.removeItem= (k)=> block(k) ? void 0 : _rem(k);
-  }catch(_){}
-})();
-</script>
-
-
-<script>
-const $=(sel,root=document)=>root.querySelector(sel);
-const $$=(sel,root=document)=>Array.from(root.querySelectorAll(sel));
-</script>
-
 </head>
 <body class="bg-slate-50 text-slate-800">
 
@@ -501,105 +480,18 @@ const $$=(sel,root=document)=>Array.from(root.querySelectorAll(sel));
 
     let sortBy='name', sortDir='asc';
 
-    
-function render(){
-  try{
-    const q = ($('#search')?.value || '').trim().toLowerCase();
-    const onlyLow = !!$('#onlyLow')?.checked;
-    const tbody = $('#tbodyDesktop'); if (tbody) tbody.innerHTML = '';
-    const listMobile = $('#listMobile'); if (listMobile) listMobile.innerHTML = '';
+    function render(){
+      const q=$('#search').value.trim().toLowerCase();
+      const onlyLow=$('#onlyLow').checked;
+      const tbody=$('#tbodyDesktop'); tbody.innerHTML='';
+      const listMobile=$('#listMobile'); listMobile.innerHTML='';
 
-    let list = Array.isArray(state.products) ? state.products.slice() : [];
-    list = list.filter(p => p && String(p.sku||'').trim() && String(p.name||'').trim());
+      let list=[...state.products];
+      if(q) list=list.filter(p=>(p.name+' '+p.sku+' '+(p.note||'')+' '+(CATEGORY_LABEL[p.category]||'')).toLowerCase().includes(q));
+      if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
 
-    if (q) {
-      list = list.filter(p => {
-        const txt = [p.name||'', p.sku||'', p.note||'', (window.CATEGORY_LABEL && CATEGORY_LABEL[p.category])||''].join(' ').toLowerCase();
-        return txt.includes(q);
-      });
-    }
-    if (onlyLow) list = list.filter(p => Number(p.qty||0) < Number(p.min||0));
-
-    list.sort((a,b)=>{
-      const as=(a.sku||'').toLowerCase(), bs=(b.sku||'').toLowerCase();
-      if (as===bs) return (a.name||'').localeCompare(b.name||'');
-      return as.localeCompare(bs);
-    });
-
-    if (tbody){
-      for (const p of list){
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50";
-        const td = (html)=>{ const e=document.createElement('td'); e.className="px-3 py-2"; e.innerHTML=html; return e; };
-        tr.appendChild(td(`<span class="font-mono">${(p.sku||'-')}</span>`));
-        tr.appendChild(td(p.name||'-'));
-        tr.appendChild(td((window.CATEGORY_LABEL && CATEGORY_LABEL[p.category]) || (p.category||'-')));
-        tr.appendChild(td(String(Number(p.qty||0))));
-        tr.appendChild(td(String(Number(p.min||0))));
-        tr.appendChild(td(p.note ? String(p.note) : ''));
-        const act = document.createElement('td');
-        act.className = "px-3 py-2 text-right space-x-2";
-        act.innerHTML = `
-          <button class="px-2 py-1 rounded-xl border" data-act="in"  data-id="${p.id}">Giriş</button>
-          <button class="px-2 py-1 rounded-xl border" data-act="out" data-id="${p.id}">Çıkış</button>
-          <button class="px-2 py-1 rounded-xl border text-orange-600" data-act="edit" data-id="${p.id}">Düzenle</button>
-          <button class="px-2 py-1 rounded-xl border text-red-600" data-act="del"  data-id="${p.id}">Sil</button>
-        `;
-        tr.appendChild(act);
-        tbody.appendChild(tr);
-      }
-    }
-
-    if (listMobile){
-      for (const p of list){
-        const card = document.createElement('div');
-        card.className = "rounded-xl border p-3";
-        card.innerHTML = `
-          <div class="flex justify-between">
-            <div><div class="font-mono">${p.sku||'-'}</div><div>${p.name||''}</div></div>
-            <div class="text-right">Stok: <b>${Number(p.qty||0)}</b></div>
-          </div>
-          <div class="mt-2 text-sm text-slate-600">${(window.CATEGORY_LABEL && CATEGORY_LABEL[p.category]) || (p.category||'')}</div>
-          <div class="mt-1 text-sm">${p.note||''}</div>
-          <div class="mt-2 flex gap-2 justify-end">
-            <button class="px-2 py-1 rounded-xl border" data-act="in"  data-id="${p.id}">Giriş</button>
-            <button class="px-2 py-1 rounded-xl border" data-act="out" data-id="${p.id}">Çıkış</button>
-            <button class="px-2 py-1 rounded-xl border text-orange-600" data-act="edit" data-id="${p.id}">Düzenle</button>
-            <button class="px-2 py-1 rounded-xl border text-red-600" data-act="del"  data-id="${p.id}">Sil</button>
-          </div>
-        `;
-        listMobile.appendChild(card);
-      }
-    }
-
-    if(!window.__actBound){
-      window.__actBound = true;
-      document.body.addEventListener('click', (ev)=>{
-        const btn = ev.target.closest('[data-act]');
-        if(!btn) return;
-        const id = btn.getAttribute('data-id');
-        const p = (state.products||[]).find(x=>x.id===id);
-        const act = btn.getAttribute('data-act');
-        if(act==='edit'){ openProductDialog(p); return; }
-        if(act==='del'){
-          if(!confirm('Silinsin mi?')) return;
-          state.products = (state.products||[]).filter(x=>x.id!==id);
-          state.logs = state.logs || []; state.logs.unshift({t:Date.now(), type:'delete', sku: p?.sku||'', note: p?.name||''});
-          save && save(); render && render(); return;
-        }
-        if(act==='in' || act==='out'){
-          const amt = Number(prompt('Miktar?', '1')); if(!amt || !p) return;
-          let to = act==='in' ? Number(p.qty||0) + amt : Number(p.qty||0) - amt;
-          if (to < 0) { alert('Stok eksiye düşemez'); return; }
-          p.qty = to;
-          state.logs = state.logs || []; state.logs.unshift({t:Date.now(), type:act, sku:p.sku, qty:amt});
-          save && save(); render && render(); return;
-        }
-      });
-    }
-  }catch(e){ console.error('render error', e); }
-}
- return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1); });
+      // Sıralama
+      list.sort((a,b)=>{ let va,vb; switch(sortBy){ case 'sku': va=(a.sku||'').toLowerCase(); vb=(b.sku||'').toLowerCase(); break; case 'qty': va=Number(a.qty||0); vb=Number(b.qty||0); break; case 'min': va=Number(a.min||0); vb=Number(b.min||0); break; default: va=(a.name||'').toLowerCase(); vb=(b.name||'').toLowerCase(); } return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1); });
 
       $('#count').textContent=list.length;
 
@@ -737,10 +629,11 @@ function render(){
   </script>
 
 <!-- === Firebase Live Sync (guarded by login) === -->
-
 <script type="module">
-  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update, set, onDisconnect, runTransaction, get } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+
+  // Config
   const firebaseConfig = {
     apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
     authDomain: "hertz-stok-takip.firebaseapp.com",
@@ -750,11 +643,85 @@ function render(){
     messagingSenderId: "512663727455",
     appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
   };
-  const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-  const db  = getDatabase(app);
-  window.DB=db; window.ref=ref; window.onValue=onValue; window.update=update; window.set=set; window.onDisconnect=onDisconnect; window.runTransaction=runTransaction; window.get=get;
-</script>
 
+  function startSync(){
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
+
+    const urlDoc = new URLSearchParams(location.search).get("doc");
+    const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
+    const rootRef = ref(db, `docs/${DOC_ID}`);
+    const presRef = ref(db, `docs/${DOC_ID}/presence`);
+    const meId    = crypto.randomUUID();
+    const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
+    set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
+    onDisconnect(meRef).remove();
+
+    const APP_LS_KEY = "stokTakip.v1";
+    const EMPTY_DATA = { products: [], logs: [], updatedAt: Date.now() };
+    const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
+    const push = (obj)=> update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now() })
+                          .catch(err => console.error("Buluta yazma hatası:", err));
+
+    // Hook LS
+    const _setItem    = localStorage.setItem.bind(localStorage);
+    const _removeItem = localStorage.removeItem.bind(localStorage);
+    const _clear      = localStorage.clear.bind(localStorage);
+
+    localStorage.setItem = function(k, v){
+      _setItem(k, v);
+      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(safeParse(v)||{});
+    };
+    localStorage.removeItem = function(k){
+      _removeItem(k);
+      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(EMPTY_DATA);
+    };
+    localStorage.clear = function(){ _clear(); push(EMPTY_DATA); };
+
+    if (typeof window.save === "function") {
+      const __orig = window.save;
+      window.save = function(){ try{ __orig(); }catch(e){ console.error(e); } 
+        const raw = localStorage.getItem(APP_LS_KEY);
+        if (raw) push(safeParse(raw)||{}); else push(EMPTY_DATA);
+      };
+    }
+
+    let lastSent = null;
+    setInterval(() => {
+      const now = localStorage.getItem(APP_LS_KEY);
+      if (now !== lastSent) { lastSent = now; if (now) push(safeParse(now)||{}); else push(EMPTY_DATA); }
+    }, 1000);
+
+    onValue(rootRef, (snap) => {
+      const v = snap.val();
+      if(!v || typeof v !== "object") return;
+      const { products = [], logs = [] } = v;
+      const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
+      if (JSON.stringify(local.products||[]) === JSON.stringify(products) &&
+          JSON.stringify(local.logs||[])     === JSON.stringify(logs)) return;
+      localStorage.setItem(APP_LS_KEY, JSON.stringify({ products, logs }));
+      try { if (typeof render === "function") render(); } catch(e){ console.warn("render() çağrısı hata:", e); }
+    });
+
+    setTimeout(() => {
+      onValue(rootRef, (snap) => {
+        if(!snap.exists()){
+          const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
+          set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now() }).catch(console.error);
+        }
+      }, { onlyOnce: true });
+    }, 300);
+
+    onValue(presRef, (snap) => {
+      const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
+      const el = document.getElementById("statusOnline");
+      if (el) el.textContent = `Çevrimiçi: ${n}`;
+    });
+  }
+
+  if (sessionStorage.getItem("auth_ok") === "1") startSync();
+  else document.addEventListener("auth_ok", startSync, { once: true });
+</script>
 <!-- === /Firebase Live Sync (guarded) === -->
 
 
@@ -963,60 +930,6 @@ function render(){
   }, 400);
 </script>
 <!-- === /RTDB Sync v26 === -->
-
-
-<script>
-(function(){
-  window.state = window.state || { products: [], logs: [] };
-
-  window.startSync = function(){
-    if(!window.DB || !window.ref || !window.onValue) return;
-    const dataRef = ref(DB, `app/hertz_stok/data`);
-    onValue(dataRef, (snap)=>{
-      const v = snap.val() || { products: [], logs: [], updatedAt: Date.now() };
-      state.products = Array.isArray(v.products) ? v.products : [];
-      state.logs     = Array.isArray(v.logs) ? v.logs : [];
-      if (typeof render === 'function') render();
-    });
-  };
-
-  window.save = function(){
-    (async()=>{
-      try{
-        const dataRef = ref(DB, `app/hertz_stok/data`);
-        if(typeof runTransaction==='function'){
-          await runTransaction(dataRef, (curr)=>{
-            const remote = curr || { products: [], logs: [], updatedAt: 0 };
-            const map = new Map();
-            (remote.products||[]).forEach(p=> map.set(String(p.sku||'').toLowerCase(), p));
-            (state.products||[]).forEach(p=> map.set(String(p.sku||'').toLowerCase(), p));
-            const products = Array.from(map.values());
-            const seen = new Set();
-            const mergedLogs = [];
-            [...(remote.logs||[]), ...(state.logs||[])].forEach(l=>{
-              const k = l.id || l.t || JSON.stringify(l);
-              if(seen.has(k)) return; seen.add(k); mergedLogs.push(l);
-            });
-            return { products, logs: mergedLogs.slice(0,5000), updatedAt: Date.now() };
-          }, { applyLocally:false });
-        } else if (typeof update==='function'){
-          await update(dataRef, { products: state.products, logs: state.logs, updatedAt: Date.now() });
-        }
-      }catch(e){ console.warn('save failed', e); }
-    })();
-  };
-
-  if (sessionStorage.getItem('auth_ok')==='1') startSync(); else document.addEventListener('auth_ok', startSync, {once:true});
-})();
-</script>
-
-
-<script>
-document.addEventListener('DOMContentLoaded', ()=>{
-  const b=document.getElementById('logoutBtn');
-  if(b) b.addEventListener('click', ()=> window.logout && window.logout());
-});
-</script>
 
 </body>
 </html>
