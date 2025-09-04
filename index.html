@@ -15,7 +15,6 @@ if (btnLogoutHeader) {
       sessionStorage.removeItem('auth_user');
       sessionStorage.removeItem('role');
     } catch(e) {}
-    // Login kapısını tekrar göstermek için sayfayı yenile
     location.reload();
   });
 }
@@ -227,9 +226,8 @@ if (btnLogoutHeader) {
         <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
         <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
         <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
-        
-  <button id="btnLogoutHeader" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Çıkış Yap</button>
-</div>
+        <button id="btnLogoutHeader" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Çıkış Yap</button>
+      </div>
     </div>
   </header>
 
@@ -648,22 +646,8 @@ function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let 
     $('#btnAdd').addEventListener('click',()=>openProductDialog());
     $('#btnExport').addEventListener('click',exportJSON);
     $('#btnExportCSV').addEventListener('click',exportCSV);
-    \1
-
-// Header'daki çıkış butonu
-const btnLogoutHeader = document.getElementById('btnLogoutHeader');
-if (btnLogoutHeader) {
-  btnLogoutHeader.addEventListener('click', () => {
-    try {
-      sessionStorage.removeItem('auth_ok');
-      sessionStorage.removeItem('auth_user');
-      sessionStorage.removeItem('role');
-    } catch(e) {}
-    // Login kapısını tekrar göstermek için sayfayı yenile
-    location.reload();
-  });
-}
-$('#btnImport').addEventListener('click',()=>$('#fileInput').click());
+    $('#btnExportLogCSV').addEventListener('click',exportLogCSV);
+    $('#btnImport').addEventListener('click',()=>$('#fileInput').click());
     $('#fileInput').addEventListener('change',e=>{ const f=e.target.files?.[0]; if(f) importJSONFile(f); e.target.value=''; });
 
     $('#btnClear').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
