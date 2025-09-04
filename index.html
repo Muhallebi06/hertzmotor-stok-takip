@@ -6,117 +6,7 @@
   <title>Hertz Motor — Stok Takip</title>
   <!-- Tailwind (dark mode kaldırıldı) -->
   <script src="https://cdn.tailwindcss.com">
-// Header'daki çıkış butonu
-const btnLogoutHeader = document.getElementById('btnLogoutHeader');
-if (btnLogoutHeader) {
-  btnLogoutHeader.addEventListener('click', () => {
-    try {
-      sessionStorage.removeItem('auth_ok');
-      sessionStorage.removeItem('auth_user');
-      sessionStorage.removeItem('role');
-    } catch(e) {}
-    location.reload();
-  });
-}
-
-
-// Sağdaki çıkış butonu
-const btnLogout = document.getElementById('btnLogout');
-if (btnLogout) {
-  btnLogout.addEventListener('click', () => {
-    try {
-      sessionStorage.removeItem('auth_ok');
-      sessionStorage.removeItem('auth_user');
-      sessionStorage.removeItem('role');
-    } catch(e) {}
-    location.reload();
-  });
-}
-
-
-// Header'daki çıkış butonu
-const btnLogoutHeader = document.getElementById('btnLogoutHeader');
-if (btnLogoutHeader) {
-  btnLogoutHeader.addEventListener('click', () => {
-    try {
-      sessionStorage.removeItem('auth_ok');
-      sessionStorage.removeItem('auth_user');
-      sessionStorage.removeItem('role');
-    } catch(e) {}
-    location.reload();
-  });
-}
-
-</script>
-  <meta name="theme-color" content="rgb(205,105,40)" />
-  <style>
-    :root { --brand: 205,105,40; }
-    dialog::backdrop { background: rgb(0 0 0 / 0.5); }
-    .badge{display:inline-block;padding:.125rem .5rem;border-radius:.5rem;font-size:.75rem}
-    .btn-brand{ background: rgb(var(--brand)); color:white; }
-    .btn-brand:hover{ filter: brightness(0.95); }
-    .no-scrollbar::-webkit-scrollbar{ display:none; }
-    .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
-  </style>
-</head>
-<body class="bg-slate-50 text-slate-800">
-
-<!-- === Simple Login Gate (user: hertz / pass: hertz) === -->
-<style>
-  #authGate {
-    position: fixed; inset: 0; display: none; place-items: center; z-index: 99999;
-    background: radial-gradient(1000px 600px at 30% 20%, rgba(205,105,40,.08), transparent 60%) , #0b1220;
-    color: #e5e7eb; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  }
-  #authCard {
-    width: min(380px, 92vw); background: #111827; border: 1px solid #1f2937; border-radius: 14px;
-    padding: 22px 22px 16px; box-shadow: 0 10px 40px rgba(0,0,0,.35);
-  }
-  #authCard h2 { margin: 0 0 8px; font-size: 18px; color: #f3f4f6; }
-  #authCard p  { margin: 0 0 16px; font-size: 13px; color: #94a3b8; }
-  .row { display: grid; gap: 8px; margin: 10px 0 12px; }
-  .row label { font-size: 12px; color: #cbd5e1; }
-  .row input {
-    font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    padding: 10px 12px; border-radius: 10px; border: 1px solid #303a4a; background:#0f172a; color:#e5e7eb;
-  }
-  #authBtn {
-    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cc7a44;
-    background: linear-gradient(120deg, #cd6928, #de7a39); color: white; font-weight: 600; cursor: pointer;
-  }
-  #authErr { min-height: 18px; color: #fca5a5; font-size: 12px; margin-top: 8px; }
-  #logoutBtn {
-    position: fixed; right: 10px; top: 10px; z-index: 1000; display:none;
-    padding: 6px 10px; border-radius: 10px; border: 1px solid #cbd5e1; background:#ffffff; color:#0f172a; cursor:pointer;
-  }
-</style>
-<div id="authGate">
-  <div id="authCard">
-    <h2>Giriş yap</h2>
-    <p>Devam etmek için kullanıcı adı ve şifre girin.</p>
-    <form id="authForm">
-      <div class="row">
-        <label for="authUser">Kullanıcı adı</label>
-        <input id="authUser" name="u" autocomplete="username" placeholder="Kullanıcı adı" required>
-      </div>
-      <div class="row">
-        <label for="authPass">Şifre</label>
-        <input id="authPass" name="p" type="password" autocomplete="current-password" placeholder="••••••••" required>
-      </div>
-      <button id="authBtn" type="submit">Giriş</button>
-
-<script>
-(function(){
-  const USERS = {
-    "hertz":   { pass: "hertz", role: "admin" },
-    "muhasebe":{ pass: "2",     role: "user"  },
-    "imalat1": { pass: "3",     role: "user"  },
-    "imalat2": { pass: "4",     role: "user"  },
-    "imalat3": { pass: "5",     role: "user"  },
-    "imalat4": { pass: "6",     role: "user"  },
-    "imalat5": { pass: "7",     role: "user"  },
-    "imalat6": { pass: "8",     role: "user"  }
-  };
+;
   const KEY  = "auth_ok"; // sessionStorage
   const UN   = "auth_user";
   const RL   = "role";
@@ -183,6 +73,44 @@ if (btnLogoutHeader) {
   window.addEventListener("load", applyRoleUI);
   document.addEventListener("auth_ok", applyRoleUI);
 })();
+
+// Header'daki çıkış butonu
+document.addEventListener('DOMContentLoaded', () => {
+  const btnLogoutHeader = document.getElementById('btnLogoutHeader');
+  if (btnLogoutHeader) {
+    btnLogoutHeader.addEventListener('click', () => {
+      try {
+        sessionStorage.removeItem('auth_ok');
+        sessionStorage.removeItem('auth_user');
+        sessionStorage.removeItem('role');
+      } catch(e) {
+        console.error("Session temizlenemedi:", e);
+      }
+      // Login sayfasına yönlendir
+      location.reload();
+    });
+  }
+});
+
+
+// Header'daki çıkış butonu (yedek JS bağlayıcı)
+(function(){
+  try {
+    var btnLogoutHeader = document.getElementById('btnLogoutHeader');
+    if (btnLogoutHeader && !btnLogoutHeader.dataset.bound) {
+      btnLogoutHeader.addEventListener('click', function(){
+        try {
+          sessionStorage.removeItem('auth_ok');
+          sessionStorage.removeItem('auth_user');
+          sessionStorage.removeItem('role');
+        } catch(e) {}
+        location.reload();
+      });
+      btnLogoutHeader.dataset.bound = "1";
+    }
+  } catch(e) {}
+})();
+
 </script>
 
       <div id="authErr"></div>
@@ -252,8 +180,8 @@ if (btnLogoutHeader) {
         <button id="btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
         <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
         <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-        <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
-        <button id="btnLogoutHeader" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Çıkış Yap</button>
+        \1
+        <button id="btnLogoutHeader" class="px-3 py-2 rounded-xl border border-slate-300 bg-white" title="Oturumu kapat" onclick="try{sessionStorage.removeItem('auth_ok');sessionStorage.removeItem('auth_user');sessionStorage.removeItem('role');}catch(e){};location.reload();">Çıkış Yap</button>
       </div>
     </div>
   </header>
