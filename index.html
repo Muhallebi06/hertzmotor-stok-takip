@@ -492,7 +492,46 @@
 
     const fmt=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(v):n};
     const nowISO=()=>new Date().toISOString();
-    const addLog=(entry)=>state.logs.unshift({id:uuid(),ts:nowISO(),...entry});
+    const addLog=(entry)=>
+    // Özellik özeti: tek satırda rpm • kW • V • müşteri • bağlantı
+    function specs(p){
+      const parts=[];
+      if(p.category==='paketliGovde'){
+        if(p.pg_rpm) parts.push(`${p.pg_rpm} rpm`);
+        if(p.pg_kw) parts.push(`${p.pg_kw} kW`);
+        if(p.pg_volt) parts.push(`${p.pg_volt} V`);
+        if(p.pg_customer) parts.push(`${p.pg_customer}`);
+        if(p.pg_conn) parts.push(`${p.pg_conn}`);
+      }else if(p.category==='motor'){
+        if(p.m_rpm) parts.push(`${p.m_rpm} rpm`);
+        if(p.m_kw) parts.push(`${p.m_kw} kW`);
+        if(p.m_volt) parts.push(`${p.m_volt} V`);
+        if(p.m_customer) parts.push(`${p.m_customer}`);
+        if(p.m_conn) parts.push(`${p.m_conn}`);
+        if(p.m_cover) parts.push(`Kapak: ${p.m_cover}`);
+      }else{
+        // Diğer kategoriler için yaygın alanlar
+        if(p.rpm) parts.push(`${p.rpm} rpm`);
+        if(p.kw) parts.push(`${p.kw} kW`);
+        if(p.volt) parts.push(`${p.volt} V`);
+        if(p.material) parts.push(`${p.material}`);
+        if(p.milCode) parts.push(`Mil: ${p.milCode}`);
+        if(p.customer) parts.push(`${p.customer}`);
+      }
+      return parts.join(' • ');
+    }
+
+    // Arama metni: isim/sku/not + önemli teknik alanlar
+    function searchable(p){
+      const base = [(p.name||''),(p.sku||''),(p.note||''),(CATEGORY_LABEL[p.category]||p.category||'')].join(' ');
+      const extra = [
+        p.pg_rpm,p.pg_kw,p.pg_volt,p.pg_customer,p.pg_conn,
+        p.m_rpm,p.m_kw,p.m_volt,p.m_customer,p.m_conn,p.m_cover,
+        p.material,p.milCode,p.rpm,p.kw,p.volt,p.customer
+      ].filter(Boolean).join(' ');
+      return (base+' '+extra).toLowerCase();
+    }
+state.logs.unshift({id:uuid(),ts:nowISO(),...entry});
     const findProduct=id=>state.products.find(p=>p.id===id);
 
     let sortBy='name', sortDir='asc';
@@ -504,7 +543,7 @@
       const listMobile=$('#listMobile'); listMobile.innerHTML='';
 
       let list=[...state.products];
-      if(q) list=list.filter(p=>(p.name+' '+p.sku+' '+(p.note||'')+' '+(CATEGORY_LABEL[p.category]||'')).toLowerCase().includes(q));
+      if(q) list=list.filter(p=> searchable(p).includes(q));
       if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
 
       // Sıralama
@@ -525,6 +564,7 @@
           <td class="px-3 py-2 align-top">${kindBadge} ${catBadge}</td>
           <td class="px-3 py-2 align-top text-right font-medium ${low?'text-amber-700':''}">${fmt(p.qty||0)}</td>
           <td class="px-3 py-2 align-top text-right">${fmt(p.min||0)}</td>
+          <td class="px-3 py-2 align-top text-slate-700">${specs(p)}</td>
           <td class="px-3 py-2 align-top text-slate-600">${p.note||''}</td>
           <td class="px-3 py-2 align-top text-right">
             <div class="flex justify-end gap-1">
@@ -545,6 +585,7 @@
               <div class="text-sm text-slate-500">${p.sku||'-'}</div>
               <div class="font-medium truncate">${p.name||'-'}</div>
               <div class="mt-1 text-xs">${kindBadge} ${catBadge}</div>
+              <div class="mt-1 text-xs text-slate-600 truncate">${specs(p)}</div>
             </div>
             <div class="text-right">
               <div class="text-xs text-slate-500">Stok</div>
