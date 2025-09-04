@@ -557,7 +557,7 @@
         <td class="px-3 py-2">${L.note||''}</td>`; logBody.appendChild(tr); }
     }
 
-    function openProductDialog(product){ const dlg=$('#productDialog'); const form=$('#productForm'); form.reset(); refreshProductDialogUI(); if(product){ $('#productDialogTitle').textContent='Ürünü Düzenle'; form.kind.value=product.kind||'mamul'; form.category.value=product.category||'stator'; form.name.value=product.name||''; form.sku.value=product.sku||''; form.unit.value=product.unit||''; form.min.value=product.min??0; form.note.value=product.note||''; form.kw.value=product.kw??''; form.rpm.value=product.rpm??''; form.volt.value=product.volt??''; form.milCode.value=product.milCode??''; form.customer.value=product.customer??''; form.pg_rpm.value=product.pg_rpm??''; form.pg_kw.value=product.pg_kw??''; form.pg_volt.value=product.pg_volt??''; form.pg_customer.value=product.pg_customer??''; form.pg_conn.value=product.pg_conn??'soketli'; form.m_rpm.value=product.m_rpm??''; form.m_kw.value=product.m_kw??''; form.m_volt.value=product.m_volt??''; form.m_conn.value=product.m_conn??'soketli'; form.milType.value=product.milType??''; form.id.value=product.id; refreshProductDialogUI(); } else { $('#productDialogTitle').textContent='Ürün Ekle'; form.kind.value='mamul'; form.category.value='stator'; form.id.value=''; suggestSku(true); refreshProductDialogUI(); } const __kind=document.getElementById('kind'); const __cat=document.getElementById('category'); if(__kind){ __kind.onchange=__kind.oninput=refreshProductDialogUI; } if(__cat){ __cat.onchange=__cat.oninput=refreshProductDialogUI; } refreshProductDialogUI(); requestAnimationFrame(refreshProductDialogUI); dlg.showModal(); }
+    function openProductDialog(product){ const dlg=$('#productDialog'); const form=$('#productForm'); form.reset(); refreshProductDialogUI(); if(product){ $('#productDialogTitle').textContent='Ürünü Düzenle'; form.kind.value=product.kind||'mamul'; form.category.value=product.category||'stator'; form.name.value=product.name||''; form.sku.value=product.sku||''; form.unit.value=product.unit||''; form.min.value=product.min??0; form.note.value=product.note||''; form.kw.value=product.kw??''; form.rpm.value=product.rpm??''; form.volt.value=product.volt??''; form.milCode.value=product.milCode??''; form.customer.value=product.customer??''; form.pg_rpm.value=product.pg_rpm??''; form.pg_kw.value=product.pg_kw??''; form.pg_volt.value=product.pg_volt??''; form.pg_customer.value=product.pg_customer??''; form.pg_conn.value=product.pg_conn??'soketli'; form.m_rpm.value=product.m_rpm??''; form.m_kw.value=product.m_kw??''; form.m_volt.value=product.m_volt??''; form.m_conn.value=product.m_conn??'soketli'; form.milType.value=product.milType??''; form.id.value=product.id; refreshProductDialogUI(); } else { $('#productDialogTitle').textContent='Ürün Ekle'; form.kind.value='mamul'; form.category.value='stator'; form.id.value=''; suggestSku(true); refreshProductDialogUI(); } const __kind=document.getElementById('kind'); const __cat=document.getElementById('category'); if(__kind){ __kind.onchange=__kind.oninput=refreshProductDialogUI; } if(__cat){ __cat.onchange=__cat.oninput=refreshProductDialogUI; } refreshProductDialogUI(); requestAnimationFrame(refreshProductDialogUI); const __kind=document.getElementById('kind'); const __cat=document.getElementById('category'); if(__kind){ __kind.onchange=__kind.oninput=refreshProductDialogUI; } if(__cat){ __cat.onchange=__cat.oninput=refreshProductDialogUI; } refreshProductDialogUI(); requestAnimationFrame(refreshProductDialogUI); dlg.showModal(); }
 
     function openMoveDialog(product,type){ const dlg=$('#moveDialog'); const form=$('#moveForm'); form.reset(); form.id.value=product.id; $('#moveProductName').textContent=`${product.name} (${product.sku||'kod yok'})`; if(type){ $$('input[name="type"]').forEach(r=>r.checked=(r.value===type)); } dlg.showModal(); }
 
@@ -567,15 +567,32 @@
 
     function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=Array.isArray(data.products)?data.products:[]; state.logs=Array.isArray(data.logs)?data.logs:[]; save(); alert('İçe aktarıldı'); }catch(e){ alert('Dosya okunamadı: '+e.message); } }; reader.readAsText(file); }
 
-    function toggleConditionalSections(){ const form=$('#productForm'); const cat=form.category.value; $('[data-section="sargiliPaket"]').classList.toggle('hidden', cat!=='sargiliPaket'); $('[data-section="paketliGovde"]').classList.toggle('hidden', cat!=='paketliGovde'); const isMil=(cat==='mil'||cat==='rotorluMil'||cat==='taslanmisMil'); $('[data-section="mil"]').classList.toggle('hidden', !isMil); $('[data-section="motor"]').classList.toggle('hidden', cat!=='motor'); }
+    function toggleConditionalSections(){
+  const form=document.getElementById('productForm'); if(!form) return;
+  const cat=form.category.value;
+  const show=(sec,on)=>{ const el=form.querySelector(`[data-section="${sec}"]`); if(el) el.classList.toggle('hidden', !on); };
+  const req=(name,on)=>{ const el=form.querySelector(`[name="${name}"]`); if(el) el.required=on; };
+  const isMil=(cat==='mil'||cat==='rotorluMil'||cat==='taslanmisMil');
+  show('sargiliPaket', cat==='sargiliPaket');
+  show('paketliGovde', cat==='paketliGovde');
+  show('mil', isMil);
+  show('motor', cat==='motor');
+  const onSP=(cat==='sargiliPaket'); req('kw', onSP); req('rpm', onSP); req('volt', onSP);
+  const onPG=(cat==='paketliGovde'); req('pg_kw', onPG); req('pg_rpm', onPG); req('pg_volt', onPG);
+  req('milCode', isMil);
+}
+
 
     
     
     function refreshProductDialogUI(){
-      try{
-        refreshProductDialogUI();
-        const form=document.getElementById('productForm');
-        if(form && !form.id.value){ form.sku.value = nextSkuForCategory(form.category.value); }
+  try{
+    toggleConditionalSections();
+    const form=document.getElementById('productForm');
+    if(form && !form.id.value){ form.sku.value = nextSkuForCategory(form.category.value); }
+  }catch(e){ if(window.console && console.warn) console.warn('refreshProductDialogUI:', e); }
+}
+
       }catch(e){ console && console.warn && console.warn('refreshProductDialogUI:', e); }
     }
 function isVisibleField(el){
