@@ -570,7 +570,17 @@
     function toggleConditionalSections(){ const form=$('#productForm'); const cat=form.category.value; $('[data-section="sargiliPaket"]').classList.toggle('hidden', cat!=='sargiliPaket'); $('[data-section="paketliGovde"]').classList.toggle('hidden', cat!=='paketliGovde'); const isMil=(cat==='mil'||cat==='rotorluMil'||cat==='taslanmisMil'); $('[data-section="mil"]').classList.toggle('hidden', !isMil); $('[data-section="motor"]').classList.toggle('hidden', cat!=='motor'); }
 
     
-    function prefixForCategory(cat){
+    
+    function refreshProductDialogUI(){
+      try{
+        toggleConditionalSections();
+        const form = document.getElementById('productForm');
+        if(!form) return;
+        // If new product (no id), keep SKU in sync with category prefix
+        if(!form.id.value){ form.sku.value = nextSkuForCategory(form.category.value); }
+      }catch(e){ console && console.warn && console.warn('refreshProductDialogUI:', e); }
+    }
+function prefixForCategory(cat){
       switch(cat){
         case 'stator': return 'ST';
         case 'rotor': return 'RT';
@@ -650,6 +660,8 @@ function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let 
     // Auto SKU update on category change for new items
     function autoUpdateSkuOnCategory(){ const form=$('#productForm'); if(!form) return; if(form.id.value) return; form.sku.value = nextSkuForCategory(form.category.value); }
     document.getElementById('category').addEventListener('change', autoUpdateSkuOnCategory);
+    document.getElementById('kind').addEventListener('change', toggleConditionalSections);
+    document.getElementById('category').addEventListener('change', toggleConditionalSections);
 // Kısayol: Ctrl/Cmd+K arama
     document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); $('#search').focus(); } });
     // Sekmeler arası senkron
