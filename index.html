@@ -306,7 +306,7 @@
         </div>
         <div>
           <label class="text-sm text-slate-600">Stok Kodu</label>
-          <div class="flex gap-2"><input name="sku" id="sku" type="text" inputmode="numeric" pattern="\d+" required class="w-full px-3 py-2 rounded-xl border border-slate-300" /></div>
+          <div class="flex gap-2"><input name="sku" id="sku" type="text" inputmode="numeric" required class="w-full px-3 py-2 rounded-xl border border-slate-300" pattern="HM-\d{6}" placeholder="HM-000001" /></div>
 <p class="text-xs text-slate-500 mt-1">Stok kodu otomatik atanır ve yalnızca rakamlardan oluşur.</p>
         </div>
         <div>
@@ -561,7 +561,7 @@
         <td class="px-3 py-2">${L.note||''}</td>`; logBody.appendChild(tr); }
     }
 
-    function openProductDialog(product){ const dlg=$('#productDialog'); const form=$('#productForm'); form.reset(); toggleConditionalSections(); if(product){ $('#productDialogTitle').textContent='Ürünü Düzenle'; form.kind.value=product.kind||'mamul'; form.category.value=product.category||'stator'; form.name.value=product.name||''; form.sku.value=product.sku||''; form.unit.value=product.unit||''; form.min.value=product.min??0; form.note.value=product.note||''; form.kw.value=product.kw??''; form.rpm.value=product.rpm??''; form.volt.value=product.volt??''; form.milCode.value=product.milCode??''; form.customer.value=product.customer??''; form.pg_rpm.value=product.pg_rpm??''; form.pg_kw.value=product.pg_kw??''; form.pg_volt.value=product.pg_volt??''; form.pg_customer.value=product.pg_customer??''; form.pg_conn.value=product.pg_conn??'soketli'; form.m_rpm.value=product.m_rpm??''; form.m_kw.value=product.m_kw??''; form.m_volt.value=product.m_volt??''; form.m_conn.value=product.m_conn??'soketli'; form.milType.value=product.milType??''; form.m_term.value=product.m_term??'ustten'; form.id.value=product.id; toggleConditionalSections(); } else { $('#productDialogTitle').textContent='Ürün Ekle'; form.kind.value='mamul'; form.category.value='stator'; form.id.value=''; form.sku.value = nextNumericSku(); toggleConditionalSections(); } dlg.showModal(); }
+    function openProductDialog(product){ const dlg=$('#productDialog'); const form=$('#productForm'); form.reset(); toggleConditionalSections(); if(product){ $('#productDialogTitle').textContent='Ürünü Düzenle'; form.kind.value=product.kind||'mamul'; form.category.value=product.category||'stator'; form.name.value=product.name||''; form.sku.value=product.sku||''; form.unit.value=product.unit||''; form.min.value=product.min??0; form.note.value=product.note||''; form.kw.value=product.kw??''; form.rpm.value=product.rpm??''; form.volt.value=product.volt??''; form.milCode.value=product.milCode??''; form.customer.value=product.customer??''; form.pg_rpm.value=product.pg_rpm??''; form.pg_kw.value=product.pg_kw??''; form.pg_volt.value=product.pg_volt??''; form.pg_customer.value=product.pg_customer??''; form.pg_conn.value=product.pg_conn??'soketli'; form.m_rpm.value=product.m_rpm??''; form.m_kw.value=product.m_kw??''; form.m_volt.value=product.m_volt??''; form.m_conn.value=product.m_conn??'soketli'; form.milType.value=product.milType??''; form.m_term.value=product.m_term??'ustten'; form.id.value=product.id; toggleConditionalSections(); } else { $('#productDialogTitle').textContent='Ürün Ekle'; form.kind.value='mamul'; form.category.value='stator'; form.id.value=''; form.sku.value = nextHertzSku(); toggleConditionalSections(); } dlg.showModal(); }
 
     function openMoveDialog(product,type){ const dlg=$('#moveDialog'); const form=$('#moveForm'); form.reset(); form.id.value=product.id; $('#moveProductName').textContent=`${product.name} (${product.sku||'kod yok'})`; if(type){ $$('input[name="type"]').forEach(r=>r.checked=(r.value===type)); } dlg.showModal(); }
 
@@ -571,10 +571,41 @@
 
     function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=Array.isArray(data.products)?data.products:[]; state.logs=Array.isArray(data.logs)?data.logs:[]; save(); alert('İçe aktarıldı'); }catch(e){ alert('Dosya okunamadı: '+e.message); } }; reader.readAsText(file); }
 
-    function toggleConditionalSections(){ const form=$('#productForm'); const cat=form.category.value; $('[data-section="sargiliPaket"]').classList.toggle('hidden', cat!=='sargiliPaket'); $('[data-section="paketliGovde"]').classList.toggle('hidden', cat!=='paketliGovde'); const isMil=(cat==='mil'||cat==='rotorluMil'||cat==='taslanmisMil'); $('[data-section="mil"]').classList.toggle('hidden', !isMil); $('[data-section="motor"]').classList.toggle('hidden', cat!=='motor'); }
+    function toggleConditionalSections(){
+  const form = $('#productForm');
+  const cat = form.category.value;
+  const show = (name, on)=>{ const el=form.querySelector(`[data-section="${name}"]`); if(el) el.classList.toggle('hidden', !on); };
+  // Show/hide sections
+  show('sargiliPaket', cat==='sargiliPaket');
+  show('paketliGovde', cat==='paketliGovde');
+  show('mil', /mil$/i.test(cat) || cat==='mil' || cat==='rotorluMil' || cat==='taslanmisMil');
+  show('motor', cat==='motor');
+  // Required flags
+  const req = (sel, on)=>{ const i=form.querySelector(`[name="${sel}"]`); if(i) i.required=on; };
+  // Sargılı Paket: kw/rpm/volt required
+  const onSP = (cat==='sargiliPaket');
+  req('kw', onSP); req('rpm', onSP); req('volt', onSP);
+  // Paketli Gövde: m_rpm/m_kw/m_volt required
+  const onPG = (cat==='paketliGovde');
+  req('pg_rpm', onPG); req('pg_kw', onPG); req('pg_volt', onPG);
+  // Mil: milCode required
+  req('milCode', (/mil$/i.test(cat) || cat==='mil' || cat==='rotorluMil' || cat==='taslanmisMil'));
+}
+
 
     
-    function nextNumericSku(){ let max=0; for(const p of state.products){ const s=String(p.sku||''); if(/^\d+$/.test(s)){ const n=parseInt(s,10); if(n>max) max=n; }} return String(max+1); }
+    
+    function nextHertzSku(){
+      let max=0;
+      for(const p of state.products){
+        const s=String(p.sku||'');
+        const m=s.match(/^HM-(\d{6})$/);
+        if(m){ const n=parseInt(m[1],10); if(n>max) max=n; }
+      }
+      const next=String(max+1).padStart(6,'0');
+      return `HM-${next}`;
+    }
+function nextNumericSku(){ let max=0; for(const p of state.products){ const s=String(p.sku||''); if(/^\d+$/.test(s)){ const n=parseInt(s,10); if(n>max) max=n; }} return String(max+1); }
 function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let max=0; for(const p of state.products){ if(p.category!==cat) continue; const m=String(p.sku||'').match(new RegExp('^'+prefix+'-(\\d+)$')); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } } const next=String(max+1).padStart(4,'0'); return `${prefix}-${next}`; }
     function suggestSku(force=false){ const form=$('#productForm'); const cat=form.category.value; const suggestion=nextSkuForCategory(cat); const prefix=(CATEGORY_PREFIX[cat]||'PRD')+'-'; if(force || !form.sku.value || !form.sku.value.startsWith(prefix)){ form.sku.value=suggestion; } else { if(state.products.some(p=>(p.sku||'').toLowerCase()===form.sku.value.toLowerCase())) form.sku.value=suggestion; } }
 
@@ -597,7 +628,7 @@ function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let 
     delegate(document.body);
 
     $('#productForm').addEventListener('submit',e=>{ e.preventDefault(); const form=e.target; const data=Object.fromEntries(new FormData(form).entries());
-      data.sku = String(data.sku||'').replace(/\D+/g,''); if(!data.sku){ data.sku = nextNumericSku(); } const isEdit=!!data.id; const min=Number(data.min||0); if(isNaN(min)||min<0){ alert('Minimum stok 0 veya daha büyük olmalı'); return; } if(!data.name||!data.sku){ alert('Ad ve stok kodu zorunlu'); return; } if(data.category==='sargiliPaket'){ if(!(data.kw && data.rpm && data.volt)){ alert('Sargılı paket için kW, rpm ve Volt zorunludur.'); return; } } if(['mil','rotorluMil','taslanmisMil'].includes(data.category)){ if(!data.milCode){ alert('Mil türlerinde Mil Kodu zorunludur.'); return; } }
+      if(!data.sku){ data.sku = nextHertzSku(); } const isEdit=!!data.id; const min=Number(data.min||0); if(isNaN(min)||min<0){ alert('Minimum stok 0 veya daha büyük olmalı'); return; } if(!data.name||!data.sku){ alert('Ad ve stok kodu zorunlu'); return; } if(data.category==='sargiliPaket'){ if(!(data.kw && data.rpm && data.volt)){ alert('Sargılı paket için kW, rpm ve Volt zorunludur.'); return; } } if(['mil','rotorluMil','taslanmisMil'].includes(data.category)){ if(!data.milCode){ alert('Mil türlerinde Mil Kodu zorunludur.'); return; } }
       const clash=state.products.some(x=>x.id!==data.id && (x.sku||'').toLowerCase()===data.sku.toLowerCase()); if(clash){ alert('Bu stok kodu başka bir üründe kullanılıyor. Otomatik yeni kod önerilecek.'); form.sku.value=nextSkuForCategory(data.category); data.sku=form.sku.value; }
       if(isEdit){ const p=findProduct(data.id); if(!p) return; Object.assign(p,{ kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_term:data.m_term||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||'' }); addLog({productId:p.id,type:'edit',amount:0,fromQty:p.qty||0,toQty:p.qty||0,note:'Ürün bilgisi güncellendi'}); } else { const p={ id:uuid(), kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, qty:0, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_term:data.m_term||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||'' }; state.products.unshift(p); addLog({productId:p.id,type:'new',amount:0,fromQty:0,toQty:0,note:'Yeni ürün eklendi'}); }
       $('#productDialog').close(); save(); });
