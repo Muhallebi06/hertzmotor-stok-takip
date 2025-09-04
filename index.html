@@ -1,10 +1,46 @@
 <!DOCTYPE html>
 <html lang="tr" class="scroll-smooth">
 <head>
+  <script>(function(){try{var t=localStorage.getItem("theme");if(t==="dark"){document.documentElement.classList.add("dark");}}catch(e){}})();
+// ---- Tema (Gece/Gündüz) ----
+(function(){
+  function applyIcon(){
+    const btn = document.getElementById('themeToggle');
+    if(!btn) return;
+    const isDark = document.documentElement.classList.contains('dark');
+    btn.textContent = isDark ? '☀️' : '🌙';
+    btn.setAttribute('aria-label', isDark ? 'Gündüz modu' : 'Gece modu');
+    btn.title = isDark ? 'Gündüz modu' : 'Gece modu';
+  }
+  // Initial apply after DOM ready
+  document.addEventListener('DOMContentLoaded', applyIcon);
+  // Event delegation (robust even if button re-renders)
+  document.addEventListener('click', function(e){
+    const target = e.target.closest('#themeToggle');
+    if(!target) return;
+    document.documentElement.classList.toggle('dark');
+    try{
+      localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    }catch(e){}
+    applyIcon();
+  }, true);
+})();
+
+
+// Force reflow for Safari-like issues
+document.addEventListener('click', function(e){
+  const t=e.target.closest('#themeToggle'); if(!t) return;
+  // Already toggled above by main handler; here we just force a reflow
+  void document.body.offsetWidth;
+}, true);
+
+</script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hertz Motor — Stok Takip</title>
   <!-- Tailwind (dark mode kaldırıldı) -->
+  <script>tailwind.config = { darkMode: "class" };</script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <meta name="theme-color" content="rgb(205,105,40)" />
   <style>
@@ -15,9 +51,11 @@
     .btn-brand:hover{ filter: brightness(0.95); }
     .no-scrollbar::-webkit-scrollbar{ display:none; }
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
-  </style>
+  
+  html, body, .transition-theme { transition: background-color .2s ease, color .2s ease, border-color .2s ease; }
+</style>
 </head>
-<body class="bg-slate-50 text-slate-800">
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
 
 <!-- === Simple Login Gate (user: hertz / pass: hertz) === -->
 <style>
@@ -44,7 +82,7 @@
   }
   #authErr { min-height: 18px; color: #fca5a5; font-size: 12px; margin-top: 8px; }
   #logoutBtn {
-  @apply px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-gray-100;
+  @apply px-3 py-2 rounded-xl border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 hover:bg-gray-100;
 }
 
 
@@ -142,6 +180,9 @@
   window.addEventListener("load", applyRoleUI);
   document.addEventListener("auth_ok", applyRoleUI);
 })();
+
+
+
 </script>
 
       <div id="authErr"></div>
@@ -194,6 +235,9 @@
     location.reload();
   });
 })();
+
+
+
 </script>
 <!-- === /Login Gate === -->
 
@@ -206,14 +250,15 @@
         <p class="hidden md:block text-xs text-slate-500">Üretim odaklı alanlar • İçe/Dışa aktar • Yerel kayıt</p>
       </div>
       <div class="flex flex-wrap gap-2 items-center">
-        <button id="btnAdd" class="px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
-        <button id="btnImport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe aktar</button>
-        <button id="btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
-        <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
-        <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
+        <button id="btnAdd" class="px-3 py-2 rounded-xl btn-brand dark:bg-blue-500 dark:text-white">Ürün Ekle</button>
+        <button id="btnImport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100">İçe aktar</button>
+        <button id="btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100">Dışa aktar</button>
+        <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100">CSV</button>
+        <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100">Log CSV</button>
         <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
-        <button id="logoutBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Çıkış</button>
-      </div>
+        <button id="logoutBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100">Çıkış</button>
+      
+        <button id="themeToggle" class="px-2 py-2 rounded-xl border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 dark:bg-slate-700 dark:text-white" title="Gece/Gündüz">🌙</button></div>
     </div>
   </header>
 
@@ -221,8 +266,8 @@
     <!-- Üst araç çubuğu -->
     <div class="flex flex-col md:flex-row gap-2 md:gap-3 items-stretch md:items-center mb-3 md:mb-4">
       <div class="flex items-center gap-2 grow">
-        <input id="search" type="search" placeholder="Ara: ad, stok kodu…" class="w-full md:max-w-sm px-3 py-2 rounded-xl border border-slate-300 bg-white" />
-        <label class="flex items-center gap-2 text-sm text-slate-600">
+        <input id="search" type="search" placeholder="Ara: ad, stok kodu…" class="w-full md:max-w-sm px-3 py-2 rounded-xl border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100" />
+        <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
           <input id="onlyLow" type="checkbox" class="w-4 h-4"> Sadece kritik stok
         </label>
       </div>
@@ -230,7 +275,7 @@
     </div>
 
     <!-- Masaüstü tablo -->
-    <div class="hidden md:block overflow-auto rounded-2xl border border-slate-200 bg-white">
+    <div class="hidden md:block overflow-auto rounded-2xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700">
       <table class="min-w-full text-sm">
         <thead id="thead" class="bg-slate-100 text-slate-700">
           <tr>
@@ -239,7 +284,6 @@
             <th class="text-left px-3 py-2">Tür/Çeşit</th>
             <th data-sort="qty" class="text-right px-3 py-2 cursor-pointer select-none">Stok</th>
             <th data-sort="min" class="text-right px-3 py-2 cursor-pointer select-none">Minimum</th>
-            <th class="text-left px-3 py-2">Özellikler</th>
             <th class="text-left px-3 py-2">Not</th>
             <th class="text-right px-3 py-2">İşlemler</th>
           </tr>
@@ -249,11 +293,11 @@
     </div>
 
     <!-- Mobil kart liste -->
-    <div id="listMobile" class="md:hidden space-y-2"></div>
+    <div id="listMobile" class="md:hidden space-y-2 dark:text-slate-100"></div>
 
     <!-- Log -->
     <details class="mt-5 group">
-      <summary class="cursor-pointer select-none text-sm text-slate-600 flex items-center gap-2">
+      <summary class="cursor-pointer select-none text-sm text-slate-600 dark:text-slate-300 flex items-center gap-2">
         <span class="inline-block w-2 h-2 rounded-full" style="background: rgb(var(--brand))"></span>
         Hareket Geçmişi
       </summary>
@@ -282,7 +326,7 @@
       <h3 id="productDialogTitle" class="text-lg font-semibold mb-4">Ürün Ekle</h3>
       <div class="grid md:grid-cols-2 gap-3">
         <div>
-          <label class="text-sm text-slate-600">Ürün Türü</label>
+          <label class="text-sm text-slate-600 dark:text-slate-300">Ürün Türü</label>
           <select name="kind" id="kind" class="w-full px-3 py-2 rounded-xl border border-slate-300">
             <option value="mamul">Mamul</option>
             <option value="yari">Yarı-mamul</option>
@@ -290,7 +334,7 @@
           </select>
         </div>
         <div>
-          <label class="text-sm text-slate-600">Ürün Çeşidi</label>
+          <label class="text-sm text-slate-600 dark:text-slate-300">Ürün Çeşidi</label>
           <select name="category" id="category" class="w-full px-3 py-2 rounded-xl border border-slate-300">
             <option value="stator">Stator</option>
             <option value="rotor">Rotor</option>
@@ -309,11 +353,11 @@
             <option value="taslanmisKapak">Taşlanmış Kapak</option></select>
         </div>
         <div class="md:col-span-2">
-          <label class="text-sm text-slate-600">Ad</label>
+          <label class="text-sm text-slate-600 dark:text-slate-300">Ad</label>
           <input name="name" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300" />
         </div>
         <div>
-          <label class="text-sm text-slate-600">Stok Kodu</label>
+          <label class="text-sm text-slate-600 dark:text-slate-300">Stok Kodu</label>
           <div class="flex gap-2">
             <input name="sku" id="sku" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             <button id="btnAutoSku" type="button" class="px-3 py-2 rounded-xl border border-slate-300">Oluştur</button>
@@ -321,15 +365,15 @@
           <p class="text-xs text-slate-500 mt-1">Ürün çeşidine göre otomatik kod önerilir. Dilersen düzenleyebilirsin.</p>
         </div>
         <div>
-          <label class="text-sm text-slate-600">Birim</label>
+          <label class="text-sm text-slate-600 dark:text-slate-300">Birim</label>
           <input name="unit" type="text" placeholder="adet, kg, m…" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
         </div>
         <div>
-          <label class="text-sm text-slate-600">Minimum Stok</label>
+          <label class="text-sm text-slate-600 dark:text-slate-300">Minimum Stok</label>
           <input name="min" type="number" step="any" value="0" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
         </div>
         <div class="md:col-span-2">
-          <label class="text-sm text-slate-600">Not</label>
+          <label class="text-sm text-slate-600 dark:text-slate-300">Not</label>
           <input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
         </div>
 
@@ -337,15 +381,15 @@
         <div data-section="sargiliPaket" class="md:col-span-2 hidden">
           <div class="grid md:grid-cols-3 gap-3">
             <div>
-              <label class="text-sm text-slate-600">kW</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">kW</label>
               <input name="kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             </div>
             <div>
-              <label class="text-sm text-slate-600">Devir (rpm)</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Devir (rpm)</label>
               <input name="rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             </div>
             <div>
-              <label class="text-sm text-slate-600">Voltaj (V)</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Voltaj (V)</label>
               <input name="volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             </div>
           </div>
@@ -354,25 +398,25 @@
         <div data-section="paketliGovde" class="md:col-span-2 hidden">
           <div class="grid md:grid-cols-3 gap-3">
             <div>
-              <label class="text-sm text-slate-600">Devir (rpm)</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Devir (rpm)</label>
               <input name="pg_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             </div>
             <div>
-              <label class="text-sm text-slate-600">kW</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">kW</label>
               <input name="pg_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             </div>
             <div>
-              <label class="text-sm text-slate-600">Voltaj (V)</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Voltaj (V)</label>
               <input name="pg_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             </div>
           </div>
           <div class="grid md:grid-cols-2 gap-3 mt-3">
             <div>
-              <label class="text-sm text-slate-600">Müşteri</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Müşteri</label>
               <input name="pg_customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             </div>
             <div>
-              <label class="text-sm text-slate-600">Bağlantı Tipi</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Bağlantı Tipi</label>
               <select name="pg_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300">
                 <option value="soketli">Soketli</option>
                 <option value="duz">Düz klemensli</option>
@@ -385,30 +429,30 @@
         </div>
 
         <div data-section="mil" class="md:col-span-2 hidden">
-          <label class="text-sm text-slate-600">Mil Kodu</label>
+          <label class="text-sm text-slate-600 dark:text-slate-300">Mil Kodu</label>
           <input name="milCode" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
         </div>
 
         <div data-section="motor" class="md:col-span-2 hidden">
           <div class="grid md:grid-cols-3 gap-3">
             <div>
-              <label class="text-sm text-slate-600">Müşteri</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Müşteri</label>
               <input name="customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             </div>
             <div>
-              <label class="text-sm text-slate-600">Devir (rpm)</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Devir (rpm)</label>
               <input name="m_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             </div>
             <div>
-              <label class="text-sm text-slate-600">kW</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">kW</label>
               <input name="m_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             </div>
             <div>
-              <label class="text-sm text-slate-600">Voltaj (V)</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Voltaj (V)</label>
               <input name="m_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             </div>
             <div>
-              <label class="text-sm text-slate-600">Bağlantı Tipi</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Bağlantı Tipi</label>
               <select name="m_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300">
                 <option value="soketli">Soketli</option>
                 <option value="duz">Düz klemensli</option>
@@ -418,12 +462,12 @@
               </select>
             </div>
             <div>
-              <label class="text-sm text-slate-600">Mil Tipi</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Mil Tipi</label>
               <input name="milType" type="text" placeholder="Örn: DIN 6885" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
             
             </div>
             <div>
-              <label class="text-sm text-slate-600">Kapak Çeşidi</label>
+              <label class="text-sm text-slate-600 dark:text-slate-300">Kapak Çeşidi</label>
               <select name="m_cover" class="w-full px-3 py-2 rounded-xl border border-slate-300">
                 <option value="AK">AK</option>
                 <option value="CK">CK</option>
@@ -435,8 +479,8 @@
         </div>
       </div>
       <div class="mt-5 flex justify-end gap-2">
-        <button id="productCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button>
-        <button id="productSaveBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Kaydet</button>
+        <button id="productCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100">Vazgeç</button>
+        <button id="productSaveBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand dark:bg-blue-500 dark:text-white">Kaydet</button>
       </div>
       <input type="hidden" name="id" />
     </form>
@@ -462,8 +506,8 @@
         </div>
       </div>
       <div class="mt-5 flex justify-end gap-2">
-        <button id="moveCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button>
-        <button id="moveApplyBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Uygula</button>
+        <button id="moveCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100">Vazgeç</button>
+        <button id="moveApplyBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand dark:bg-blue-500 dark:text-white">Uygula</button>
       </div>
       <input type="hidden" name="id" />
     </form>
@@ -493,59 +537,19 @@
 
     const fmt=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(v):n};
     const nowISO=()=>new Date().toISOString();
-    const addLog=(entry)=>
-    state.logs.unshift({id:uuid(),ts:nowISO(),...entry});
+    const addLog=(entry)=>state.logs.unshift({id:uuid(),ts:nowISO(),...entry});
     const findProduct=id=>state.products.find(p=>p.id===id);
 
     let sortBy='name', sortDir='asc';
 
-    
-// ----------------- Ek Yardımcı Fonksiyonlar -----------------
-function specs(p){
-  const parts=[];
-  if(p.category==='paketliGovde'){
-    if(p.pg_rpm) parts.push(`${p.pg_rpm} rpm`);
-    if(p.pg_kw) parts.push(`${p.pg_kw} kW`);
-    if(p.pg_volt) parts.push(`${p.pg_volt} V`);
-    if(p.pg_customer) parts.push(`${p.pg_customer}`);
-    if(p.pg_conn) parts.push(`${p.pg_conn}`);
-  }else if(p.category==='motor'){
-    if(p.m_rpm) parts.push(`${p.m_rpm} rpm`);
-    if(p.m_kw) parts.push(`${p.m_kw} kW`);
-    if(p.m_volt) parts.push(`${p.m_volt} V`);
-    if(p.m_customer) parts.push(`${p.m_customer}`);
-    if(p.m_conn) parts.push(`${p.m_conn}`);
-    if(p.m_cover) parts.push(`Kapak: ${p.m_cover}`);
-  }else{
-    if(p.rpm) parts.push(`${p.rpm} rpm`);
-    if(p.kw) parts.push(`${p.kw} kW`);
-    if(p.volt) parts.push(`${p.volt} V`);
-    if(p.material) parts.push(`${p.material}`);
-    if(p.milCode) parts.push(`Mil: ${p.milCode}`);
-    if(p.customer) parts.push(`${p.customer}`);
-  }
-  return parts.join(' • ');
-}
-
-function searchable(p){
-  const base = [(p.name||''),(p.sku||''),(p.note||''),(CATEGORY_LABEL[p.category]||p.category||'')].join(' ');
-  const extra = [
-    p.pg_rpm,p.pg_kw,p.pg_volt,p.pg_customer,p.pg_conn,
-    p.m_rpm,p.m_kw,p.m_volt,p.m_customer,p.m_conn,p.m_cover,
-    p.material,p.milCode,p.rpm,p.kw,p.volt,p.customer
-  ].filter(Boolean).join(' ');
-  return (base+' '+extra).toLowerCase();
-}
-// -------------------------------------------------------------
-
-function render(){
+    function render(){
       const q=$('#search').value.trim().toLowerCase();
       const onlyLow=$('#onlyLow').checked;
       const tbody=$('#tbodyDesktop'); tbody.innerHTML='';
       const listMobile=$('#listMobile'); listMobile.innerHTML='';
 
       let list=[...state.products];
-      if(q) list=list.filter(p=> searchable(p).includes(q));
+      if(q) list=list.filter(p=>(p.name+' '+p.sku+' '+(p.note||'')+' '+(CATEGORY_LABEL[p.category]||'')).toLowerCase().includes(q));
       if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
 
       // Sıralama
@@ -557,7 +561,7 @@ function render(){
         const low=Number(p.qty||0) < Number(p.min||0);
         // Masaüstü satırı
         const tr=document.createElement('tr');
-        const kindBadge=p.kind?`<span class="badge bg-slate-100 border border-slate-200 mr-1">${p.kind==='ham'?'Hammadde':(p.kind==='yari'?'Yarı-mamul':'Mamul')}</span>`:'';
+        const kindBadge=p.kind?`<span class="badge bg-slate-100 border border-slate-200 dark:bg-slate-700 dark:border-slate-600 mr-1">${p.kind==='ham'?'Hammadde':(p.kind==='yari'?'Yarı-mamul':'Mamul')}</span>`:'';
         const catBadge=p.category?`<span class="badge" style="background: rgba(var(--brand), .15); border:1px solid rgba(var(--brand), .4); color: rgb(var(--brand))">${CATEGORY_LABEL[p.category]||p.category}</span>`:'';
         tr.className=low? 'bg-amber-50':'';
         tr.innerHTML=`
@@ -566,12 +570,11 @@ function render(){
           <td class="px-3 py-2 align-top">${kindBadge} ${catBadge}</td>
           <td class="px-3 py-2 align-top text-right font-medium ${low?'text-amber-700':''}">${fmt(p.qty||0)}</td>
           <td class="px-3 py-2 align-top text-right">${fmt(p.min||0)}</td>
-          <td class="px-3 py-2 align-top text-slate-700">${specs(p)}</td>
-          <td class="px-3 py-2 align-top text-slate-600">${p.note||''}</td>
+          <td class="px-3 py-2 align-top text-slate-600 dark:text-slate-300">${p.note||''}</td>
           <td class="px-3 py-2 align-top text-right">
             <div class="flex justify-end gap-1">
-              <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-in" data-id="${p.id}">Giriş</button>
-              <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-out" data-id="${p.id}">Çıkış</button>
+              <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100" data-act="move-in" data-id="${p.id}">Giriş</button>
+              <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100" data-act="move-out" data-id="${p.id}">Çıkış</button>
               <button class="px-2 py-1 rounded-lg" style="border:1px solid rgba(var(--brand), .5); color: rgb(var(--brand)); background:transparent" data-act="edit" data-id="${p.id}">Düzenle</button>
               <button class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white" data-act="del" data-id="${p.id}">Sil</button>
             </div>
@@ -587,7 +590,6 @@ function render(){
               <div class="text-sm text-slate-500">${p.sku||'-'}</div>
               <div class="font-medium truncate">${p.name||'-'}</div>
               <div class="mt-1 text-xs">${kindBadge} ${catBadge}</div>
-              <div class="mt-1 text-xs text-slate-600 truncate">${specs(p)}</div>
             </div>
             <div class="text-right">
               <div class="text-xs text-slate-500">Stok</div>
@@ -595,10 +597,10 @@ function render(){
               <div class="text-xs text-slate-500">Min ${fmt(p.min||0)}</div>
             </div>
           </div>
-          ${p.note?`<div class="mt-2 text-xs text-slate-600">${p.note}</div>`:''}
+          ${p.note?`<div class="mt-2 text-xs text-slate-600 dark:text-slate-300">${p.note}</div>`:''}
           <div class="mt-3 flex flex-wrap gap-1">
-            <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-in" data-id="${p.id}">Giriş</button>
-            <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-out" data-id="${p.id}">Çıkış</button>
+            <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100" data-act="move-in" data-id="${p.id}">Giriş</button>
+            <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100" data-act="move-out" data-id="${p.id}">Çıkış</button>
             <button class="px-2 py-1 rounded-lg" style="border:1px solid rgba(var(--brand), .5); color: rgb(var(--brand)); background:transparent" data-act="edit" data-id="${p.id}">Düzenle</button>
             <button class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white" data-act="del" data-id="${p.id}">Sil</button>
           </div>`;
@@ -740,7 +742,10 @@ function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let 
     // Sekmeler arası senkron
     window.addEventListener('storage',e=>{ if(e.key===LS_KEY){ load(); render(); } });
   })();
-  </script>
+  
+
+
+</script>
 
 <!-- === Firebase Live Sync (guarded by login) === -->
 <script type="module">
@@ -835,6 +840,9 @@ function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let 
 
   if (sessionStorage.getItem("auth_ok") === "1") startSync();
   else document.addEventListener("auth_ok", startSync, { once: true });
+
+
+
 </script>
 <!-- === /Firebase Live Sync (guarded) === -->
 
@@ -881,6 +889,9 @@ function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let 
   setInterval(hideClearForNonAdmin, 500);
   document.addEventListener("auth_ok", hideClearForNonAdmin);
 })();
+
+
+
 </script>
 <!-- === /Non-admin guard === -->
 
@@ -1057,7 +1068,7 @@ function ensureMaterialField() {
       const wrap = document.createElement('div');
       wrap.id = 'materialField';
       wrap.innerHTML = `
-        <label class="text-sm text-slate-600">Malzeme</label>
+        <label class="text-sm text-slate-600 dark:text-slate-300">Malzeme</label>
         <select name="material" class="w-full px-3 py-2 rounded-xl border border-slate-300">
           <option value="aluminyum">Alüminyum</option>
           <option value="celik">Çelik</option>
@@ -1071,6 +1082,9 @@ function ensureMaterialField() {
     if(existing) existing.remove();
   }
 }
+
+
+
 
 </script>
 <!-- === /RTDB Sync v26 === -->
