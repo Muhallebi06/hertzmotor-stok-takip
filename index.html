@@ -1,9 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr" class="scroll-smooth">
 <head>
-<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hertz Motor — Stok Takip</title>
@@ -19,13 +16,6 @@
     .no-scrollbar::-webkit-scrollbar{ display:none; }
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
   </style>
-
-<script>
-// DOM helpers
-const $=(sel,root=document)=>root.querySelector(sel);
-const $$=(sel,root=document)=>Array.from(root.querySelectorAll(sel));
-</script>
-
 </head>
 <body class="bg-slate-50 text-slate-800">
 
@@ -221,7 +211,7 @@ const $$=(sel,root=document)=>Array.from(root.querySelectorAll(sel));
         <button id="btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
         <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
         <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-        <button id="btnClearAll" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm verileri sil</button>
+        <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
       </div>
     </div>
   </header>
@@ -485,115 +475,23 @@ const $$=(sel,root=document)=>Array.from(root.querySelectorAll(sel));
 
     const fmt=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(v):n};
     const nowISO=()=>new Date().toISOString();
-    const addLog=(entry)=>state.logs.unshift({id:uuid(),ts:nowISO(),entry});
+    const addLog=(entry)=>state.logs.unshift({id:uuid(),ts:nowISO(),...entry});
     const findProduct=id=>state.products.find(p=>p.id===id);
 
     let sortBy='name', sortDir='asc';
 
-    
-function render(){
-  try{
-    const q = ($('#search')?.value || '').trim().toLowerCase();
-    const onlyLow = !!$('#onlyLow')?.checked;
-    const tbody = $('#tbodyDesktop'); if (tbody) tbody.innerHTML = '';
-    const listMobile = $('#listMobile'); if (listMobile) listMobile.innerHTML = '';
+    function render(){
+      const q=$('#search').value.trim().toLowerCase();
+      const onlyLow=$('#onlyLow').checked;
+      const tbody=$('#tbodyDesktop'); tbody.innerHTML='';
+      const listMobile=$('#listMobile'); listMobile.innerHTML='';
 
-    let list = Array.isArray(state.products) ? state.products.slice() : [];
-    list = list.filter(p => p && String(p.sku||'').trim() && String(p.name||'').trim());
-    list = list.filter(p => p && String(p.sku||'').trim() && String(p.name||'').trim());
-    if (q) {
-      list = list.filter(p => {
-        const txt = [p.name||'', p.sku||'', p.note||'', (CATEGORY_LABEL && CATEGORY_LABEL[p.category])||''].join(' ').toLowerCase();
-        return txt.includes(q);
-      });
-    }
-    if (onlyLow) list = list.filter(p => Number(p.qty||0) < Number(p.min||0));
+      let list=[...state.products];
+      if(q) list=list.filter(p=>(p.name+' '+p.sku+' '+(p.note||'')+' '+(CATEGORY_LABEL[p.category]||'')).toLowerCase().includes(q));
+      if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
 
-    // Sort by SKU then NAME (stable)
-    list.sort((a,b)=>{
-      const as=(a.sku||'').toLowerCase(), bs=(b.sku||'').toLowerCase();
-      if (as===bs) return (a.name||'').localeCompare(b.name||'');
-      return as.localeCompare(bs);
-    });
-
-    // Render desktop rows
-    if (tbody){
-      for (const p of list){
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50";
-        const td = (html)=>{ const e=document.createElement('td'); e.className="px-3 py-2"; e.innerHTML=html; return e; };
-        tr.appendChild(td(`<span class="font-mono">${(p.sku||'-')}</span>`));
-        tr.appendChild(td(p.name||'-'));
-        tr.appendChild(td((CATEGORY_LABEL && CATEGORY_LABEL[p.category]) || (p.category||'-')));
-        tr.appendChild(td(String(Number(p.qty||0))));
-        tr.appendChild(td(String(Number(p.min||0))));
-        tr.appendChild(td(p.note ? String(p.note) : ''));
-
-        // actions
-        const act = document.createElement('td');
-        act.className = "px-3 py-2 text-right space-x-2";
-        act.innerHTML = `
-          <button class="px-2 py-1 rounded-xl border" data-act="in"  data-id="${p.id}">Giriş</button>
-          <button class="px-2 py-1 rounded-xl border" data-act="out" data-id="${p.id}">Çıkış</button>
-          <button class="px-2 py-1 rounded-xl border text-orange-600" data-act="edit" data-id="${p.id}">Düzenle</button>
-          <button class="px-2 py-1 rounded-xl border text-red-600" data-act="del"  data-id="${p.id}">Sil</button>
-        `;
-        tr.appendChild(act);
-        tbody.appendChild(tr);
-      }
-    }
-
-    // Mobile cards (simple)
-    if (listMobile){
-      for (const p of list){
-        const card = document.createElement('div');
-        card.className = "rounded-xl border p-3";
-        card.innerHTML = `
-          <div class="flex justify-between">
-            <div><div class="font-mono">${p.sku||'-'}</div><div>${p.name||''}</div></div>
-            <div class="text-right">Stok: <b>${Number(p.qty||0)}</b></div>
-          </div>
-          <div class="mt-2 text-sm text-slate-600">${(CATEGORY_LABEL && CATEGORY_LABEL[p.category]) || (p.category||'')}</div>
-          <div class="mt-1 text-sm">${p.note||''}</div>
-          <div class="mt-2 flex gap-2 justify-end">
-            <button class="px-2 py-1 rounded-xl border" data-act="in"  data-id="${p.id}">Giriş</button>
-            <button class="px-2 py-1 rounded-xl border" data-act="out" data-id="${p.id}">Çıkış</button>
-            <button class="px-2 py-1 rounded-xl border text-orange-600" data-act="edit" data-id="${p.id}">Düzenle</button>
-            <button class="px-2 py-1 rounded-xl border text-red-600" data-act="del"  data-id="${p.id}">Sil</button>
-          </div>
-        `;
-        listMobile.appendChild(card);
-      }
-    }
-
-    // Action delegation
-    const root = document.body;
-    root.onclick = (ev)=>{
-      const btn = ev.target.closest('[data-act]');
-      if(!btn) return;
-      const id = btn.getAttribute('data-id');
-      const p = (state.products||[]).find(x=>x.id===id);
-      const act = btn.getAttribute('data-act');
-      if(act==='edit'){ openProductDialog(p); return; }
-      if(act==='del'){
-        if(!confirm('Silinsin mi?')) return;
-        state.products = (state.products||[]).filter(x=>x.id!==id);
-        state.logs = state.logs || []; state.logs.unshift({t:Date.now(), type:'delete', sku: p?.sku||'', note: p?.name||''});
-        save && save(); render && render(); return;
-      }
-      if(act==='in' || act==='out'){
-        const amt = Number(prompt('Miktar?', '1'));
-        if(!amt || !p) return;
-        let to = act==='in' ? Number(p.qty||0) + amt : Number(p.qty||0) - amt;
-        if (to < 0) { alert('Stok eksiye düşemez'); return; }
-        p.qty = to;
-        state.logs = state.logs || []; state.logs.unshift({t:Date.now(), type:act, sku:p.sku, qty:amt});
-        save && save(); render && render(); return;
-      }
-    };
-  }catch(e){ console.error('render error', e); }
-}
- return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1); });
+      // Sıralama
+      list.sort((a,b)=>{ let va,vb; switch(sortBy){ case 'sku': va=(a.sku||'').toLowerCase(); vb=(b.sku||'').toLowerCase(); break; case 'qty': va=Number(a.qty||0); vb=Number(b.qty||0); break; case 'min': va=Number(a.min||0); vb=Number(b.min||0); break; default: va=(a.name||'').toLowerCase(); vb=(b.name||'').toLowerCase(); } return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1); });
 
       $('#count').textContent=list.length;
 
@@ -682,7 +580,7 @@ function render(){
     $('#btnImport').addEventListener('click',()=>$('#fileInput').click());
     $('#fileInput').addEventListener('change',e=>{ const f=e.target.files?.[0]; if(f) importJSONFile(f); e.target.value=''; });
 
-    $('#btnClearAll').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
+    $('#btnClear').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
 
     $('#search').addEventListener('input',render);
     $('#onlyLow').addEventListener('change',render);
@@ -873,444 +771,165 @@ function render(){
 <!-- === /Non-admin guard === -->
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<!-- === HM Product Form Enhancer v31 START === -->
-<style>
-  #dynamicFields{margin-top:12px}
-  #dynamicFields .dyn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-  #dynamicFields .dyn-field{display:flex;flex-direction:column}
-  #dynamicFields .dyn-field label{margin-bottom:6px;opacity:.9;font-size:14px}
-  #dynamicFields .dyn-field input,#dynamicFields .dyn-field select{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d0d4dc;border-radius:10px;outline:none;font-size:14px;background:#fff}
-</style>
-<script>
-(function(){
-  const forms = Array.from(document.querySelectorAll('form'));
-  let form = null;
-  for (const f of forms){
-    if (f.querySelector('input[name="stokKodu"], input#stokKodu, input[name="sku"], input[name="code"], input[name="kod"]') &&
-        f.querySelector('select') && (f.querySelector('input[name="ad"], input[placeholder*="Ad"], input[name="name"]'))) {
-      form = f; break;
-    }
-  }
-  if (!form) return;
-
-  const deTRMap={'ş':'s','Ş':'s','ğ':'g','Ğ':'g','ı':'i','İ':'i','ç':'c','Ç':'c','ö':'o','Ö':'o','ü':'u','Ü':'u'};
-  const deTR=s=>String(s||'').replace(/[şŞğĞıİçÇöÖüÜ]/g,c=>deTRMap[c]||c);
-  const norm=s=>deTR(String(s||'').toLowerCase()).replace(/\s+/g,' ').trim();
-  const qn=(names)=>{ for(const n of names){ let el=form.querySelector(`[name="${n}"]`); if(el) return el; el=form.querySelector('#'+CSS.escape(n)); if(el) return el; } return null; };
-
-  function findCategorySelect(){
-    const selList = Array.from(form.querySelectorAll('select'));
-    const kw = ['stator','rotor','mil','rotorlu','taslan','motor','sargili','sargılı','paketli','gövde','govde'];
-    function looks(sel){ for (let i=0;i<sel.options.length;i++){ const t=norm(sel.options[i].text||sel.options[i].value||''); if (kw.some(k=>t.includes(k))) return true; } return false; }
-    let el = qn(['category','kategori','urunCesidi','urunTuru','productCategory','cat']);
-    if (!el || !looks(el)) el = Array.from(form.querySelectorAll('select')).find(looks);
-    return el||null;
-  }
-
-  const catSel = findCategorySelect();
-  const skuEl  = qn(['sku','stokKodu','stok_kodu','code','kod']);
-  if(!catSel || !skuEl) return;
-
-  function removeOlusturButtons(){
-    Array.from(form.querySelectorAll('button, .btn, [role="button"]')).forEach(el=>{
-      const t=(el.textContent||'').trim().toLowerCase();
-      const nm=(el.getAttribute('name')||'').toLowerCase();
-      const id=(el.id||'').toLowerCase();
-      if (t==='oluştur' || t==='olustur' || nm.includes('createsku') || id.includes('createsku') || id.includes('generatesku')){
-        el.style.display='none'; el.remove();
-      }
-    });
-  }
-  removeOlusturButtons();
-  new MutationObserver(removeOlusturButtons).observe(form,{childList:true,subtree:true});
-
-  function getCategoryText(){
-    const val = catSel.value;
-    const optText = (catSel.tagName==='SELECT') ? (catSel.options[catSel.selectedIndex>=0?catSel.selectedIndex:0]?.text||'') : '';
-    return val && String(val).length>=2 ? val : optText;
-  }
-  function pickPrefix(t){
-    t = norm(t);
-    if (t.includes('rotorlu') && t.includes('mil')) return 'RMIL';
-    if ((t.includes('taslan') || t.includes('taslama')) && t.includes('mil')) return 'TMIL';
-    if (t.includes('mil') && !t.includes('motor')) return 'MIL';
-    if (t.includes('stator')) return 'ST';
-    if (t.includes('rotor')) return 'RT';
-    if (t.includes('sargili') && t.includes('paket')) return 'SP';
-    if (t.includes('paketli') && (t.includes('gövde')||t.includes('govde'))) return 'PG';
-    if (t.includes('motor')) return 'MOT';
-    return 'PRD';
-  }
-  function safeJSON(x){try{return JSON.parse(x)}catch(_){return null}}
-  function collectProducts(){ const out=[]; for(const area of [localStorage,sessionStorage]){ try{ for(let i=0;i<area.length;i++){ const v=safeJSON(area.getItem(area.key(i))); if(v&&v.products) out.push(v.products);} }catch(_){}} return out; }
-  function getSku(it){ return it?.sku||it?.stokKodu||it?.code||it?.kod||'' }
-  function maxNum(prefix,arr){ let m=0; const re=new RegExp('^'+prefix+'[-_]?([0-9]+)$','i'); for(const it of arr){ const code=String(getSku(it)||'').toUpperCase(); const mt=code.match(re); if(mt){ const n=parseInt(mt[1],10); if(!isNaN(n)&&n>m) m=n; }} return m; }
-  function suggestSku(cat){ const p=pickPrefix(cat); const n=maxNum(p,collectProducts())+1; return p+'-'+String(n).padStart(4,'0'); }
-  function updateSku(force){ const cat=getCategoryText(); if(!cat) return; const p=pickPrefix(cat); const cur=String(skuEl.value||'').toUpperCase(); if(force||!cur||!cur.startsWith(p)) skuEl.value=suggestSku(cat); }
-  ['change','input'].forEach(ev=>catSel.addEventListener(ev,()=>updateSku(true)));
-  form.addEventListener('submit',()=>updateSku(true));
-  updateSku(false);
-
-  const afterEl = catSel.closest('.form-group') || catSel.closest('div') || catSel;
-  let host = form.querySelector('#dynamicFields');
-  if(!host){ host=document.createElement('div'); host.id='dynamicFields'; afterEl.parentNode.insertBefore(host, afterEl.nextSibling); }
-
-  function h(tag,attrs={},children=[]){ const el=document.createElement(tag); for(const k in attrs){ if(k==='class') el.className=attrs[k]; else if(k==='text') el.textContent=attrs[k]; else el.setAttribute(k,attrs[k]); } children.forEach(c=>el.appendChild(c)); return el; }
-  function field(name,label,type='text',opts=null){ const wrap=h('div',{class:'dyn-field'}); const lab=h('label',{for:name,text:label}); let input; if(type==='select'){ input=h('select',{name,id:name}); (opts||[]).forEach(o=>input.appendChild(h('option',{value:o,text:o}))); } else { input=h('input',{type,name,id:name}); if(type==='number') input.setAttribute('step','any'); } input.required=true; wrap.appendChild(lab); wrap.appendChild(input); return wrap; }
-
-  function buildDyn(catText){
-    host.innerHTML='';
-    const t=norm(catText);
-    const grid=h('div',{class:'dyn-grid'});
-    const soketOpts=['Soketli','Düz klemensli','Ters klemensli'];
-    const ykrOpts=['Standart','YKR','YKL'];
-
-    if(t.includes('sargili')&&t.includes('paket')){
-      grid.appendChild(field('kw','Kilowat (kW)','number'));
-      grid.appendChild(field('devir','Devir (rpm)','number'));
-      grid.appendChild(field('voltaj','Voltaj (V)','number'));
-    } else if (t.includes('paketli')&&(t.includes('gövde')||t.includes('govde'))){
-      grid.appendChild(field('devir','Devir (rpm)','number'));
-      grid.appendChild(field('kw','Kilowat (kW)','number'));
-      grid.appendChild(field('voltaj','Voltaj (V)','number'));
-      grid.appendChild(field('musteri','Müşteri','text'));
-      grid.appendChild(field('soketTipi','Soket/Klemens','select',soketOpts));
-      grid.appendChild(field('ykr_ykl','YKR / YKL','select',ykrOpts));
-    } else if (t.includes('motor')){
-      grid.appendChild(field('musteri','Müşteri','text'));
-      grid.appendChild(field('devir','Devir (rpm)','number'));
-      grid.appendChild(field('kw','Kilowat (kW)','number'));
-      grid.appendChild(field('voltaj','Voltaj (V)','number'));
-      grid.appendChild(field('soketTipi','Soket/Klemens','select',soketOpts));
-      grid.appendChild(field('ykr_ykl','YKR / YKL','select',ykrOpts));
-      grid.appendChild(field('milTipi','Mil Tipi','text'));
-    } else if (t.includes('mil')){
-      grid.appendChild(field('milKodu','Mil Kodu','text'));
-      grid.appendChild(field('milTuru','Mil Türü','text'));
-    }
-
-    if (grid.children.length) host.appendChild(grid);
-  }
-  ['change','input'].forEach(ev=>catSel.addEventListener(ev,()=>buildDyn(getCategoryText())));
-  buildDyn(getCategoryText());
-
-})(); 
-</script>
-<!-- === HM Product Form Enhancer v31 END === -->
-
-
-
-
-
-
-
-
-<!-- RTDB COMMIT-SMART RELOAD v41 START -->
+<!-- === RTDB Real-time Sync (v26): pure polling, no overrides, in-place apply === -->
 <script type="module">
-  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
-  // Firebase init
-  const fallbackCfg = {
+  const firebaseConfig = {
     apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
     authDomain: "hertz-stok-takip.firebaseapp.com",
     databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
     projectId: "hertz-stok-takip",
-    storageBucket: "hertz-stok-takip.firebasestorage.app",
+    storageBucket: "hertz-stok-takip.appspot.com",
     messagingSenderId: "512663727455",
     appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
   };
-  const cfg = window.firebaseConfig || fallbackCfg;
-  const app = (getApps && getApps().length) ? getApps()[0] : initializeApp(cfg);
+
+  const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
-  // Doc select
-  const params = new URLSearchParams(location.search);
-  const docId  = params.get("doc") || "default";
-  const docRef = ref(db, "docs/" + docId);
+  const DOC_ID = new URL(location.href).searchParams.get("doc") || "stoktakip-paylasimli-orta-oda";
 
-  // Helpers
-  function safeJSON(s){ try { return JSON.parse(s); } catch(_) { return null; } }
-  function detectStateKey(){
-    let bestKey=null, bestScore=-1;
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i), v=safeJSON(localStorage.getItem(k));
-      if(!v || typeof v!=='object') continue;
-      const score=(Array.isArray(v.products)?10:0)+(Array.isArray(v.logs)?3:0);
-      if(score>bestScore){bestScore=score;bestKey=k;}
-    }
-    return bestKey || 'hm_state';
-  }
-  const STATE_KEY = detectStateKey();
-
-  function readLocal(){
-    const raw = safeJSON(localStorage.getItem(STATE_KEY)) || {};
-    const products = Array.isArray(raw.products)?raw.products:[];
-    const logs = Array.isArray(raw.logs)?raw.logs:[];
-    return { products, logs };
-  }
-  function totalQty(products){
-    let s=0;
-    for (const p of products){
-      const q = Number(p.qty ?? p.adet ?? p.miktar ?? p.stock ?? 0);
-      if (!isNaN(q)) s+=q;
-    }
-    return s;
-  }
-  function commitSignature(state){
-    const pc = state.products.length;
-    const lc = state.logs.length;
-    const tq = totalQty(state.products);
-    const lastP = state.products[pc-1] || {};
-    const lastL = state.logs[lc-1] || {};
-    const lastKey = String(lastP.sku || lastP.name || lastP.id || lastP.kod || '');
-    const lastLog = String(lastL.msg || lastL.t || '');
-    return `${pc}|${lc}|${tq}|${lastKey.slice(0,24)}|${lastLog.slice(0,24)}`;
-  }
-  function hardReload(){
-    const u = new URL(location.href);
-    u.searchParams.set('_r', Date.now().toString());
-    location.replace(u.toString());
-  }
-
-  // Outbound: push only when commit signature changes (prevents typing-triggered reloads)
-  let lastRTDBSig = "";   // last signature seen from RTDB
-  let lastPushedSig = ""; // last signature we pushed
-  let pushTimer = null;
-  function schedulePush(){
-    clearTimeout(pushTimer);
-    pushTimer = setTimeout(()=>{
-      const st = readLocal();
-      const sig = commitSignature(st);
-      if (!sig) return;
-      if (sig !== lastPushedSig && sig !== lastRTDBSig){
-        lastPushedSig = sig;
-        update(docRef, { products: st.products, logs: st.logs, updatedAt: Date.now(), _sig: sig })
-          .catch(e=>console.warn('RTDB update failed', e));
-      }
-    }, 220);
-  }
-
-  // Hook only state key writes (true commits)
-  const _set = localStorage.setItem.bind(localStorage);
-  const _rem = localStorage.removeItem.bind(localStorage);
-  const _clr = localStorage.clear.bind(localStorage);
-  localStorage.setItem = function(k,v){ const r=_set(k,v); if (k===STATE_KEY) schedulePush(); return r; };
-  localStorage.removeItem = function(k){ const r=_rem(k); if (k===STATE_KEY) schedulePush(); return r; };
-  localStorage.clear = function(){ const r=_clr(); schedulePush(); return r; };
-
-  // Safety: periodic check in case app batches then writes later
-  setInterval(schedulePush, 1500);
-
-  // Inbound: reload on any change after initial, but ignore echoes (same signature)
-  let initial = true;
-  onValue(docRef, (snap)=>{
-    const data = snap.val() || {};
-    const remote = { products: data.products||[], logs: data.logs||[] };
-    const sig = data._sig || commitSignature(remote);
-    if (initial){ initial = false; lastRTDBSig = sig; return; }
-    if (sig && sig !== lastRTDBSig){
-      lastRTDBSig = sig;
-      hardReload();
-    }
-  });
-</script>
-<!-- RTDB COMMIT-SMART RELOAD v41 END -->
-
-
-<script>
-document.addEventListener('DOMContentLoaded', ()=>{
-  const b=document.getElementById('logoutBtn');
-  if(b) b.addEventListener('click', ()=> window.logout && window.logout());
-});
-</script>
-
-
-<script>
-function genSku(){
-  try{
-    const cat = (document.getElementById('productForm')?.category?.value)||'GEN';
-    const pre = {stator:'ST', rotor:'RT', mil:'MIL', rotorluMil:'RM', taslanmisMil:'TM', sargiliPaket:'SP', paketliGovde:'PG', motor:'M'}[cat]||'GEN';
-    if(window.DB && typeof ref==='function' && typeof runTransaction==='function'){
-      // Try RTDB counter; fire and forget
-      const cRef = ref(window.DB, `app/hertz_stok/counters/${cat}`);
-      return runTransaction(cRef, (x)=> (x||0)+1, {applyLocally:false}).then(tx=> pre+'-'+String(tx.snapshot.val()||1).padStart(4,'0')).catch(()=>fallback());
-    }
-    return fallback();
-    function fallback(){
-      const d=new Date(), part=String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
-      const r=Math.random().toString(36).slice(2,6).toUpperCase();
-      return pre+'-'+part+'-'+r;
-    }
-  }catch(_){ return 'GEN-'+Date.now(); }
-}
-</script>
-
-
-<script>
-async function sanitizeAndPersist(reason='startup'){
-  try{
-    const list = Array.isArray(state.products) ? state.products.slice() : [];
-    let changed = false;
-    const cleaned = [];
-    const seen = new Map(); // sku->index
-    for (const p0 of list){
-      const p = {...p0};
-      p.sku  = String(p.sku||'').trim();
-      p.name = String(p.name||'').trim();
-      if(!p.sku || !p.name || /^ürün$/i.test(p.name)){
-        changed = true; continue;
-      }
-      const key = p.sku.toLowerCase();
-      if (seen.has(key)){
-        const idx = seen.get(key);
-        // birleştir: qty topla, not birleştir
-        cleaned[idx].qty = Number(cleaned[idx].qty||0) + Number(p.qty||0);
-        if(p.note){ cleaned[idx].note = [cleaned[idx].note, p.note].filter(Boolean).join(' | '); }
-        changed = true; continue;
-      }
-      p.qty = Number(p.qty||0);
-      cleaned.push(p);
-      seen.set(key, cleaned.length-1);
-    }
-    if(changed && window.DB && typeof ref==='function' && typeof runTransaction==='function'){
-      await runTransaction(ref(window.DB, `app/hertz_stok/data`), (curr)=>{
-        const remote = curr || { products: [], logs: [] };
-        remote.products = cleaned;
-        if(!Array.isArray(remote.logs)) remote.logs = [];
-        remote.logs.unshift({ t: Date.now(), type: 'sanitize', note: reason, removed: list.length - cleaned.length });
-        remote.updatedAt = Date.now();
-        return remote;
-      }, { applyLocally: false });
-    }
-  }catch(e){ console.warn('sanitizeAndPersist failed', e); }
-}
-</script>
-
-
-<script>
-
-<script>
-// --- Product dialog & SKU ---
-(function(){
-  const dialog = document.getElementById('productDialog');
-  const form = document.getElementById('productForm');
-  const btnCancel = document.getElementById('productCancelBtn');
-  const title = document.getElementById('productDialogTitle');
-  const btnAutoSku = document.getElementById('btnAutoSku');
-
-  const PREFIX = {stator:'ST', rotor:'RT', mil:'MIL', rotorluMil:'RM', taslanmisMil:'TM', sargiliPaket:'SP', paketliGovde:'PG', motor:'M'};
-
-  async function genSkuAsync(){
-    const cat = form?.category?.value || 'GEN';
-    const pre = PREFIX[cat] || 'GEN';
-    // Try RTDB counter first
-    try{
-      if(window.DB && typeof ref==='function' && typeof runTransaction==='function'){
-        const cRef = ref(window.DB, `app/hertz_stok/counters/${cat}`);
-        const tx = await runTransaction(cRef, (x)=> (x||0)+1, {applyLocally:false});
-        const num = String(tx.snapshot.val()||1).padStart(4,'0');
-        return `${pre}-${num}`;
-      }
-    }catch(e){ console.warn('genSku counter failed', e); }
-    // Fallback (deterministic time-based tail)
-    const t = Date.now().toString().slice(-6);
-    return `${pre}-${t}`;
-  }
-  window.genSku = ()=>{}; // legacy no-op; we use async generator
-
-  function setSaveEnabled(on){
-    const submitBtn = form?.querySelector('[type="submit"]');
-    if(submitBtn){ submitBtn.disabled = !on; submitBtn.textContent = on ? 'Kaydet' : 'Oluşturuluyor…'; }
-  }
-  function validate(){
-    const name = (form.name?.value||'').trim();
-    const sku  = (form.sku?.value||'').trim();
-    const ok = !!name && !!sku;
-    const submitBtn = form?.querySelector('[type="submit"]');
-    if(submitBtn){ submitBtn.disabled = !ok; submitBtn.textContent = ok ? 'Kaydet' : (sku ? 'Ad gerekli' : 'SKU gerekli'); }
-  }
-
-  window.openProductDialog = async function(p=null){
-    title.textContent = p ? 'Ürünü Düzenle' : 'Ürün Ekle';
-    form.reset();
-    if(p){
-      for(const [k,v] of Object.entries(p)){ if(form[k]!=null) form[k].value = v; }
-      validate();
-    } else {
-      if(form.min) form.min.value = 0;
-      if(form.qty) form.qty.value = 0;
-      if(form.sku) form.sku.value = '';
-      setSaveEnabled(false);
-      // Generate SKU first, then enable save
-      const code = await genSkuAsync();
-      if(form.sku) form.sku.value = code;
-      setSaveEnabled(true);
-      validate();
-    }
-    dialog?.showModal();
+  // ---- utils ----
+  const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
+  const isStockPayload = (obj)=> obj && typeof obj==="object" && ("products" in obj || "logs" in obj);
+  const stable = (obj)=>{
+    try{ return JSON.stringify(obj, Object.keys(obj).sort()); } catch { return ""; }
+  };
+  const hash = (str)=>{
+    let h=0, i=0, len=str.length|0; for(; i<len; i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
+    return h.toString(16);
   };
 
-  // Manual regenerate button (if present)
-  btnAutoSku && btnAutoSku.addEventListener('click', async ()=>{
-    setSaveEnabled(false);
-    const code = await genSkuAsync();
-    if(form.sku) form.sku.value = code;
-    validate();
-    setSaveEnabled(true);
+  function discoverStockKeys(){
+    const keys = new Set();
+    for (let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if (isStockPayload(safeParse(localStorage.getItem(k)))) keys.add(k);
+    }
+    for (let i=0;i<sessionStorage.length;i++){
+      const k = sessionStorage.key(i);
+      if (isStockPayload(safeParse(sessionStorage.getItem(k)))) keys.add(k);
+    }
+    // If none found, create default key so app can pick it up
+    if (keys.size === 0){
+      const def = "stokTakip.v1";
+      localStorage.setItem(def, JSON.stringify({products:[], logs:[]}));
+      keys.add(def);
+    }
+    return keys;
+  }
+
+  // Initial key set
+  let STOCK_KEYS = discoverStockKeys();
+
+  // Presence (optional)
+  const presRef = ref(db, `docs/${DOC_ID}/presence`);
+  const meId = crypto.randomUUID();
+  const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
+  set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
+  onDisconnect(meRef).remove();
+
+  const rootRef = ref(db, `docs/${DOC_ID}`);
+
+  // Local change detection (pure polling)
+  const lastHash = new Map(); // key -> hash
+  let debounceTimer = null, pendingPush = null;
+
+  function computeHashForKey(k){
+    const v = localStorage.getItem(k) ?? sessionStorage.getItem(k);
+    const obj = safeParse(v||"null");
+    if (!isStockPayload(obj)) return null;
+    return hash(stable({products: obj.products||[], logs: obj.logs||[]}));
+  }
+
+  function scanAndMaybePush(){
+    // Re-discover keys (new ones may appear)
+    const discovered = discoverStockKeys();
+    for (const k of discovered) STOCK_KEYS.add(k);
+
+    // Find the most recently changed stock payload among keys
+    let changedKey = null;
+    for (const k of STOCK_KEYS){
+      const h = computeHashForKey(k);
+      if (!h) continue;
+      if (lastHash.get(k) !== h){
+        lastHash.set(k, h);
+        changedKey = k;
+      }
+    }
+    if (!changedKey) return;
+
+    // Prepare payload from changedKey and push to RTDB (debounced)
+    const v = localStorage.getItem(changedKey) ?? sessionStorage.getItem(changedKey);
+    const obj = safeParse(v||"null");
+    if (!isStockPayload(obj)) return;
+    pendingPush = { products: obj.products||[], logs: obj.logs||[] };
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(()=>{
+      const payload = pendingPush; pendingPush = null;
+      update(rootRef, { products: payload.products, logs: payload.logs, updatedAt: Date.now(), lastAction: "update" }).catch(console.error);
+    }, 120);
+  }
+
+  // Kick off the poller
+  setInterval(scanAndMaybePush, 500);
+
+  // In-place UI notify
+  function notifyRender(){
+    try {
+      if (typeof window.renderStok === "function") { window.renderStok(); return; }
+      if (window.app && typeof window.app.render === "function") { window.app.render(); return; }
+      document.dispatchEvent(new CustomEvent("rtdb_data_changed"));
+      // Also emit a synthetic storage event for listeners
+      for (const k of STOCK_KEYS){
+        const v = localStorage.getItem(k);
+        const evt = new StorageEvent("storage", { key: k, newValue: v, storageArea: localStorage });
+        window.dispatchEvent(evt);
+      }
+    } catch {}
+  }
+
+  // Apply from RTDB: write to ALL detected keys with native setItem (no overrides), then notify
+  let primed=false, lastApplied=0;
+  onValue(rootRef, (snap) => {
+    const v = snap.val(); if(!v || typeof v!=="object") return;
+    const { products=[], logs=[], updatedAt=0 } = v;
+
+    if (!primed){ primed=true; lastApplied = updatedAt; }
+    else { if (updatedAt <= lastApplied) return; lastApplied = updatedAt; }
+
+    // Write payload to all known keys
+    const str = JSON.stringify({products, logs});
+    // Refresh key discovery before writing
+    STOCK_KEYS = discoverStockKeys();
+    for (const k of STOCK_KEYS){
+      try { localStorage.setItem(k, str); } catch {}
+    }
+    // Update lastHash so we don't echo back immediately
+    for (const k of STOCK_KEYS){ lastHash.set(k, hash(stable({products, logs}))); }
+
+    notifyRender();
   });
 
-  form && form.addEventListener('input', validate);
-  btnCancel && btnCancel.addEventListener('click', ()=> dialog?.close());
-
-  form && form.addEventListener('submit', function(e){
-    e.preventDefault();
-    const data = Object.fromEntries(new FormData(form).entries());
-    data.name = String(data.name||'').trim();
-    data.sku  = String(data.sku||'').trim();
-    if(!data.name || !data.sku){ alert('Ad ve Stok Kodu zorunlu'); return; }
-    data.min = Number(data.min||0);
-    data.qty = Number(data.qty||0);
-    data.id  = data.id || ('p_'+Date.now());
-
-    const list = Array.isArray(state.products) ? state.products : (state.products = []);
-    const existingById  = list.find(x=> x.id===data.id);
-    const existingBySku = list.find(x=> (x.sku||'').toLowerCase()===data.sku.toLowerCase());
-
-    if(existingById){ Object.assign(existingById, data); }
-    else if(existingBySku){ Object.assign(existingBySku, {...existingBySku, ...data}); }
-    else { list.push(data); }
-
-    state.logs = state.logs || []; state.logs.unshift({t:Date.now(), type:(existingById||existingBySku)?'update':'create', sku:data.sku, note:data.name});
-
-    // Optimistic render + save + reload signal
-    if (typeof render === 'function') render();
-    if (typeof save === 'function') save();
-    if (typeof emitReloadAll === 'function') emitReloadAll();
-
-    dialog?.close();
-  });
-
-  // Bind add button
-  document.getElementById('btnAdd')?.addEventListener('click', ()=> openProductDialog());
-})();
+  // If DB empty, seed from any local key
+  setTimeout(()=>{
+    onValue(rootRef, (s)=>{
+      if(!s.exists()){
+        STOCK_KEYS = discoverStockKeys();
+        // Find first valid payload
+        let initial = {products:[], logs:[]};
+        for (const k of STOCK_KEYS){
+          const obj = safeParse(localStorage.getItem(k)||"null");
+          if (isStockPayload(obj)){ initial = obj; break; }
+        }
+        set(rootRef, { products: initial.products||[], logs: initial.logs||[], updatedAt: Date.now(), lastAction: "seed" }).catch(console.error);
+      }
+    }, { onlyOnce: true });
+  }, 400);
 </script>
-
+<!-- === /RTDB Sync v26 === -->
 
 </body>
 </html>
