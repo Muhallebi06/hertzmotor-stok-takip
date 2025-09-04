@@ -268,6 +268,7 @@
               <th class="text-right px-3 py-2">Önce</th>
               <th class="text-right px-3 py-2">Sonra</th>
               <th class="text-left px-3 py-2">Not</th>
+              <th class="text-left px-3 py-2">Kullanıcı</th>
             </tr>
           </thead>
           <tbody id="logBody" class="divide-y divide-slate-100"></tbody>
@@ -493,8 +494,9 @@
 
     const fmt=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(v):n};
     const nowISO=()=>new Date().toISOString();
+    const currentUser=()=> (sessionStorage.getItem('auth_user')||'anon');
     const addLog=(entry)=>
-    state.logs.unshift({id:uuid(),ts:nowISO(),...entry});
+    state.logs.unshift({id:uuid(),ts:nowISO(),user:currentUser(),...entry});
     const findProduct=id=>state.products.find(p=>p.id===id);
 
     let sortBy='name', sortDir='asc';
@@ -614,7 +616,8 @@ function render(){
         <td class="px-3 py-2 text-right">${fmt(L.amount)}</td>
         <td class="px-3 py-2 text-right">${fmt(L.fromQty)}</td>
         <td class="px-3 py-2 text-right">${fmt(L.toQty)}</td>
-        <td class="px-3 py-2">${L.note||''}</td>`; logBody.appendChild(tr); }
+        <td class="px-3 py-2">${L.note||''}</td>
+        <td class="px-3 py-2">${L.user||"(bilinmiyor)"}</td>`; logBody.appendChild(tr); }
     }
 
     function openProductDialog(product){ const dlg=$('#productDialog'); const form=$('#productForm'); form.reset(); toggleConditionalSections(); if(product){ $('#productDialogTitle').textContent='Ürünü Düzenle'; form.kind.value=product.kind||'mamul'; form.category.value=product.category||'stator';
@@ -626,7 +629,7 @@ function render(){
 
     function exportJSON(){ const blob=new Blob([JSON.stringify({products:state.products,logs:state.logs},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-data-${new Date().toISOString().replace(/[:.]/g,'-')}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
     function exportCSV(){ const rows=[[ 'id','sku','name','kind','category','unit','material','qty','min','note','kw','rpm','volt','milCode','customer','pg_kw','pg_rpm','pg_volt','pg_customer','pg_conn','m_kw','m_rpm','m_volt','m_conn','milType' ]].concat( state.products.map(p=>[ p.id, p.sku, p.name, p.kind, p.category, p.unit, p.material,p.qty,p.min,(p.note||'').replaceAll('\n',' '), p.kw??'',p.rpm??'',p.volt??'',p.milCode??'',p.customer??'', p.pg_kw??'',p.pg_rpm??'',p.pg_volt??'',p.pg_customer??'',p.pg_conn??'', p.m_kw??'',p.m_rpm??'',p.m_volt??'',p.m_conn??'',p.milType??'' ]) ); const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-urunler-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
-    function exportLogCSV(){ const rows=[['ts','product','type','amount','from','to','note']]; for(const L of state.logs){ const p=findProduct(L.productId)||{}; rows.push([L.ts,p.name||'',L.type,L.amount,L.fromQty,L.toQty,(L.note||'').replaceAll('\n',' ')]);} const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-log-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+    function exportLogCSV(){ const rows=[['ts','product','type','amount','from','to','note','user']]; for(const L of state.logs){ const p=findProduct(L.productId)||{}; rows.push([L.ts,p.name||'',L.type,L.amount,L.fromQty,L.toQty,(L.note||'').replaceAll('\\n',' '), (L.user||'')]);} const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-log-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
 
     function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=Array.isArray(data.products)?data.products:[]; state.logs=Array.isArray(data.logs)?data.logs:[]; save(); alert('İçe aktarıldı'); }catch(e){ alert('Dosya okunamadı: '+e.message); } }; reader.readAsText(file); }
 
