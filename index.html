@@ -516,9 +516,9 @@ function specs(p){
     if(p.m_rpm) parts.push(`${p.m_rpm} rpm`);
     if(p.m_kw) parts.push(`${p.m_kw} kW`);
     if(p.m_volt) parts.push(`${p.m_volt} V`);
-    if(p.m_customer) parts.push(`${p.m_customer}`);
+    if(p.m_customer || p.customer) parts.push(`${p.m_customer||p.customer}`);
     if(p.m_conn) parts.push(`${p.m_conn}`);
-    if(p.m_cover) parts.push(`Kapak: ${p.m_cover}`);
+    if(p.m_cover) parts.push(`${p.m_cover}`);
   }else{
     if(p.rpm) parts.push(`${p.rpm} rpm`);
     if(p.kw) parts.push(`${p.kw} kW`);
