@@ -505,29 +505,36 @@
 // ----------------- Ek Yardımcı Fonksiyonlar -----------------
 function specs(p){
   const parts=[];
+  const seen = new Set();
+  const push = (v)=>{ if(v==null) return; const s=String(v).trim(); if(!s) return; const k=s.toLowerCase(); if(seen.has(k)) return; seen.add(k); parts.push(s); };
+
   if(p.category==='paketliGovde'){
-    if(p.pg_rpm) parts.push(`${p.pg_rpm} rpm`);
-    if(p.pg_kw) parts.push(`${p.pg_kw} kW`);
-    if(p.pg_volt) parts.push(`${p.pg_volt} V`);
-    if(p.pg_customer) parts.push(`${p.pg_customer}`);
-    if(p.pg_conn) parts.push(`${p.pg_conn}`);
+    if(p.pg_rpm) push(`${p.pg_rpm} rpm`);
+    if(p.pg_kw) push(`${p.pg_kw} kW`);
+    if(p.pg_volt) push(`${p.pg_volt} V`);
+    // müşteri için birleşik fallback
+    push(p.pg_customer || p.m_customer || p.customer);
+    if(p.pg_conn) push(`${p.pg_conn}`);
   }else if(p.category==='motor'){
-    if(p.m_rpm) parts.push(`${p.m_rpm} rpm`);
-    if(p.m_kw) parts.push(`${p.m_kw} kW`);
-    if(p.m_volt) parts.push(`${p.m_volt} V`);
-    if(p.m_customer) parts.push(`${p.m_customer}`);
-    if(p.m_conn) parts.push(`${p.m_conn}`);
-    if(p.m_cover) parts.push(`Kapak: ${p.m_cover}`);
+    if(p.m_rpm) push(`${p.m_rpm} rpm`);
+    if(p.m_kw) push(`${p.m_kw} kW`);
+    if(p.m_volt) push(`${p.m_volt} V`);
+    // müşteri için birleşik fallback (önce m_, sonra customer, sonra pg_)
+    push(p.m_customer || p.customer || p.pg_customer);
+    if(p.m_conn) push(`${p.m_conn}`);
+    if(p.m_cover) push(`Kapak: ${p.m_cover}`);
   }else{
-    if(p.rpm) parts.push(`${p.rpm} rpm`);
-    if(p.kw) parts.push(`${p.kw} kW`);
-    if(p.volt) parts.push(`${p.volt} V`);
-    if(p.material) parts.push(`${p.material}`);
-    if(p.milCode) parts.push(`Mil: ${p.milCode}`);
-    if(p.customer) parts.push(`${p.customer}`);
+    if(p.rpm) push(`${p.rpm} rpm`);
+    if(p.kw) push(`${p.kw} kW`);
+    if(p.volt) push(`${p.volt} V`);
+    if(p.material) push(`${p.material}`);
+    if(p.milCode) push(`Mil: ${p.milCode}`);
+    // müşteri için birleşik fallback
+    push(p.customer || p.m_customer || p.pg_customer);
   }
   return parts.join(' • ');
 }
+
 
 function searchable(p){
   const base = [(p.name||''),(p.sku||''),(p.note||''),(CATEGORY_LABEL[p.category]||p.category||'')].join(' ');
