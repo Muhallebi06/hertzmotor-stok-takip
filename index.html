@@ -305,7 +305,8 @@
             
             
             
-            <option value="yardimci_parcalar">Yardımcı Parçalar</option><option value="aluminyum_govde">Alüminyum Gövde</option><option value="rulman">Rulman</option><option value="kapak">Kapak</option>
+                        <option value="bakir_tel">Bakır Tel</option>
+<option value="yardimci_parcalar">Yardımcı Parçalar</option><option value="aluminyum_govde">Alüminyum Gövde</option><option value="rulman">Rulman</option><option value="kapak">Kapak</option>
             <option value="islenmisKapak">İşlenmiş Kapak</option>
             <option value="taslanmisKapak">Taşlanmış Kapak</option></select>
         </div>
@@ -483,8 +484,8 @@
     const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 
     // Kategori/etiket sabitleri
-    const CATEGORY_PREFIX={stator:'ST',rotor:'RT',mil:'MIL',rotorluMil:'RMIL',taslanmisMil:'TMIL',sargiliPaket:'SP',paketliGovde:'PG',motor:'MOT',kapak:'KAP',islenmisKapak:'IKAP',taslanmisKapak:'TKAP', rulman:'RUL', aluminyum_govde:'ALU', yardimci_parcalar:'ACC'};
-    const CATEGORY_LABEL={stator:'Stator',rotor:'Rotor',mil:'Mil',rotorluMil:'Rotorlu Mil',taslanmisMil:'Taşlanmış Mil',sargiliPaket:'Sargılı Paket',paketliGovde:'Paketli Gövde',motor:'Motor',kapak:'Kapak',islenmisKapak:'İşlenmiş Kapak',taslanmisKapak:'Taşlanmış Kapak', rulman:'Rulman', aluminyum_govde:'Alüminyum Gövde', yardimci_parcalar:'Yardımcı Parçalar'};
+    const CATEGORY_PREFIX={stator:'ST',rotor:'RT',mil:'MIL',rotorluMil:'RMIL',taslanmisMil:'TMIL',sargiliPaket:'SP',paketliGovde:'PG',motor:'MOT',kapak:'KAP',islenmisKapak:'IKAP',taslanmisKapak:'TKAP', rulman:'RUL', aluminyum_govde:'ALU', bakir_tel:'CUW',  yardimci_parcalar:'ACC'};
+    const CATEGORY_LABEL={stator:'Stator',rotor:'Rotor',mil:'Mil',rotorluMil:'Rotorlu Mil',taslanmisMil:'Taşlanmış Mil',sargiliPaket:'Sargılı Paket',paketliGovde:'Paketli Gövde',motor:'Motor',kapak:'Kapak',islenmisKapak:'İşlenmiş Kapak',taslanmisKapak:'Taşlanmış Kapak', rulman:'Rulman', aluminyum_govde:'Alüminyum Gövde', bakir_tel:'Bakır Tel',  yardimci_parcalar:'Yardımcı Parçalar'};
 
     const state={products:[],logs:[]};
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
@@ -686,6 +687,7 @@ function prefixForCategory(cat){
         case 'yardimci_parcalar': return 'ACC';
 
         case 'aluminyum_govde': return 'ALU';
+        case 'bakir_tel': return 'CUW';
 
         case 'rulman': return 'RUL';
 
