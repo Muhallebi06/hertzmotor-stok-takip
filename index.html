@@ -533,18 +533,32 @@ function specs(p){
 }
 
 function searchable(p){
+
   const base = [(p.name||''),(p.sku||''),(p.note||''),(CATEGORY_LABEL[p.category]||p.category||'')].join(' ');
   const extra = [
     p.pg_rpm,p.pg_kw,p.pg_volt,p.pg_customer,p.pg_conn,
     p.m_rpm,p.m_kw,p.m_volt,p.m_customer,p.m_conn,p.m_cover,
-    p.material,p.milCode,p.rpm,p.kw,p.volt,p.customer
+    p.material,p.milType,p.milCode,p.rpm,p.kw,p.volt,p.customer
   ].filter(Boolean).join(' ');
-  return (base+' '+extra).toLowerCase();
+  return normalizeTR(base+' '+extra);
+
+  try{return normalizeTR(result);}catch(e){return normalizeTR(result||'');}
 }
 // -------------------------------------------------------------
 
+
+function normalizeTR(s){
+  return String(s||'').toLowerCase()
+    .replaceAll('ı','i').replaceAll('İ','i')
+    .replaceAll('ğ','g').replaceAll('Ğ','g')
+    .replaceAll('ü','u').replaceAll('Ü','u')
+    .replaceAll('ş','s').replaceAll('Ş','s')
+    .replaceAll('ö','o').replaceAll('Ö','o')
+    .replaceAll('ç','c').replaceAll('Ç','c');
+}
+
 function render(){
-      const qRaw=$('#search').value.trim(); const q=qRaw.toLowerCase();
+      const qRaw=$('#search').value.trim(); const q=normalizeTR(qRaw);
       const onlyLow=$('#onlyLow').checked;
       const tbody=$('#tbodyDesktop'); tbody.innerHTML='';
       const listMobile=$('#listMobile'); listMobile.innerHTML='';
