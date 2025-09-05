@@ -505,36 +505,29 @@
 // ----------------- Ek Yardımcı Fonksiyonlar -----------------
 function specs(p){
   const parts=[];
-  const seen = new Set();
-  const push = (v)=>{ if(v==null) return; const s=String(v).trim(); if(!s) return; const k=s.toLowerCase(); if(seen.has(k)) return; seen.add(k); parts.push(s); };
-
   if(p.category==='paketliGovde'){
-    if(p.pg_rpm) push(`${p.pg_rpm} rpm`);
-    if(p.pg_kw) push(`${p.pg_kw} kW`);
-    if(p.pg_volt) push(`${p.pg_volt} V`);
-    push(p.pg_customer || p.m_customer || p.customer);
-    if(p.pg_conn) push(`${p.pg_conn}`);
+    if(p.pg_rpm) parts.push(`${p.pg_rpm} rpm`);
+    if(p.pg_kw) parts.push(`${p.pg_kw} kW`);
+    if(p.pg_volt) parts.push(`${p.pg_volt} V`);
+    if(p.pg_customer) parts.push(`${p.pg_customer}`);
+    if(p.pg_conn) parts.push(`${p.pg_conn}`);
   }else if(p.category==='motor'){
-    if(p.m_rpm) push(`${p.m_rpm} rpm`);
-    if(p.m_kw) push(`${p.m_kw} kW`);
-    if(p.m_volt) push(`${p.m_volt} V`);
-    push(p.m_customer || p.customer || p.pg_customer);
-    if(p.m_conn) push(`${p.m_conn}`);
-    const mil = p.milType || p.milCode;
-    if(mil) push(`Mil: ${mil}`);
-    const cover = p.m_cover || p.cover;
-    if(cover) push(`Kapak: ${cover}`);
+    if(p.m_rpm) parts.push(`${p.m_rpm} rpm`);
+    if(p.m_kw) parts.push(`${p.m_kw} kW`);
+    if(p.m_volt) parts.push(`${p.m_volt} V`);
+    if(p.m_customer) parts.push(`${p.m_customer}`);
+    if(p.m_conn) parts.push(`${p.m_conn}`);
+    if(p.m_cover) parts.push(`Kapak: ${p.m_cover}`);
   }else{
-    if(p.rpm) push(`${p.rpm} rpm`);
-    if(p.kw) push(`${p.kw} kW`);
-    if(p.volt) push(`${p.volt} V`);
-    if(p.material) push(`${p.material}`);
-    if(p.milCode) push(`Mil: ${p.milCode}`);
-    push(p.customer || p.m_customer || p.pg_customer);
+    if(p.rpm) parts.push(`${p.rpm} rpm`);
+    if(p.kw) parts.push(`${p.kw} kW`);
+    if(p.volt) parts.push(`${p.volt} V`);
+    if(p.material) parts.push(`${p.material}`);
+    if(p.milCode) parts.push(`Mil: ${p.milCode}`);
+    if(p.customer) parts.push(`${p.customer}`);
   }
   return parts.join(' • ');
 }
-
 
 function searchable(p){
   const base = [(p.name||''),(p.sku||''),(p.note||''),(CATEGORY_LABEL[p.category]||p.category||'')].join(' ');
@@ -548,13 +541,44 @@ function searchable(p){
 // -------------------------------------------------------------
 
 function render(){
-      const q=$('#search').value.trim().toLowerCase();
+      const qRaw=$('#search').value.trim(); const q=qRaw.toLowerCase();
       const onlyLow=$('#onlyLow').checked;
       const tbody=$('#tbodyDesktop'); tbody.innerHTML='';
       const listMobile=$('#listMobile'); listMobile.innerHTML='';
 
       let list=[...state.products];
-      if(q) list=list.filter(p=> searchable(p).includes(q));
+      // Advanced colon-based search (e.g., MOT:HMB90:Önfreze)
+      if(qRaw.includes(':')){
+        const tokens = qRaw.split(':').map(s=>s.trim()).filter(Boolean);
+        if(tokens.length){
+          const norm = (s)=>String(s||'').toLowerCase()
+            .replaceAll('ı','i').replaceAll('İ','i')
+            .replaceAll('ğ','g').replaceAll('Ğ','g')
+            .replaceAll('ü','u').replaceAll('Ü','u')
+            .replaceAll('ş','s').replaceAll('Ş','s')
+            .replaceAll('ö','o').replaceAll('Ö','o')
+            .replaceAll('ç','c').replaceAll('Ç','c');
+          list = list.filter(p=>{
+            const hay = {
+              sku: norm(p.sku),
+              name: norm(p.name),
+              cat: norm(p.category)+' '+norm((CATEGORY_LABEL[p.category]||'')),
+              kind: norm(p.kind),
+              mil: norm(p.milType)+' '+norm(p.milCode),
+              customer: norm(p.m_customer)+' '+norm(p.customer)+' '+norm(p.pg_customer),
+              specs: norm(typeof specs==='function'? specs(p):'')
+            };
+            return tokens.every(t=>{
+              const tt = norm(t);
+              return (hay.sku.includes(tt) || hay.name.includes(tt) || hay.cat.includes(tt) || hay.kind.includes(tt)
+                      || hay.mil.includes(tt) || hay.customer.includes(tt) || hay.specs.includes(tt));
+            });
+          });
+        }
+      } else if(q){
+        // fallback: classic broad search
+        list=list.filter(p=> searchable(p).includes(q));
+      }
       if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
 
       // Sıralama
@@ -708,9 +732,9 @@ function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let 
     function delegate(container){ container.addEventListener('click', e=>{ const btn=e.target.closest('button'); if(!btn) return; const id=btn.dataset.id; const p=findProduct(id); if(!p) return; const act=btn.dataset.act; if(act==='edit'){ openProductDialog(p); } else if(act==='del'){ if(confirm('Silinsin mi?')){ state.products=state.products.filter(x=>x.id!==id); addLog({productId:id,type:'delete',amount:0,fromQty:p.qty||0,toQty:0,note:'Ürün silindi'}); save(); } } else if(act==='move-in'){ openMoveDialog(p,'in'); } else if(act==='move-out'){ openMoveDialog(p,'out'); } }); }
     delegate(document.body);
 
-    $('#productForm').addEventListener('submit',e=>{ e.preventDefault(); const form=e.target; const data=Object.fromEntries(new FormData(form).entries()); data.m_cover=(form.m_cover&&form.m_cover.value)||data.m_cover||'';const isEdit=!!data.id; const min=Number(data.min||0); if(isNaN(min)||min<0){ alert('Minimum stok 0 veya daha büyük olmalı'); return; } if(!data.name||!data.sku){ alert('Ad ve stok kodu zorunlu'); return; } if(data.category==='sargiliPaket'){ if(!(data.kw && data.rpm && data.volt)){ alert('Sargılı paket için kW, rpm ve Volt zorunludur.'); return; } } if(['mil','rotorluMil','taslanmisMil'].includes(data.category)){ if(!data.milCode){ alert('Mil türlerinde Mil Kodu zorunludur.'); return; } }
+    $('#productForm').addEventListener('submit',e=>{ e.preventDefault(); const form=e.target; const data=Object.fromEntries(new FormData(form).entries()); data.m_cover=(form.m_cover&&form.m_cover.value)||data.m_cover||''; const isEdit=!!data.id; const min=Number(data.min||0); if(isNaN(min)||min<0){ alert('Minimum stok 0 veya daha büyük olmalı'); return; } if(!data.name||!data.sku){ alert('Ad ve stok kodu zorunlu'); return; } if(data.category==='sargiliPaket'){ if(!(data.kw && data.rpm && data.volt)){ alert('Sargılı paket için kW, rpm ve Volt zorunludur.'); return; } } if(['mil','rotorluMil','taslanmisMil'].includes(data.category)){ if(!data.milCode){ alert('Mil türlerinde Mil Kodu zorunludur.'); return; } }
       const clash=state.products.some(x=>x.id!==data.id && (x.sku||'').toLowerCase()===data.sku.toLowerCase()); if(clash){ alert('Bu stok kodu başka bir üründe kullanılıyor. Otomatik yeni kod önerilecek.'); form.sku.value=nextSkuForCategory(data.category); data.sku=form.sku.value; }
-      if(isEdit){ const p=findProduct(data.id); if(!p) return; Object.assign(p,{ kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_cover:data.m_cover||'', m_cover:data.m_cover||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||''  , material:data.material||'',}); addLog({productId:p.id,type:'edit',amount:0,fromQty:p.qty||0,toQty:p.qty||0,note:'Ürün bilgisi güncellendi'}); } else { const p={ id:uuid(), kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, qty:0, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_cover:data.m_cover||'', m_cover:data.m_cover||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||'' , material:data.material||'' }; state.products.unshift(p); addLog({productId:p.id,type:'new',amount:0,fromQty:0,toQty:0,note:'Yeni ürün eklendi'}); }
+      if(isEdit){ const p=findProduct(data.id); if(!p) return; Object.assign(p,{ kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_cover:data.m_cover||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||''  , material:data.material||'',}); addLog({productId:p.id,type:'edit',amount:0,fromQty:p.qty||0,toQty:p.qty||0,note:'Ürün bilgisi güncellendi'}); } else { const p={ id:uuid(), kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, qty:0, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_cover:data.m_cover||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||'' , material:data.material||'' }; state.products.unshift(p); addLog({productId:p.id,type:'new',amount:0,fromQty:0,toQty:0,note:'Yeni ürün eklendi'}); }
       $('#productDialog').close(); save(); });
 
     // İPTAL butonları — diyalogları kapat
@@ -721,7 +745,7 @@ function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let 
     $('#moveForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const form = e.target;
-      const data = Object.fromEntries(new FormData(form).entries());
+      const data = Object.fromEntries(new FormData(form).entries()); data.m_cover=(form.m_cover&&form.m_cover.value)||data.m_cover||''; data.m_cover = (form.m_cover && form.m_cover.value) || data.m_cover || '';
       const p = findProduct(data.id);
       if(!p){ alert('Ürün bulunamadı'); return; }
       const amt = Number(data.amount);
