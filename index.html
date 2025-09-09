@@ -1250,16 +1250,16 @@ function initializeSiparisServisApp() {
             }
         });
         servisForm.dataset.editIndex = index;
-        $('#ss_servisFormSubmitButton').textContent = 'Kaydı Güncelle';
-        $('#ss_servisFormCancelButton').classList.remove('hidden');
+        appContainer.querySelector('#ss_servisFormSubmitButton').textContent = 'Kaydı Güncelle';
+        appContainer.querySelector('#ss_servisFormCancelButton').classList.remove('hidden');
         servisForm.scrollIntoView({ behavior: 'smooth' });
     }
 
     function resetServisForm() {
         servisForm.reset();
         delete servisForm.dataset.editIndex;
-        $('#ss_servisFormSubmitButton').textContent = 'Servis Kaydı Ekle';
-        $('#ss_servisFormCancelButton').classList.add('hidden');
+        appContainer.querySelector('#ss_servisFormSubmitButton').textContent = 'Servis Kaydı Ekle';
+        appContainer.querySelector('#ss_servisFormCancelButton').classList.add('hidden');
     }
     
     appContainer.querySelector('#ss_servisFormCancelButton').addEventListener('click', resetServisForm);
@@ -1725,7 +1725,7 @@ function initializeStokTakipApp() {
         get(dbRef).then(snap => {
             if (snap.exists()) {
                 const remoteData = snap.val().value;
-                window.dataStore[key] = (key === 'stokTakip-v1') ? remoteData : ensureArray(remoteData);
+                window.dataStore[key] = (key === 'stokTakip-v1') ? (remoteData || {products:[], logs:[]}) : ensureArray(remoteData);
             } else {
                 console.log(`Key ${key} Firebase'de bulunamadı, varsayılan değerle oluşturuluyor.`);
                 window.dataStore[key] = key === 'stokTakip-v1' ? { products: [], logs: [] } : [];
