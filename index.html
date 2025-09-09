@@ -1524,8 +1524,8 @@ function initializeStokTakipApp() {
 
 <!-- Realtime Senkronizasyon (Firebase RTDB) -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   // === Firebase Config (kullanıcının verdiği proje) ===
   const firebaseConfig = {
@@ -1553,6 +1553,14 @@ function initializeStokTakipApp() {
   // === Başlat ===
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
+  // Bağlantı teşhisi
+  try {
+    const infoRef = ref(db, ".info/connected");
+    onValue(infoRef, (snap)=>{
+      console.log("%c[RTDB].info/connected:", "color:#0ea5e9", snap.val());
+    });
+  } catch(e){ console.warn("connected kontrolünde hata:", e); }
+
 
   // === Sonsuz döngüyü önlemek için koruma bayrağı ===
   let APPLYING_REMOTE = false;
@@ -1583,21 +1591,21 @@ function initializeStokTakipApp() {
       if (!APPLYING_REMOTE && ALL_KEYS.includes(k)) {
         pushKeyToCloud(k);
         // Render tetiklemek için storage event'i yay
-        try { window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: v })); } catch {}
+        try { window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: v })); } catch { window.dispatchEvent(new CustomEvent('hertz-data-changed', { detail: { key: k, value: v } })); }
       }
     };
     localStorage.removeItem = function(k){
       _removeItem(k);
       if (!APPLYING_REMOTE && ALL_KEYS.includes(k)) {
         pushKeyToCloud(k); // boş değer de yazılmış olur
-        try { window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: null })); } catch {}
+        try { window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: null })); } catch { window.dispatchEvent(new CustomEvent('hertz-data-changed', { detail: { key: k, value: null } })); }
       }
     };
     localStorage.clear = function(){
       _clear();
       if (!APPLYING_REMOTE) {
         ALL_KEYS.forEach(k => pushKeyToCloud(k));
-        try { window.dispatchEvent(new StorageEvent('storage', { key: null })); } catch {}
+        try { window.dispatchEvent(new StorageEvent('storage', { key: null })); } catch { window.dispatchEvent(new CustomEvent('hertz-data-changed', { detail: { key: null } })); }
       }
     };
   })();
@@ -1621,9 +1629,10 @@ function initializeStokTakipApp() {
       try {
         localStorage.setItem(k, safeString(incoming));
         // Uygulamanın render mekanizmasını tetikleyelim
-        try { window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: localStorage.getItem(k) })); } catch {}
+        try { window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: localStorage.getItem(k) })); } catch { window.dispatchEvent(new CustomEvent('hertz-data-changed', { detail: { key: k } })); }
         // Bazı modüller custom event kullanıyorsa:
         document.dispatchEvent(new CustomEvent("realtime_sync_applied", { detail: { key: k } }));
+        window.dispatchEvent(new CustomEvent("hertz-data-changed", { detail: { key: k } }));
       } finally {
         APPLYING_REMOTE = false;
       }
@@ -1654,7 +1663,7 @@ function initializeStokTakipApp() {
   ALL_KEYS.forEach(attachListenerForKey);
 
   // Dışarı da aktarıyoruz (opsiyonel kullanım için)
-  window.__RealtimeSync = { db, keys: ALL_KEYS.slice(), pushKeyToCloud };
+  window.__RealtimeSync = { db, keys: ALL_KEYS.slice(), pushKeyToCloud }; console.log("[SYNC] Keys:", ALL_KEYS);
   console.log("%cRealtime Sync aktif","color: #16a34a; font-weight:600");
 </script>
 
