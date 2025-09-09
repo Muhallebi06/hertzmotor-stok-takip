@@ -1521,6 +1521,143 @@ function initializeStokTakipApp() {
     render();
 }
 </script>
+
+<!-- Realtime Senkronizasyon (Firebase RTDB) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // === Firebase Config (kullanıcının verdiği proje) ===
+  const firebaseConfig = {
+    apiKey: "AIzaSyDbwnPViAnSzZ_l8M6YgL75xJiPr3V4Odk",
+    authDomain: "hertz-motor-stok-takip.firebaseapp.com",
+    databaseURL: "https://hertz-motor-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "hertz-motor-stok-takip",
+    storageBucket: "hertz-motor-stok-takip.firebasestorage.app",
+    messagingSenderId: "30502784749",
+    appId: "1:30502784749:web:3de3128e6bb7c059f406e4",
+    measurementId: "G-HERC6F90FC"
+  };
+
+  // === Uygulama Anahtarları (localStorage kullanan alanlar) ===
+  // Stok modülü:
+  const STOK_KEY = (typeof LS_KEY === "string" ? LS_KEY : "stokTakip.v1");
+  // Sipariş/Servis modülü:
+  const SS_KEYS = ["siparisler", "siparisLog", "sevkEdilenler", "servisKayitlari", "servisSevkEdilenler"];
+  const ALL_KEYS = [STOK_KEY, ...SS_KEYS];
+
+  // === Yardımcılar ===
+  const safeParse = (x) => { try { return JSON.parse(x); } catch { return x; } };
+  const safeString = (v) => (typeof v === "string" ? v : JSON.stringify(v ?? ""));
+
+  // === Başlat ===
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  // === Sonsuz döngüyü önlemek için koruma bayrağı ===
+  let APPLYING_REMOTE = false;
+
+  // === Buluta yaz (tek anahtar) ===
+  async function pushKeyToCloud(k) {
+    try {
+      const value = localStorage.getItem(k);
+      const parsed = safeParse(value);
+      await set(ref(db, "ls/" + encodeURIComponent(k)), {
+        value: parsed,
+        updatedAt: Date.now()
+      });
+    } catch (err) {
+      console.error("[SYNC] Buluta yazma hatası:", k, err);
+    }
+  }
+
+  // === Yerelde değişiklik olduğunda buluta yansıt ===
+  // localStorage.setItem/removeItem/clear hook
+  (function hookLocalStorage(){
+    const _setItem = localStorage.setItem.bind(localStorage);
+    const _removeItem = localStorage.removeItem.bind(localStorage);
+    const _clear = localStorage.clear.bind(localStorage);
+
+    localStorage.setItem = function(k, v){
+      _setItem(k, v);
+      if (!APPLYING_REMOTE && ALL_KEYS.includes(k)) {
+        pushKeyToCloud(k);
+        // Render tetiklemek için storage event'i yay
+        try { window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: v })); } catch {}
+      }
+    };
+    localStorage.removeItem = function(k){
+      _removeItem(k);
+      if (!APPLYING_REMOTE && ALL_KEYS.includes(k)) {
+        pushKeyToCloud(k); // boş değer de yazılmış olur
+        try { window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: null })); } catch {}
+      }
+    };
+    localStorage.clear = function(){
+      _clear();
+      if (!APPLYING_REMOTE) {
+        ALL_KEYS.forEach(k => pushKeyToCloud(k));
+        try { window.dispatchEvent(new StorageEvent('storage', { key: null })); } catch {}
+      }
+    };
+  })();
+
+  // === Buluttan anlık dinleme (her anahtar için) ===
+  function attachListenerForKey(k){
+    const r = ref(db, "ls/" + encodeURIComponent(k));
+    onValue(r, (snap) => {
+      const data = snap.val();
+      if (!data) return;
+      const incoming = data.value;
+      const currentRaw = localStorage.getItem(k);
+      const current = safeParse(currentRaw);
+
+      // Değişiklik var mı?
+      const changed = JSON.stringify(current) !== JSON.stringify(incoming);
+      if (!changed) return;
+
+      // Uygulamaya döngüsüz uygula
+      APPLYING_REMOTE = true;
+      try {
+        localStorage.setItem(k, safeString(incoming));
+        // Uygulamanın render mekanizmasını tetikleyelim
+        try { window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: localStorage.getItem(k) })); } catch {}
+        // Bazı modüller custom event kullanıyorsa:
+        document.dispatchEvent(new CustomEvent("realtime_sync_applied", { detail: { key: k } }));
+      } finally {
+        APPLYING_REMOTE = false;
+      }
+    }, (err) => {
+      console.error("[SYNC] Dinleme hatası:", k, err);
+    });
+  }
+
+  // === İlk bootstrap: eksik anahtarları oluşturup, buluta yükle ===
+  function ensureBootstrap(){
+    ALL_KEYS.forEach(k => {
+      if (localStorage.getItem(k) == null) {
+        // stok için varsayılan obje, diğerleri için boş dizi/objeleri bozmadan bırak
+        if (k === STOK_KEY) localStorage.setItem(k, JSON.stringify({ products: [], logs: [] }));
+        else {
+          if (k === "siparisLog") localStorage.setItem(k, JSON.stringify([]));
+          else if (k === "siparisler") localStorage.setItem(k, JSON.stringify([]));
+          else if (k === "sevkEdilenler") localStorage.setItem(k, JSON.stringify([]));
+          else if (k === "servisKayitlari") localStorage.setItem(k, JSON.stringify([]));
+          else if (k === "servisSevkEdilenler") localStorage.setItem(k, JSON.stringify([]));
+        }
+      }
+      pushKeyToCloud(k);
+    });
+  }
+
+  ensureBootstrap();
+  ALL_KEYS.forEach(attachListenerForKey);
+
+  // Dışarı da aktarıyoruz (opsiyonel kullanım için)
+  window.__RealtimeSync = { db, keys: ALL_KEYS.slice(), pushKeyToCloud };
+  console.log("%cRealtime Sync aktif","color: #16a34a; font-weight:600");
+</script>
+
 </body>
 </html>
 
