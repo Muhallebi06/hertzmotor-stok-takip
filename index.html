@@ -1525,7 +1525,7 @@ function initializeStokTakipApp() {
 <!-- Realtime Senkronizasyon (Firebase RTDB) -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDbwnPViAnSzZ_l8M6YgL75xJiPr3V4Odk",
@@ -1551,24 +1551,42 @@ function initializeStokTakipApp() {
     try { return JSON.stringify(o, Object.keys(o).sort()); } catch { return JSON.stringify(o); }
   };
 
-  function ensureBootstrap(){
-    for (const k of ALL_KEYS){
-      if (localStorage.getItem(k) == null){
-        if (k === STOK_KEY) localStorage.setItem(k, JSON.stringify({ products: [], logs: [] }));
-        else localStorage.setItem(k, JSON.stringify([]));
-      }
-      pushKeyToCloud(k).catch(()=>{});
-    }
+  // Default creators (used only when neither remote nor local has data)
+  function defaultFor(k){
+    if (k === STOK_KEY) return { products: [], logs: [] };
+    return [];
   }
 
+  // Apply incoming to localStorage + notify UI, no reload
+  let APPLYING_REMOTE = false;
+  function dispatchAll(k){
+    try {
+      const v = localStorage.getItem(k);
+      // Synthetic StorageEvent for listeners
+      try { window.dispatchEvent(new StorageEvent("storage", { key: k, newValue: v, storageArea: localStorage })); } catch {}
+      document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { key: k } }));
+      if (typeof window.render === "function") window.render();
+      if (typeof window.renderStok === "function") window.renderStok();
+    } catch {}
+  }
+  function applyIncoming(k, incoming){
+    const current = safeParse(localStorage.getItem(k));
+    if (stable(current) === stable(incoming)) return false;
+    APPLYING_REMOTE = true;
+    try { localStorage.setItem(k, JSON.stringify(incoming)); } finally { APPLYING_REMOTE = false; }
+    dispatchAll(k);
+    return true;
+  }
+
+  // Cloud push (no overwrite of remote on init)
   async function pushKeyToCloud(k){
-    const val = localStorage.getItem(k);
-    const parsed = safeParse(val);
+    const parsed = safeParse(localStorage.getItem(k));
     const payload = { value: parsed, updatedAt: Date.now() };
-    return set(ref(db, "ls/" + enc(k)), payload);
+    await set(ref(db, "ls/" + enc(k)), payload);
   }
 
-  function assembleBridge(){
+  // Bridge helpers
+  function assembleBridgeFromLocals(){
     const obj = {};
     for (const k of SS_KEYS){
       const v = safeParse(localStorage.getItem(k));
@@ -1581,24 +1599,22 @@ function initializeStokTakipApp() {
     }
     return obj;
   }
-
   async function pushBridge(){
-    const payload = { value: assembleBridge(), updatedAt: Date.now() };
-    return set(ref(db, "ls/" + enc(STOK_KEY)), payload);
+    const payload = { value: assembleBridgeFromLocals(), updatedAt: Date.now() };
+    await set(ref(db, "ls/" + enc(STOK_KEY)), payload);
   }
 
-  let APPLYING_REMOTE = false;
+  // Hook localStorage (runtime sync)
   (function hookLS(){
     const _set = localStorage.setItem.bind(localStorage);
     const _rem = localStorage.removeItem.bind(localStorage);
     const _clr = localStorage.clear.bind(localStorage);
-
     localStorage.setItem = function(k, v){
       _set(k, v);
       if (!APPLYING_REMOTE && ALL_KEYS.includes(k)){
         pushKeyToCloud(k).catch(()=>{});
         if (SS_KEYS.includes(k)) pushBridge().catch(()=>{});
-        try { document.dispatchEvent(new CustomEvent("hertz-data-changed", { detail: { key: k } })); } catch {}
+        dispatchAll(k);
       }
     };
     localStorage.removeItem = function(k){
@@ -1606,7 +1622,7 @@ function initializeStokTakipApp() {
       if (!APPLYING_REMOTE && ALL_KEYS.includes(k)){
         pushKeyToCloud(k).catch(()=>{});
         if (SS_KEYS.includes(k)) pushBridge().catch(()=>{});
-        try { document.dispatchEvent(new CustomEvent("hertz-data-changed", { detail: { key: k } })); } catch {}
+        dispatchAll(k);
       }
     };
     localStorage.clear = function(){
@@ -1614,27 +1630,19 @@ function initializeStokTakipApp() {
       if (!APPLYING_REMOTE){
         for (const k of ALL_KEYS) pushKeyToCloud(k).catch(()=>{});
         pushBridge().catch(()=>{});
-        try { document.dispatchEvent(new CustomEvent("hertz-data-changed", { detail: { key: null } })); } catch {}
+        try { document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { key: null } })); } catch {}
       }
     };
   })();
 
-  function applyIncoming(k, incoming){
-    const current = safeParse(localStorage.getItem(k));
-    if (stable(current) === stable(incoming)) return false;
-    APPLYING_REMOTE = true;
-    try { localStorage.setItem(k, JSON.stringify(incoming)); } finally { APPLYING_REMOTE = false; }
-    try { document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { key: k } })); } catch {}
-    return true;
-  }
-
+  // Attach listeners first
   function attach(k){
-    const r = ref(db, "ls/" + enc(k));
-    onValue(r, (snap)=>{
+    onValue(ref(db, "ls/" + enc(k)), (snap)=>{
       const data = snap.val();
       if (!data || typeof data !== "object") return;
       const val = data.value;
       if (k === STOK_KEY && val && typeof val === "object"){
+        // Fan-out from bridge
         let any = false;
         for (const key of SS_KEYS){
           if (key in val) any = applyIncoming(key, val[key]) || any;
@@ -1648,13 +1656,33 @@ function initializeStokTakipApp() {
       }
     });
   }
-
-  ensureBootstrap();
   for (const k of ALL_KEYS) attach(k);
 
-  window.__RealtimeSync = { db, keys: ALL_KEYS.slice(), pushKeyToCloud, pushBridge };
-  console.log("%cRTDB Sync hazır (no-reload, stokTakip.v1 köprü aktif)","color:#16a34a;font-weight:600");
+  // One-time hydration: prefer remote, otherwise local, otherwise defaults -> push
+  (async function hydrate(){
+    for (const k of ALL_KEYS){
+      try{
+        const snap = await get(ref(db, "ls/" + enc(k)));
+        if (snap.exists() && snap.val() && typeof snap.val() === "object"){
+          const v = snap.val().value;
+          if (v != null) applyIncoming(k, v);
+        } else {
+          // no remote; ensure local or defaults, then push
+          const local = safeParse(localStorage.getItem(k));
+          if (local == null) localStorage.setItem(k, JSON.stringify(defaultFor(k)));
+          await pushKeyToCloud(k);
+        }
+      }catch(e){
+        // ignore hydration errors
+        console.warn("[RTDB hydrate] warning for", k, e);
+      }
+    }
+    // After hydrating SS keys, sync bridge once
+    try { await pushBridge(); } catch {}
+    console.log("%cRTDB realtime senkron aktif (hydrate tamam)","color:#16a34a;font-weight:600");
+  })();
 </script>
+
 
 
 </body>
