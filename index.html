@@ -1536,9 +1536,13 @@ function initializeStokTakipApp() {
   "measurementId": "G-T5ZGWC6CKS"
 };
   const app = initializeApp(firebaseConfig);
-  const db  = getDatabase(app);
+  \1
+  // === RTDB key sanitizer: Firebase RTDB path segment cannot contain . # $ [ ] /
+  const sanitizeKey = (k)=> String(k).replace(/[.#$\[\]\/]/g, "_");
+  const toRTPath   = (k)=> "ls/" + sanitizeKey(k);
+  const refKey     = (k)=> ref(db, toRTPath(k));
 
-  const STOK_KEY = (typeof window.LS_KEY === "string" ? window.LS_KEY : "stokTakip.v1");
+const STOK_KEY = (typeof window.LS_KEY === "string" ? window.LS_KEY : "stokTakip.v1");
   const SS_KEYS  = ["siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler"];
   const ALL_KEYS = [STOK_KEY, ...SS_KEYS];
 
@@ -1564,7 +1568,7 @@ function initializeStokTakipApp() {
   }
   async function pushKey(k){
     const val=safeParse(localStorage.getItem(k));
-    await set(ref(db,"ls/"+enc(k)), {value:val,updatedAt:Date.now()});
+    await set(refKey(k), {value:val,updatedAt:Date.now()});
   }
   function buildBridge(){
     const obj={};
@@ -1573,7 +1577,7 @@ function initializeStokTakipApp() {
     if(cur&&typeof cur==="object"){ if("products" in cur) obj.products=cur.products; if("logs" in cur) obj.logs=cur.logs; }
     return obj;
   }
-  async function pushBridge(){ await set(ref(db,"ls/"+enc(STOK_KEY)), {value:buildBridge(),updatedAt:Date.now()}); }
+  async function pushBridge(){ await set(refKey(STOK_KEY), {value:buildBridge(),updatedAt:Date.now()}); }
 
   // hook
   (function(){
@@ -1583,7 +1587,7 @@ function initializeStokTakipApp() {
   })();
 
   function attach(k){
-    onValue(ref(db,"ls/"+enc(k)),snap=>{
+    onValue(refKey(k),snap=>{
       const d=snap.val(); if(!d||typeof d!=="object") return;
       const val=d.value;
       if(k===STOK_KEY && val && typeof val==="object"){
@@ -1596,7 +1600,7 @@ function initializeStokTakipApp() {
 
   (async function hydrate(){
     for(const k of ALL_KEYS){
-      try{ const snap=await get(ref(db,"ls/"+enc(k)));
+      try{ const snap=await get(refKey(k));
         if(snap.exists()){ const v=snap.val().value; if(v!=null) applyIncoming(k,v); }
         else { const l=safeParse(localStorage.getItem(k)); if(l==null) localStorage.setItem(k,JSON.stringify(defaultFor(k))); await pushKey(k); }
       }catch(e){}
@@ -1605,7 +1609,7 @@ function initializeStokTakipApp() {
     console.log("Realtime sync aktif");
   })();
 
-  setInterval(async()=>{ for(const k of ALL_KEYS){ try{ const s=await get(ref(db,"ls/"+enc(k))); if(s.exists()){ const v=s.val().value; if(v!=null) applyIncoming(k,v);} }catch(e){} } },2000);
+  setInterval(async()=>{ for(const k of ALL_KEYS){ try{ const s=await get(refKey(k)); if(s.exists()){ const v=s.val().value; if(v!=null) applyIncoming(k,v);} }catch(e){} } },2000);
 </script>
 </body>
 </html>
