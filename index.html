@@ -1,25 +1,49 @@
 <!DOCTYPE html>
-<html lang="tr" class="scroll-smooth">
+<html lang="tr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hertz Motor — Stok Takip</title>
-  <!-- Tailwind (dark mode kaldırıldı) -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Hertz Motor — Entegre Yönetim Platformu</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <meta name="theme-color" content="rgb(205,105,40)" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/tr.js"></script>
+
   <style>
+    /* Global Stiller */
     :root { --brand: 205,105,40; }
+    body {
+        --tw-bg-opacity: 1;
+        background-color: rgb(248 250 252 / var(--tw-bg-opacity)); /* bg-slate-50 */
+    }
+    .btn-brand { background-color: rgb(var(--brand)); color: white; }
+    .btn-brand:hover { filter: brightness(0.95); }
     dialog::backdrop { background: rgb(0 0 0 / 0.5); }
-    .badge{display:inline-block;padding:.125rem .5rem;border-radius:.5rem;font-size:.75rem}
-    .btn-brand{ background: rgb(var(--brand)); color:white; }
-    .btn-brand:hover{ filter: brightness(0.95); }
-    .no-scrollbar::-webkit-scrollbar{ display:none; }
-    .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
+    
+    /* Sipariş/Servis Modülüne Özel Stiller */
+    .siparis-servis-app .highlight { background-color: #fecaca; }
+    .siparis-servis-app .date-input { transition: box-shadow .15s ease, border-color .15s ease; }
+    .siparis-servis-app .date-input:focus {
+      outline: none; border-color: rgba(var(--brand), .55);
+      box-shadow: 0 0 0 3px rgba(var(--brand), .20);
+    }
+    .siparis-servis-app .editable { cursor:text }
+    .siparis-servis-app .sortable { cursor: pointer; user-select: none; position: relative; padding-right: 20px; }
+    .siparis-servis-app .sortable:hover { background-color: rgba(0,0,0,0.05); }
+    .siparis-servis-app .sort-indicator { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #64748b; }
+    .siparis-servis-app .sortable.asc .sort-indicator::after { content: '▲'; }
+    .siparis-servis-app .sortable.desc .sort-indicator::after { content: '▼'; }
+
+    /* Stok Takip Modülüne Özel Stiller */
+    .stok-takip-app .badge{display:inline-block;padding:.125rem .5rem;border-radius:.5rem;font-size:.75rem}
+    .stok-takip-app .no-scrollbar::-webkit-scrollbar{ display:none; }
+    .stok-takip-app .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800">
 
-<!-- === Simple Login Gate (user: hertz / pass: hertz) === -->
+<body class="text-slate-800">
+
+<!-- === Ortak Giriş Ekranı (Login Gate) === -->
 <style>
   #authGate {
     position: fixed; inset: 0; display: none; place-items: center; z-index: 99999;
@@ -30,41 +54,79 @@
     width: min(380px, 92vw); background: #111827; border: 1px solid #1f2937; border-radius: 14px;
     padding: 22px 22px 16px; box-shadow: 0 10px 40px rgba(0,0,0,.35);
   }
-  #authCard h2 { margin: 0 0 8px; font-size: 18px; color: #f3f4f6; }
-  #authCard p  { margin: 0 0 16px; font-size: 13px; color: #94a3b8; }
-  .row { display: grid; gap: 8px; margin: 10px 0 12px; }
-  .row label { font-size: 12px; color: #cbd5e1; }
-  .row input {
-    font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    padding: 10px 12px; border-radius: 10px; border: 1px solid #303a4a; background:#0f172a; color:#e5e7eb;
-  }
-  #authBtn {
-    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cc7a44;
-    background: linear-gradient(120deg, #cd6928, #de7a39); color: white; font-weight: 600; cursor: pointer;
-  }
-  #authErr { min-height: 18px; color: #fca5a5; font-size: 12px; margin-top: 8px; }
-  #logoutBtn {
-  @apply px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-gray-100;
-}
-
-
 </style>
 <div id="authGate">
   <div id="authCard">
-    <h2>Giriş yap</h2>
-    <p>Devam etmek için kullanıcı adı ve şifre girin.</p>
+    <h2 class="text-lg font-semibold text-slate-100">Platform Girişi</h2>
+    <p class="text-sm text-slate-400 mb-4">Devam etmek için kullanıcı adı ve şifre girin.</p>
     <form id="authForm">
-      <div class="row">
-        <label for="authUser">Kullanıcı adı</label>
-        <input id="authUser" name="u" autocomplete="username" placeholder="Kullanıcı adı" required>
+      <div class="grid gap-2 mb-3">
+        <label for="authUser" class="text-sm text-slate-300">Kullanıcı adı</label>
+        <input id="authUser" name="u" autocomplete="username" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:ring-2 focus:ring-orange-500 focus:border-orange-500" required>
       </div>
-      <div class="row">
-        <label for="authPass">Şifre</label>
-        <input id="authPass" name="p" type="password" autocomplete="current-password" placeholder="••••••••" required>
+      <div class="grid gap-2 mb-4">
+        <label for="authPass" class="text-sm text-slate-300">Şifre</label>
+        <input id="authPass" name="p" type="password" autocomplete="current-password" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:ring-2 focus:ring-orange-500 focus:border-orange-500" required>
       </div>
-      <button id="authBtn" type="submit">Giriş</button>
+      <button id="authBtn" type="submit" class="w-full py-2 rounded-lg btn-brand font-semibold">Giriş</button>
+      <div id="authErr" class="min-h-[20px] text-rose-400 text-sm mt-2 text-center"></div>
+    </form>
+  </div>
+</div>
+<!-- === /Giriş Ekranı === -->
+
+<header class="sticky top-0 z-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 shadow-sm">
+    <div class="max-w-screen-2xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="shrink-0 w-10 h-10 grid place-items-center rounded-2xl text-white font-bold" style="background: rgb(var(--brand))">HM</div>
+            <div>
+                <h1 class="text-lg md:text-xl font-semibold truncate">Hertz Motor Yönetim Platformu</h1>
+            </div>
+        </div>
+        <div class="absolute left-1/2 -translate-x-1/2">
+            <div id="main-nav-tabs" class="flex items-center gap-2 bg-slate-200 p-1 rounded-xl">
+                <button id="mainTabSiparis" class="main-tab px-4 py-1.5 rounded-lg text-sm font-semibold">Sipariş & Servis</button>
+                <button id="mainTabStok" class="main-tab px-4 py-1.5 rounded-lg text-sm font-semibold">Stok Yönetimi</button>
+            </div>
+        </div>
+        <div>
+            <button id="logoutBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">Çıkış</button>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-screen-2xl mx-auto">
+    <section id="app-siparis-servis" class="app-container siparis-servis-app"></section>
+    <section id="app-stok-takip" class="app-container stok-takip-app hidden"></section>
+</main>
 
 <script>
+// ===================================================================================
+// ===                      ENTEGRE PLATFORM YÖNETİM SCRİPTİ                       ===
+// ===================================================================================
+const mainTabSiparis = document.getElementById('mainTabSiparis');
+const mainTabStok = document.getElementById('mainTabStok');
+const appSiparisServis = document.getElementById('app-siparis-servis');
+const appStokTakip = document.getElementById('app-stok-takip');
+const allMainTabs = document.querySelectorAll('.main-tab');
+const allAppContainers = document.querySelectorAll('.app-container');
+const mainNavTabs = document.getElementById('main-nav-tabs');
+
+function setActiveMainTab(tabName) {
+    allAppContainers.forEach(app => app.classList.add('hidden'));
+    allMainTabs.forEach(tab => tab.classList.remove('bg-white', 'shadow-md'));
+
+    if (tabName === 'siparis') {
+        appSiparisServis.classList.remove('hidden');
+        mainTabSiparis.classList.add('bg-white', 'shadow-md');
+    } else if (tabName === 'stok') {
+        appStokTakip.classList.remove('hidden');
+        mainTabStok.classList.add('bg-white', 'shadow-md');
+    }
+}
+mainTabSiparis.addEventListener('click', () => setActiveMainTab('siparis'));
+mainTabStok.addEventListener('click', () => setActiveMainTab('stok'));
+
 (function(){
   const USERS = {
     "hertz":   { pass: "hertz", role: "admin" },
@@ -76,163 +138,275 @@
     "imalat5": { pass: "7",     role: "user"  },
     "imalat6": { pass: "8",     role: "user"  }
   };
-  const KEY  = "auth_ok"; // sessionStorage
-  const UN   = "auth_user";
-  const RL   = "role";
-  const gate = document.getElementById("authGate");
-  const form = document.getElementById("authForm");
-  const err  = document.getElementById("authErr");
-  const getOut = () => document.getElementById("logoutBtn");
-
-  function openGate(){ gate.style.display = "grid"; }
-  function closeGate(){
-    gate.style.display = "none";
-    const _out = getOut(); if (_out) { _out.style.display = "inline-block"; }
-    document.dispatchEvent(new Event("auth_ok"));
-    applyRoleUI();
-  }
+  const KEY  = "auth_ok", UN = "auth_user", RL = "role";
+  const gate = document.getElementById("authGate"), form = document.getElementById("authForm"), err  = document.getElementById("authErr");
+  
+  const siparisServisYetkili = ['hertz', 'muhasebe', 'imalat1', 'imalat2'];
 
   function applyRoleUI(){
     const role = sessionStorage.getItem(RL);
-    // 1) Hide clear-all button for non-admins by ID
-    const btnById = document.getElementById("btnClearAll");
-    if (btnById) btnById.style.display = (role === "admin") ? "" : "none";
-    // 2) Hide any button-like element that has text "tüm verileri sil"
-    const candidates = document.querySelectorAll("button, a, [role='button'], .btn, .button");
-    const norm = s => (s||"").toLowerCase().replace(/\s+/g, " ").trim();
-    candidates.forEach(el => {
-      const t = norm(el.textContent);
-      if (t.includes("tüm verileri sil") || t.includes("tum verileri sil")) {
-        if (role !== "admin") el.style.display = "none";
-      }
+    const user = sessionStorage.getItem(UN);
+    const isAdmin = (role === "admin");
+    
+    document.querySelectorAll('.admin-only').forEach(el => {
+        el.style.display = isAdmin ? '' : 'none';
     });
-  }
 
-  // Persistent per-tab session
-  if (sessionStorage.getItem(KEY) === "1") {
-    closeGate();
-  } else {
-    openGate();
+    if (siparisServisYetkili.includes(user)) {
+        mainTabSiparis.style.display = 'block';
+        mainTabStok.style.display = 'block';
+        setActiveMainTab('siparis');
+    } else {
+        mainTabSiparis.style.display = 'none';
+        mainTabStok.style.display = 'block';
+        setActiveMainTab('stok');
+    }
   }
-
+  
+  function closeGate(){ 
+      gate.style.display = "none"; 
+      document.dispatchEvent(new Event("auth_ok")); 
+  }
+  
+  if (sessionStorage.getItem(KEY) === "1") { 
+    closeGate(); 
+  } else { 
+    gate.style.display = "grid"; 
+  }
+  
   form.addEventListener("submit", (e)=>{
     e.preventDefault();
-    const u = (form.u.value || "").trim();
-    const p = form.p.value || "";
-    const rec = USERS[u];
-    if (rec && p === rec.pass){
-      sessionStorage.setItem(KEY, "1");
-      sessionStorage.setItem(UN, u);
-      sessionStorage.setItem(RL, rec.role);
-      closeGate();
-    } else {
-      err.textContent = "Hatalı kullanıcı adı/şifre";
-      form.p.value = "";
-    }
+    const u = (form.u.value || "").trim(), p = form.p.value || "", rec = USERS[u];
+    if (rec && p === rec.pass){ 
+      sessionStorage.setItem(KEY, "1"); 
+      sessionStorage.setItem(UN, u); 
+      sessionStorage.setItem(RL, rec.role); 
+      closeGate(); 
+    } 
+    else { err.textContent = "Hatalı kullanıcı adı/şifre"; form.p.value = ""; }
   });
-
-  window.addEventListener("load", ()=>{ const _out = getOut(); if (_out) { _out.addEventListener("click", ()=>{
-    sessionStorage.removeItem(KEY);
-    sessionStorage.removeItem(UN);
-    sessionStorage.removeItem(RL);
-    location.reload();
-  }); }});
-
-  // Apply role once content loads (in case auth_ok fired before areas exist)
-  window.addEventListener("load", applyRoleUI);
+  
+  document.getElementById("logoutBtn").addEventListener("click", ()=>{ 
+    alert("Çıkış yapıldı.");
+    sessionStorage.clear(); 
+    location.reload(); 
+  });
+  
   document.addEventListener("auth_ok", applyRoleUI);
+  window.addEventListener("load", applyRoleUI);
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('app-siparis-servis').innerHTML = SIPARIS_SERVIS_HTML;
+    document.getElementById('app-stok-takip').innerHTML = STOK_TAKIP_HTML;
+
+    initializeSiparisServisApp();
+    initializeStokTakipApp();
+});
 </script>
 
-      <div id="authErr"></div>
-    </form>
-  </div>
-</div>
 <script>
-(function(){
-  const USER = "hertz";
-  const PASS = "hertz";
-  const KEY  = "auth_ok"; // sessionStorage
-  const gate = document.getElementById("authGate");
-  const form = document.getElementById("authForm");
-  const err  = document.getElementById("authErr");
-  const out  = document.getElementById("logoutBtn");
-  let fails = 0;
+// ===================================================================================
+// ===                     UYGULAMA HTML İÇERİKLERİ VE SCRIPTLERİ                    ===
+// ===================================================================================
 
-  function openGate(){ gate.style.display = "grid"; }
-  function closeGate(){
-    gate.style.display = "none";
-    out.style.display = "inline-block";
-    document.dispatchEvent(new Event("auth_ok"));
-  }
-
-  // Persist only per-tab (sessionStorage). If you want persistent, switch to localStorage.
-  if (sessionStorage.getItem(KEY) === "1") { closeGate(); }
-  else { openGate(); }
-
-  form.addEventListener("submit", (e)=>{
-    e.preventDefault();
-    const u = (form.u.value || "").trim();
-    const p = form.p.value || "";
-    if (u === USER && p === PASS){
-      sessionStorage.setItem(KEY, "1");
-      closeGate();
-    } else {
-      fails++;
-      err.textContent = "Hatalı kullanıcı adı/şifre";
-      form.p.value = "";
-      if (fails >= 5){
-        err.textContent = "5 başarısız deneme. Lütfen 60 sn sonra tekrar deneyin.";
-        form.querySelector("button[type=submit]").disabled = true;
-        setTimeout(()=>{ form.querySelector("button[type=submit]").disabled = false; err.textContent=""; fails=0; }, 60000);
-      }
-    }
-  });
-
-  out.addEventListener("click", ()=>{
-    sessionStorage.removeItem(KEY);
-    location.reload();
-  });
-})();
-</script>
-<!-- === /Login Gate === -->
-
-
-  <header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200">
-    <div class="mx-auto max-w-7xl px-3 md:px-4 py-3 flex items-center gap-3">
-      <div class="shrink-0 w-10 h-10 grid place-items-center rounded-2xl text-white font-bold" style="background: rgb(var(--brand))">HM</div>
-      <div class="grow min-w-0">
-        <h1 class="text-lg md:text-2xl font-semibold truncate">Hertz Motor — Stok Takip</h1>
-        <p class="hidden md:block text-xs text-slate-500">Üretim odaklı alanlar • İçe/Dışa aktar • Yerel kayıt</p>
-      </div>
-      <div class="flex flex-wrap gap-2 items-center">
-        <button id="btnAdd" class="px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
-        <button id="btnImport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe aktar</button>
-        <button id="btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
-        <button id="btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
-        <button id="btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-        <button id="btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600">Tüm Veriyi Sil</button>
-        <button id="logoutBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Çıkış</button>
-      </div>
+const SIPARIS_SERVIS_HTML = `
+<div class="max-w-7xl mx-auto px-4 py-6">
+    <div class="flex items-center gap-3 mb-4">
+        <div>
+            <h1 class="text-xl md:text-2xl font-semibold text-slate-800">Sipariş, Sevk ve Teknik Servis Takibi</h1>
+            <p class="text-sm text-slate-500">Termin uyarıları • Sevk listesi • Teknik servis • JSON/CSV yedekleme</p>
+        </div>
+        <div class="ml-auto flex flex-wrap gap-2 items-center">
+            <label class="text-sm">
+            <input accept="application/json" class="hidden" id="ss_fileInput" type="file">
+            <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnImportJSON">İçe aktar</button>
+            </label>
+            <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportJSON">Dışa aktar</button>
+            <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportCSV">CSV</button>
+            <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportLogCSV">Log CSV</button>
+            <button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnClearAll">Tüm Veriyi Sil</button>
+        </div>
     </div>
-  </header>
+    <div class="flex gap-2 mb-5">
+        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_tabSiparis">📦 Siparişler</button>
+        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_tabSevk">🚚 Sevk Listesi</button>
+        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_tabServis">🛠️ Teknik Servis</button>
+        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_tabServisSevk">🚚 Servis Sevkleri</button>
+    </div>
+    <section id="ss_pageSiparis">
+        <form class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6 bg-white p-4 rounded-xl shadow" id="ss_orderForm">
+            <input class="px-3 py-2 border rounded-xl col-span-2" name="musteri" placeholder="Müşteri" required>
+            <input class="px-3 py-2 border rounded-xl" name="urun" placeholder="Ürün" required>
+            <input class="px-3 py-2 border rounded-xl" name="milKod" placeholder="Mil Kodu" required>
+            <input class="px-3 py-2 border rounded-xl" name="kw" placeholder="kW" required step="any" type="number">
+            <input class="px-3 py-2 border rounded-xl" name="rpm" placeholder="RPM" required type="number">
+            <input class="px-3 py-2 border rounded-xl" name="volt" placeholder="Voltaj" required type="number">
+            <input class="sevk-picker date-input px-3 py-2 border rounded-xl col-span-2" id="ss_sevkTarihi" name="sevkTarihi" placeholder="gg/aa/yyyy" type="text">
+            <button class="btn-brand px-4 py-2 rounded-xl col-span-2 md:col-span-6">Ekle</button>
+        </form>
+        <div class="overflow-auto rounded-xl shadow mb-8">
+            <table class="w-full text-sm bg-white">
+                <thead class="bg-slate-200 text-slate-600">
+                    <tr>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="musteri" data-sort-type="string">Müşteri<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="milKod" data-sort-type="string">Mil Kodu<span class="sort-indicator"></span></th>
+                        <th class="sortable text-right px-3 py-2" data-sort-key="kw" data-sort-type="number">kW<span class="sort-indicator"></span></th>
+                        <th class="sortable text-right px-3 py-2" data-sort-key="rpm" data-sort-type="number">RPM<span class="sort-indicator"></span></th>
+                        <th class="sortable text-right px-3 py-2" data-sort-key="volt" data-sort-type="number">Voltaj<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="sevkTarihi" data-sort-type="date">Sevk Tarihi<span class="sort-indicator"></span></th>
+                        <th class="text-left px-3 py-2">Açıklama</th>
+                        <th class="text-center px-3 py-2">Hazır</th>
+                        <th class="text-center px-3 py-2">Sevke Hazır</th>
+                        <th class="text-left px-3 py-2">Durum</th>
+                        <th class="text-left px-3 py-2">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100" id="ss_orderTable"></tbody>
+            </table>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow">
+            <h2 class="text-lg font-semibold mb-2">📜 Hareket Geçmişi</h2>
+            <div class="overflow-auto max-h-64">
+                <table class="w-full text-xs">
+                    <thead class="bg-slate-100 text-slate-600">
+                        <tr>
+                            <th class="text-left px-2 py-1">Tarih</th>
+                            <th class="text-left px-2 py-1">Sipariş No</th>
+                            <th class="text-left px-2 py-1">İşlem</th>
+                            <th class="text-left px-2 py-1">Kullanıcı</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100" id="ss_logTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+    <section class="hidden" id="ss_pageSevk">
+        <div class="bg-white p-4 rounded-xl shadow mb-4 grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+            <div class="md:col-span-2"><label class="text-xs text-slate-500 block mb-1">Metne göre ara</label><input class="px-3 py-2 border rounded-xl w-full" id="ss_sevkSearch" placeholder="Müşteri, ürün, No..."></div>
+            <div><label class="text-xs text-slate-500 block mb-1">Başlangıç (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_sevkDateFrom" placeholder="gg/aa/yyyy" type="text"></div>
+            <div><label class="text-xs text-slate-500 block mb-1">Bitiş (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_sevkDateTo" placeholder="gg/aa/yyyy" type="text"></div>
+            <div class="flex gap-2"><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnSevkFilter">Filtrele</button><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnSevkClearFilter">Temizle</button></div>
+            <div class="ml-auto flex gap-2 justify-end md:col-span-1"><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnSevkCSV">CSV</button><button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnSevkClearAll">Tüm Sevkleri Sil</button></div>
+        </div>
+        <div class="overflow-auto rounded-xl shadow">
+            <table class="w-full text-sm bg-white">
+                <thead class="bg-slate-200 text-slate-600">
+                    <tr>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="musteri" data-sort-type="string">Müşteri<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="milKod" data-sort-type="string">Mil Kodu<span class="sort-indicator"></span></th>
+                        <th class="sortable text-right px-3 py-2" data-sort-key="kw" data-sort-type="number">kW<span class="sort-indicator"></span></th>
+                        <th class="sortable text-right px-3 py-2" data-sort-key="rpm" data-sort-type="number">RPM<span class="sort-indicator"></span></th>
+                        <th class="sortable text-right px-3 py-2" data-sort-key="volt" data-sort-type="number">Voltaj<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="sevkTarihi" data-sort-type="date">Sevk Tarihi<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="sevkEdildi" data-sort-type="date">Sevk Edildi<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="kullanici" data-sort-type="string">Kullanıcı<span class="sort-indicator"></span></th>
+                        <th class="text-left px-3 py-2">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100" id="ss_sevkTable"></tbody>
+            </table>
+        </div>
+    </section>
+    <section class="hidden" id="ss_pageServis">
+        <form class="grid grid-cols-2 md:grid-cols-8 gap-4 mb-6 bg-white p-4 rounded-xl shadow" id="ss_servisForm">
+            <input class="px-3 py-2 border rounded-xl col-span-2" name="firma" placeholder="Firma Adı" required>
+            <input class="px-3 py-2 border rounded-xl col-span-2" name="urun" placeholder="Ürün" required>
+            <input class="px-3 py-2 border rounded-xl" min="1" name="adet" placeholder="Adet" step="1" type="number">
+            <input class="px-3 py-2 border rounded-xl col-span-2" name="ariza" placeholder="Arıza">
+            <input class="px-3 py-2 border rounded-xl" name="milTipi" placeholder="Mil Tipi">
+            <input class="px-3 py-2 border rounded-xl" name="not" placeholder="Not">
+            <input class="px-3 py-2 border rounded-xl" name="iletisim" placeholder="İletişim">
+            <input class="px-3 py-2 border rounded-xl" name="kargoTipi" placeholder="Kargo Tipi">
+            <input class="px-3 py-2 border rounded-xl col-span-2" name="aciklama" placeholder="Açıklama">
+            <div class="col-span-2 md:col-span-8 flex gap-2"><button class="btn-brand px-4 py-2 rounded-xl flex-grow" id="ss_servisFormSubmitButton">Servis Kaydı Ekle</button><button class="hidden px-4 py-2 rounded-xl border bg-white hover:bg-slate-50" id="ss_servisFormCancelButton" type="button">İptal Et</button></div>
+        </form>
+        <div class="bg-white p-3 rounded-xl shadow mb-3 text-sm flex flex-wrap gap-3 items-center"><span class="text-slate-600">Durum Renkleri:</span><span class="px-2 py-1 rounded-md" style="background:#dcfce7">Hazır</span><span class="px-2 py-1 rounded-md" style="background:#f1f5f9">Beklemede</span><span class="px-2 py-1 rounded-md" style="background:#fef3c7">İnceleniyor</span><span class="px-2 py-1 rounded-md" style="background:#ede9fe">Teklif Bekliyor</span></div>
+        <div class="bg-white p-4 rounded-xl shadow mb-3 flex flex-wrap gap-2 items-center"><input class="px-3 py-2 border rounded-xl w-full md:w-auto flex-grow md:flex-grow-0" id="ss_servisSearch" placeholder="Ara: firma, ürün, arıza, not..."><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnServisCSV">CSV</button><button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnServisClearAll">Tüm Servis Kayıtlarını Sil</button></div>
+        <div class="overflow-auto rounded-xl shadow">
+            <table class="w-full text-sm bg-white">
+                <thead class="bg-slate-200 text-slate-600">
+                    <tr>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="firma" data-sort-type="string">Firma<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
+                        <th class="sortable text-right px-3 py-2" data-sort-key="adet" data-sort-type="number">Adet<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="ariza" data-sort-type="string">Arıza<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="milTipi" data-sort-type="string">Mil Tipi<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="durum" data-sort-type="string">Durum<span class="sort-indicator"></span></th>
+                        <th class="text-left px-3 py-2">Not</th>
+                        <th class="text-left px-3 py-2">İletişim</th>
+                        <th class="text-left px-3 py-2">Kargo Tipi</th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="sevkTarihi" data-sort-type="date">Sevk Tarihi<span class="sort-indicator"></span></th>
+                        <th class="text-left px-3 py-2">Açıklama</th>
+                        <th class="text-left px-3 py-2">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100" id="ss_servisTable"></tbody>
+            </table>
+        </div>
+    </section>
+    <section class="hidden" id="ss_pageServisSevk">
+        <div class="bg-white p-4 rounded-xl shadow mb-4">
+            <div class="flex flex-wrap gap-2 items-end">
+                <input class="px-3 py-2 border rounded-xl" id="ss_servisSevkSearch" placeholder="Ara (No, Firma, Ürün, Mil Tipi)">
+                <input class="px-3 py-2 border rounded-xl date-input" id="ss_servisSevkDateFrom" placeholder="Başlangıç (gg/aa/yyyy)">
+                <input class="px-3 py-2 border rounded-xl date-input" id="ss_servisSevkDateTo" placeholder="Bitiş (gg/aa/yyyy)">
+                <button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnServisSevkFilter">Filtrele</button>
+                <button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnServisSevkClearFilter">Temizle</button>
+                <button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnServisSevkCSV">CSV Dışa Aktar</button>
+                <button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnServisSevkClearAll">Tümünü Temizle</button>
+            </div>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="firma" data-sort-type="string">Firma<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="milTipi" data-sort-type="string">Mil Tipi<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="ariza" data-sort-type="string">Arıza<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="sevkTarihi" data-sort-type="date">Sevk Tarihi<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="sevkEdildi" data-sort-type="date">Sevk Edildi<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="kullanici" data-sort-type="string">Kullanıcı<span class="sort-indicator"></span></th>
+                        <th class="text-left px-3 py-2">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100" id="ss_servisSevkTable"></tbody>
+            </table>
+        </div>
+    </section>
+</div>
+`;
 
-  <main class="mx-auto max-w-7xl p-3 md:p-4">
-    <!-- Üst araç çubuğu -->
-    <div class="flex flex-col md:flex-row gap-2 md:gap-3 items-stretch md:items-center mb-3 md:mb-4">
+const STOK_TAKIP_HTML = `
+<div class="mx-auto max-w-7xl p-3 md:p-4">
+    <header class="flex flex-col md:flex-row gap-2 md:gap-3 items-stretch md:items-center mb-3 md:mb-4">
       <div class="flex items-center gap-2 grow">
-        <input id="search" type="search" placeholder="Ara: ad, stok kodu…" class="w-full md:max-w-sm px-3 py-2 rounded-xl border border-slate-300 bg-white" />
+        <input id="stok_search" type="search" placeholder="Ara: ad, stok kodu…" class="w-full md:max-w-sm px-3 py-2 rounded-xl border border-slate-300 bg-white" />
         <label class="flex items-center gap-2 text-sm text-slate-600">
-          <input id="onlyLow" type="checkbox" class="w-4 h-4"> Sadece kritik stok
+          <input id="stok_onlyLow" type="checkbox" class="w-4 h-4"> Sadece kritik stok
         </label>
       </div>
-      <div class="text-sm text-slate-500">Kayıt: <span id="count">0</span></div>
-    </div>
-
-    <!-- Masaüstü tablo -->
+      <div class="flex-shrink-0 flex items-center gap-2 flex-wrap justify-end">
+        <div class="text-sm text-slate-500">Kayıt: <span id="stok_count">0</span></div>
+        <button id="stok_btnAdd" class="px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
+        <button id="stok_btnImport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe aktar</button>
+        <button id="stok_btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
+        <button id="stok_btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
+        <button id="stok_btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
+        <button id="stok_btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
+      </div>
+    </header>
     <div class="hidden md:block overflow-auto rounded-2xl border border-slate-200 bg-white">
       <table class="min-w-full text-sm">
-        <thead id="thead" class="bg-slate-100 text-slate-700">
+        <thead id="stok_thead" class="bg-slate-100 text-slate-700">
           <tr>
             <th data-sort="sku" class="text-left px-3 py-2 cursor-pointer select-none">Stok Kodu</th>
             <th data-sort="name" class="text-left px-3 py-2 cursor-pointer select-none">Ad</th>
@@ -244,14 +418,10 @@
             <th class="text-right px-3 py-2">İşlemler</th>
           </tr>
         </thead>
-        <tbody id="tbodyDesktop" class="divide-y divide-slate-100"></tbody>
+        <tbody id="stok_tbodyDesktop" class="divide-y divide-slate-100"></tbody>
       </table>
     </div>
-
-    <!-- Mobil kart liste -->
-    <div id="listMobile" class="md:hidden space-y-2"></div>
-
-    <!-- Log -->
+    <div id="stok_listMobile" class="md:hidden space-y-2"></div>
     <details class="mt-5 group">
       <summary class="cursor-pointer select-none text-sm text-slate-600 flex items-center gap-2">
         <span class="inline-block w-2 h-2 rounded-full" style="background: rgb(var(--brand))"></span>
@@ -261,509 +431,1073 @@
         <table class="min-w-full text-sm">
           <thead class="bg-slate-100 text-slate-700">
             <tr>
-              <th class="text-left px-3 py-2">Tarih</th>
-              <th class="text-left px-3 py-2">Ürün</th>
-              <th class="text-left px-3 py-2">Tür</th>
-              <th class="text-right px-3 py-2">Miktar</th>
-              <th class="text-right px-3 py-2">Önce</th>
-              <th class="text-right px-3 py-2">Sonra</th>
-              <th class="text-left px-3 py-2">Not</th>
-              <th class="text-left px-3 py-2">Kullanıcı</th>
+              <th class="text-left px-3 py-2">Tarih</th><th class="text-left px-3 py-2">Ürün</th><th class="text-left px-3 py-2">Tür</th>
+              <th class="text-right px-3 py-2">Miktar</th><th class="text-right px-3 py-2">Önce</th><th class="text-right px-3 py-2">Sonra</th>
+              <th class="text-left px-3 py-2">Not</th><th class="text-left px-3 py-2">Kullanıcı</th>
             </tr>
           </thead>
-          <tbody id="logBody" class="divide-y divide-slate-100"></tbody>
+          <tbody id="stok_logBody" class="divide-y divide-slate-100"></tbody>
         </table>
       </div>
     </details>
-  </main>
-
-  <!-- Ürün formu -->
-  <dialog id="productDialog" class="rounded-2xl p-0 w-[96vw] max-w-xl">
-    <form id="productForm" class="p-4" novalidate>
-      <h3 id="productDialogTitle" class="text-lg font-semibold mb-4">Ürün Ekle</h3>
+  </div>
+  <dialog id="stok_productDialog" class="rounded-2xl p-0 w-[96vw] max-w-xl">
+    <form id="stok_productForm" class="p-4" novalidate>
+      <h3 id="stok_productDialogTitle" class="text-lg font-semibold mb-4">Ürün Ekle</h3>
       <div class="grid md:grid-cols-2 gap-3">
-        <div>
-          <label class="text-sm text-slate-600">Ürün Türü</label>
-          <select name="kind" id="kind" class="w-full px-3 py-2 rounded-xl border border-slate-300">
-            <option value="mamul">Mamul</option>
-            <option value="yari">Yarı-mamul</option>
-            <option value="ham">Hammadde</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-sm text-slate-600">Ürün Çeşidi</label>
-          <select name="category" id="category" class="w-full px-3 py-2 rounded-xl border border-slate-300">
-            <option value="stator">Stator</option>
-            <option value="rotor">Rotor</option>
-            <option value="mil">Mil</option>
-            <option value="rotorluMil">Rotorlu Mil</option>
-            <option value="taslanmisMil">Taşlanmış Mil</option>
-            <option value="sargiliPaket">Sargılı Paket</option>
-            <option value="paketliGovde">Paketli Gövde</option>
-            <option value="motor">Motor</option>
-          
-            
-            
-            
-                        <option value="bakir_tel">Bakır Tel</option>
-<option value="yardimci_parcalar">Yardımcı Parçalar</option><option value="aluminyum_govde">Alüminyum Gövde</option><option value="rulman">Rulman</option><option value="kapak">Kapak</option>
-            <option value="islenmisKapak">İşlenmiş Kapak</option>
-            <option value="taslanmisKapak">Taşlanmış Kapak</option></select>
-        </div>
-        <div class="md:col-span-2">
-          <label class="text-sm text-slate-600">Ad</label>
-          <input name="name" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-        </div>
-        <div>
-          <label class="text-sm text-slate-600">Stok Kodu</label>
-          <div class="flex gap-2">
-            <input name="sku" id="sku" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            <button id="btnAutoSku" type="button" class="px-3 py-2 rounded-xl border border-slate-300">Oluştur</button>
-          </div>
-          <p class="text-xs text-slate-500 mt-1">Ürün çeşidine göre otomatik kod önerilir. Dilersen düzenleyebilirsin.</p>
-        </div>
-        <div>
-          <label class="text-sm text-slate-600">Birim</label>
-          <input name="unit" type="text" placeholder="adet, kg, m…" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-        </div>
-        <div>
-          <label class="text-sm text-slate-600">Minimum Stok</label>
-          <input name="min" type="number" step="any" value="0" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-        </div>
-        <div class="md:col-span-2">
-          <label class="text-sm text-slate-600">Not</label>
-          <input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-        </div>
-
-        <!-- Koşullu alanlar -->
-        <div data-section="sargiliPaket" class="md:col-span-2 hidden">
-          <div class="grid md:grid-cols-3 gap-3">
-            <div>
-              <label class="text-sm text-slate-600">kW</label>
-              <input name="kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            </div>
-            <div>
-              <label class="text-sm text-slate-600">Devir (rpm)</label>
-              <input name="rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            </div>
-            <div>
-              <label class="text-sm text-slate-600">Voltaj (V)</label>
-              <input name="volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            </div>
-          </div>
-        </div>
-
-        <div data-section="paketliGovde" class="md:col-span-2 hidden">
-          <div class="grid md:grid-cols-3 gap-3">
-            <div>
-              <label class="text-sm text-slate-600">Devir (rpm)</label>
-              <input name="pg_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            </div>
-            <div>
-              <label class="text-sm text-slate-600">kW</label>
-              <input name="pg_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            </div>
-            <div>
-              <label class="text-sm text-slate-600">Voltaj (V)</label>
-              <input name="pg_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            </div>
-          </div>
-          <div class="grid md:grid-cols-2 gap-3 mt-3">
-            <div>
-              <label class="text-sm text-slate-600">Müşteri</label>
-              <input name="pg_customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            </div>
-            <div>
-              <label class="text-sm text-slate-600">Bağlantı Tipi</label>
-              <select name="pg_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300">
-                <option value="soketli">Soketli</option>
-                <option value="duz">Düz klemensli</option>
-                <option value="ters">Ters klemensli</option>
-                <option value="ykr">YKR</option>
-                <option value="ykl">YKL</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div data-section="mil" class="md:col-span-2 hidden">
-          <label class="text-sm text-slate-600">Mil Kodu</label>
-          <input name="milCode" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-        </div>
-
-        <div data-section="motor" class="md:col-span-2 hidden">
-          <div class="grid md:grid-cols-3 gap-3">
-            <div>
-              <label class="text-sm text-slate-600">Müşteri</label>
-              <input name="customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            </div>
-            <div>
-              <label class="text-sm text-slate-600">Devir (rpm)</label>
-              <input name="m_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            </div>
-            <div>
-              <label class="text-sm text-slate-600">kW</label>
-              <input name="m_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            </div>
-            <div>
-              <label class="text-sm text-slate-600">Voltaj (V)</label>
-              <input name="m_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            </div>
-            <div>
-              <label class="text-sm text-slate-600">Bağlantı Tipi</label>
-              <select name="m_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300">
-                <option value="soketli">Soketli</option>
-                <option value="duz">Düz klemensli</option>
-                <option value="ters">Ters klemensli</option>
-                <option value="ykr">YKR</option>
-                <option value="ykl">YKL</option>
-              </select>
-            </div>
-            <div>
-              <label class="text-sm text-slate-600">Mil Tipi</label>
-              <input name="milType" type="text" placeholder="Örn: DIN 6885" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-            
-            </div>
-            <div>
-              <label class="text-sm text-slate-600">Kapak Çeşidi</label>
-              <select name="m_cover" class="w-full px-3 py-2 rounded-xl border border-slate-300">
-                <option value="AK">AK</option>
-                <option value="CK">CK</option>
-                <option value="CK/CR">CK/CR</option>
-              </select>
-            </div>
-</div>
-          </div>
-        </div>
+        <div><label class="text-sm text-slate-600">Ürün Türü</label><select name="kind" id="stok_kind" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="mamul">Mamul</option><option value="yari">Yarı-mamul</option><option value="ham">Hammadde</option></select></div>
+        <div><label class="text-sm text-slate-600">Ürün Çeşidi</label><select name="category" id="stok_category" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="stator">Stator</option><option value="rotor">Rotor</option><option value="mil">Mil</option><option value="rotorluMil">Rotorlu Mil</option><option value="taslanmisMil">Taşlanmış Mil</option><option value="sargiliPaket">Sargılı Paket</option><option value="paketliGovde">Paketli Gövde</option><option value="motor">Motor</option><option value="bakir_tel">Bakır Tel</option><option value="yardimci_parcalar">Yardımcı Parçalar</option><option value="aluminyum_govde">Alüminyum Gövde</option><option value="rulman">Rulman</option><option value="kapak">Kapak</option><option value="islenmisKapak">İşlenmiş Kapak</option><option value="taslanmisKapak">Taşlanmış Kapak</option></select></div>
+        <div class="md:col-span-2"><label class="text-sm text-slate-600">Ad</label><input name="name" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+        <div><label class="text-sm text-slate-600">Stok Kodu</label><div class="flex gap-2"><input name="sku" id="stok_sku" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300"><button id="stok_btnAutoSku" type="button" class="px-3 py-2 rounded-xl border border-slate-300">Oluştur</button></div><p class="text-xs text-slate-500 mt-1">Ürün çeşidine göre otomatik kod önerilir. Dilersen düzenleyebilirsin.</p></div>
+        <div><label class="text-sm text-slate-600">Birim</label><input name="unit" type="text" placeholder="adet, kg, m…" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+        <div><label class="text-sm text-slate-600">Minimum Stok</label><input name="min" type="number" step="any" value="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+        <div class="md:col-span-2"><label class="text-sm text-slate-600">Not</label><input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+        <div data-section="sargiliPaket" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">kW</label><input name="kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div></div>
+        <div data-section="paketliGovde" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="pg_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="pg_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="pg_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div><div class="grid md:grid-cols-2 gap-3 mt-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="pg_customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="pg_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div></div></div>
+        <div data-section="mil" class="md:col-span-2 hidden"><label class="text-sm text-slate-600">Mil Kodu</label><input name="milCode" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+        <div data-section="motor" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="m_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="m_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="m_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="m_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div><div><label class="text-sm text-slate-600">Mil Tipi</label><input name="milType" type="text" placeholder="Örn: DIN 6885" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Kapak Çeşidi</label><select name="m_cover" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="AK">AK</option><option value="CK">CK</option><option value="CK/CR">CK/CR</option></select></div></div></div>
       </div>
-      <div class="mt-5 flex justify-end gap-2">
-        <button id="productCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button>
-        <button id="productSaveBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Kaydet</button>
-      </div>
-      <input type="hidden" name="id" />
+      <div class="mt-5 flex justify-end gap-2"><button id="stok_productCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_productSaveBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Kaydet</button></div>
+      <input type="hidden" name="id">
     </form>
   </dialog>
-
-  <!-- Stok hareketi formu -->
-  <dialog id="moveDialog" class="rounded-2xl p-0 w-[96vw] max-w-md">
-    <form id="moveForm" class="p-4" novalidate>
+  <dialog id="stok_moveDialog" class="rounded-2xl p-0 w-[96vw] max-w-md">
+    <form id="stok_moveForm" class="p-4" novalidate>
       <h3 class="text-lg font-semibold mb-4">Stok Hareketi</h3>
       <div class="space-y-3">
-        <div class="text-sm">Ürün: <span id="moveProductName" class="font-medium"></span></div>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="flex items-center gap-2"><input type="radio" name="type" value="in" checked> <span>Giriş</span></label>
-          <label class="flex items-center gap-2"><input type="radio" name="type" value="out"> <span>Çıkış</span></label>
-        </div>
-        <div>
-          <label class="text-sm">Miktar</label>
-          <input name="amount" type="number" step="any" required class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-        </div>
-        <div>
-          <label class="text-sm">Not (isteğe bağlı)</label>
-          <input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300" />
-        </div>
+        <div class="text-sm">Ürün: <span id="stok_moveProductName" class="font-medium"></span></div>
+        <div class="grid grid-cols-2 gap-3"><label class="flex items-center gap-2"><input type="radio" name="type" value="in" checked> <span>Giriş</span></label><label class="flex items-center gap-2"><input type="radio" name="type" value="out"> <span>Çıkış</span></label></div>
+        <div><label class="text-sm">Miktar</label><input name="amount" type="number" step="any" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+        <div><label class="text-sm">Not (isteğe bağlı)</label><input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
       </div>
-      <div class="mt-5 flex justify-end gap-2">
-        <button id="moveCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button>
-        <button id="moveApplyBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Uygula</button>
-      </div>
-      <input type="hidden" name="id" />
+      <div class="mt-5 flex justify-end gap-2"><button id="stok_moveCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_moveApplyBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Uygula</button></div>
+      <input type="hidden" name="id">
     </form>
   </dialog>
+  <input id="stok_fileInput" type="file" accept="application/json" class="hidden">
+`;
 
-  <input id="fileInput" type="file" accept="application/json" class="hidden" />
+function initializeSiparisServisApp() {
+    const appContainer = document.getElementById('app-siparis-servis');
+    if (!appContainer.innerHTML.trim()) return; 
 
-  <footer class="mx-auto max-w-7xl p-3 md:p-4 text-xs text-slate-500">
-    <p>Veriler bu cihazın tarayıcısında saklanır. Cihazlar arasında paylaşmak için <strong>Dışa aktar</strong> ile dosya indirip diğer cihazda <strong>İçe aktar</strong> yapabilirsiniz.</p>
-  </footer>
+    const $ = (selector) => appContainer.querySelector(selector);
+    const $$ = (selector) => Array.from(appContainer.querySelectorAll(selector));
+    
+    let currentTab = "siparis";
+    let siparisSort = { key: 'no', direction: 'desc' };
+    let sevkSort = { key: 'sevkEdildi', direction: 'desc' };
+    let servisSort = { key: 'no', direction: 'desc' };
+    let servisSevkSort = { key: 'sevkEdildi', direction: 'desc' };
 
-  <script>
-  ;(() => {
+    const allPages = $$("section[id^='ss_page']");
+    const allTabs = $$(".tab-btn");
+    const table = $('#ss_orderTable');
+    const form = $('#ss_orderForm');
+    const logTable = $('#ss_logTable');
+    const fileInput = $('#ss_fileInput');
+    const sevkTable = $('#ss_sevkTable');
+    const servisSevkTable = $('#ss_servisSevkTable');
+    const searchInput = $('#ss_sevkSearch');
+    const servisSevkSearch = $('#ss_servisSevkSearch');
+    const dateFromInput = $('#ss_sevkDateFrom');
+    const dateToInput = $('#ss_sevkDateTo');
+    const servisSevkDateFrom = $('#ss_servisSevkDateFrom');
+    const servisSevkDateTo = $('#ss_servisSevkDateTo');
+    const servisForm = $('#ss_servisForm');
+    const servisSearch = $('#ss_servisSearch');
+    const servisTable = $('#ss_servisTable');
+    
+    let orders = JSON.parse(localStorage.getItem("siparisler") || "[]");
+    let logs = JSON.parse(localStorage.getItem("siparisLog") || "[]");
+    let sevkEdilenler = JSON.parse(localStorage.getItem("sevkEdilenler") || "[]");
+    let servisKayitlari = JSON.parse(localStorage.getItem("servisKayitlari") || "[]");
+    let servisSevkEdilenler = JSON.parse(localStorage.getItem("servisSevkEdilenler") || "[]");
+
+    function formatDate_TR(input) {
+      if (!input) return "";
+      const dt = (input instanceof Date) ? input : parseAnyDate(input);
+      if (!dt) return "";
+      const d = String(dt.getDate()).padStart(2,"0");
+      const m = String(dt.getMonth()+1).padStart(2,"0");
+      const y = dt.getFullYear();
+      return `${d}/${m}/${y}`;
+    }
+
+    function parseDdMmYyyy(str){
+      const m = String(str || "").match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+      if (!m) return null;
+      const d = parseInt(m[1],10), mo = parseInt(m[2],10)-1, y = parseInt(m[3],10);
+      const dt = new Date(y, mo, d);
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+
+    function parseAnyDate(input) {
+        if (input instanceof Date) return input;
+        if (typeof input !== 'string') return null;
+        let dt = parseDdMmYyyy(input.split(' ')[0]); 
+        if (dt) return dt;
+        const isoMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+            dt = new Date(isoMatch[1], parseInt(isoMatch[2], 10) - 1, isoMatch[3]);
+            if (!isNaN(dt.getTime())) return dt;
+        }
+        dt = new Date(input);
+        return isNaN(dt.getTime()) ? null : dt;
+    }
+
+    function atLocalMidnight(dt){ return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); }
+    function todayLocal(){ const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+    function formatDateTime_TR(input) {
+      const dt = (input instanceof Date) ? input : new Date(input);
+      const d = String(dt.getDate()).padStart(2,"0");
+      const m = String(dt.getMonth()+1).padStart(2,"0");
+      const y = dt.getFullYear();
+      const hh = String(dt.getHours()).padStart(2,"0");
+      const mm = String(dt.getMinutes()).padStart(2,"0");
+      return `${d}/${m}/${y} ${hh}:${mm}`;
+    }
+
+    function getFPBaseOptions(){ return { dateFormat: "d/m/Y", altInput: true, altFormat: "j F Y", allowInput: true, locale: flatpickr.l10ns.tr }; }
+    
+    const Y_LIGHT = "#fef9c3", Y_FULL  = "#fcd34d", R_FULL  = "#ef4444", B_ROW   = "#bfdbfe";
+    function hexToRgb(hex){ const h=hex.replace('#',''); const n=parseInt(h,16); return {r:(n>>16)&255,g:(n>>8)&255,b:n&255}; }
+    function mixHex(c1,c2,t){ const a=hexToRgb(c1),b=hexToRgb(c2); const r=Math.round(a.r+(b.r-a.r)*t); const g=Math.round(a.g+(b.g-a.g)*t); const b2=Math.round(a.b+(b.b-a.b)*t); return `rgb(${r}, ${g}, ${b2})`; }
+
+    function getRowBgByDue(sevkStr){
+      const due = parseAnyDate(sevkStr);
+      if (!due) return null;
+      const today = todayLocal();
+      const dayMs = 86400000;
+      const diff = (atLocalMidnight(due) - today) / dayMs;
+
+      if (diff > 3) return null;
+      if (diff >= 0 && diff <= 3){ const t = (3 - diff) / 3; return mixHex(Y_LIGHT, Y_FULL, t); }
+      if (diff <= -3) return R_FULL;
+      const t2 = (-diff) / 3;
+      return mixHex(Y_FULL, R_FULL, t2);
+    }
+    
+    function getNextSiparisNo() {
+        const now = new Date();
+        const yy = String(now.getFullYear()).slice(-2);
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const prefix = `ORD-${yy}${mm}`;
+        const all = [...orders, ...sevkEdilenler];
+        let maxSeq = 0;
+        for (const it of all) {
+            if (it && it.no && String(it.no).startsWith(prefix)) {
+            const n = parseInt(String(it.no).slice(prefix.length), 10);
+            if (!isNaN(n) && n > maxSeq) maxSeq = n;
+            }
+        }
+        return `${prefix}${String(maxSeq + 1).padStart(4, '0')}`;
+    }
+
+    function getNextServisNo() {
+        const now = new Date();
+        const yy = String(now.getFullYear()).slice(-2);
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const prefix = `TS-${yy}${mm}`;
+        const all = [...servisKayitlari, ...servisSevkEdilenler];
+        let maxSeq = 0;
+        for (const it of all) {
+            if (it && it.no && String(it.no).startsWith(prefix)) {
+            const n = parseInt(String(it.no).slice(prefix.length), 10);
+            if (!isNaN(n) && n > maxSeq) maxSeq = n;
+            }
+        }
+        return `${prefix}${String(maxSeq + 1).padStart(4, '0')}`;
+    }
+
+    function logAction(no, islem) {
+      logs.unshift({ no, islem, user: sessionStorage.getItem("auth_user") || "(anonim)", tarih: formatDateTime_TR(new Date()) });
+      localStorage.setItem("siparisLog", JSON.stringify(logs));
+      renderLogs();
+    }
+    
+    let lastPaintDay = todayLocal().toDateString();
+    function scheduleMidnightRefresh(){
+      const now = new Date();
+      const next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 0, 1);
+      setTimeout(()=>{
+        checkDayAndRefresh();
+        scheduleMidnightRefresh();
+      }, next - now);
+    }
+    function checkDayAndRefresh(){
+      const todayStr = todayLocal().toDateString();
+      if (todayStr !== lastPaintDay){
+        renderAllTables();
+        lastPaintDay = todayStr;
+      }
+    }
+    
+    function setTab(tabId){
+      currentTab = tabId;
+      const pageMap = {
+          siparis: 'ss_pageSiparis', sevk: 'ss_pageSevk', servis: 'ss_pageServis', servisSevk: 'ss_pageServisSevk'
+      };
+      const tabMap = {
+          siparis: 'ss_tabSiparis', sevk: 'ss_tabSevk', servis: 'ss_tabServis', servisSevk: 'ss_tabServisSevk'
+      };
+
+      allPages.forEach(p => p.classList.add("hidden"));
+      allTabs.forEach(t => t.classList.remove("font-medium", "bg-slate-100"));
+      
+      const pageToShow = $(`#${pageMap[tabId]}`);
+      const tabToActivate = $(`#${tabMap[tabId]}`);
+      
+      if(pageToShow) pageToShow.classList.remove("hidden");
+      if(tabToActivate) tabToActivate.classList.add("font-medium", "bg-slate-100");
+
+      if (tabId === 'sevk') renderSevkList();
+      if (tabId === 'servis') renderServisList();
+      if (tabId === 'servisSevk') renderServisSevkList();
+    }
+
+    $('#ss_tabSiparis').addEventListener("click", ()=>setTab("siparis"));
+    $('#ss_tabSevk').addEventListener("click", ()=>setTab("sevk"));
+    $('#ss_tabServis').addEventListener("click", ()=>setTab("servis"));
+    $('#ss_tabServisSevk').addEventListener("click", ()=>setTab("servisSevk"));
+
+    function markServisAsSevk(index){
+      const user = sessionStorage.getItem("auth_user") || "(bilinmiyor)";
+      servisSevkEdilenler.push({ ...servisKayitlari[index], sevkEdildi: formatDateTime_TR(new Date()), kullanici: user });
+      localStorage.setItem("servisSevkEdilenler", JSON.stringify(servisSevkEdilenler));
+      logAction(servisKayitlari[index].no || "(servis)", "Servis kaydı sevk edildi");
+      servisKayitlari.splice(index, 1);
+      localStorage.setItem("servisKayitlari", JSON.stringify(servisKayitlari));
+      renderServisList();
+      if (currentTab === "servisSevk") renderServisSevkList();
+    }
+    
+    function renderServisSevkList(){
+      sortData(servisSevkEdilenler, servisSevkSort.key, servisSevkSort.direction, $(`#ss_pageServisSevk th[data-sort-key="${servisSevkSort.key}"]`)?.dataset.sortType);
+
+      const q = (servisSevkSearch.value || "").toLowerCase();
+      const df = parseDdMmYyyy(servisSevkDateFrom.value);
+      const dt = parseDdMmYyyy(servisSevkDateTo.value);
+
+      const filtered = servisSevkEdilenler.filter(item => {
+        const txt = [item.no, item.firma, item.urun, item.milTipi].join(" ").toLowerCase();
+        const okTxt = !q || txt.includes(q);
+        const sevkDate = item.sevkEdildi ? parseAnyDate(item.sevkEdildi.split(' ')[0]) : null;
+        let okDate = true;
+        if (df) okDate = okDate && sevkDate && atLocalMidnight(sevkDate) >= atLocalMidnight(df);
+        if (dt) okDate = okDate && sevkDate && atLocalMidnight(sevkDate) <= atLocalMidnight(dt);
+        return okTxt && okDate;
+      });
+
+      servisSevkTable.innerHTML = "";
+      filtered.forEach(o => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="px-3 py-2">${o.no || ""}</td>
+          <td class="px-3 py-2">${o.firma || ""}</td>
+          <td class="px-3 py-2">${o.urun || ""}</td>
+          <td class="px-3 py-2">${o.milTipi || ""}</td>
+          <td class="px-3 py-2">${o.ariza || ""}</td>
+          <td class="px-3 py-2">${formatDate_TR(o.sevkTarihi) || ""}</td>
+          <td class="px-3 py-2">${o.sevkEdildi || ""}</td>
+          <td class="px-3 py-2">${o.kullanici || ""}</td>
+          <td class="px-3 py-2"><button class="text-slate-600 underline" onclick="window.ssApp.geriAlServisSevk('${o.no}')">Geri Al</button></td>
+        `;
+        servisSevkTable.appendChild(tr);
+      });
+      updateSortIndicators('ss_servisSevkTable', servisSevkSort);
+    }
+
+    function geriAlServisSevk(no){
+      const idx = servisSevkEdilenler.findIndex(x => x.no === no);
+      if (idx === -1) return;
+      const [rec] = servisSevkEdilenler.splice(idx, 1);
+      delete rec.sevkEdildi;
+      delete rec.kullanici;
+      servisKayitlari.push(rec);
+      localStorage.setItem("servisSevkEdilenler", JSON.stringify(servisSevkEdilenler));
+      localStorage.setItem("servisKayitlari", JSON.stringify(servisKayitlari));
+      logAction(rec.no || "(servis)", "Servis sevk geri alındı");
+      renderServisSevkList();
+      renderServisList();
+    }
+
+    $('#ss_btnServisSevkFilter').addEventListener("click", renderServisSevkList);
+    $('#ss_btnServisSevkClearFilter').addEventListener("click", ()=>{
+      servisSevkSearch.value=''; servisSevkDateFrom.value=''; servisSevkDateTo.value=''; renderServisSevkList();
+    });
+    $('#ss_btnServisSevkCSV').addEventListener("click", ()=>{
+      downloadCSV("servis_sevk_listesi_filtrelenmis.csv", [
+        ["No","Firma","Ürün","Mil Tipi","Arıza","Sevk Tarihi","Sevk Edildi","Kullanıcı"],
+        ...Array.from(servisSevkTable.querySelectorAll('tr')).map(tr => Array.from(tr.children).slice(0,-1).map(td => td.textContent))
+      ]);
+    });
+    $('#ss_btnServisSevkClearAll').addEventListener("click", ()=>{
+      if (confirm("Servis sevk listesindeki TÜM kayıtlar silinsin mi?")){
+        localStorage.removeItem("servisSevkEdilenler");
+        servisSevkEdilenler = [];
+        renderServisSevkList();
+      }
+    });
+
+    flatpickr(servisSevkDateFrom, getFPBaseOptions());
+    flatpickr(servisSevkDateTo, getFPBaseOptions());
+    
+    function renderLogs() {
+      logTable.innerHTML = "";
+      logs.slice(0, 100).forEach(log => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="px-2 py-1">${log.tarih}</td>
+          <td class="px-2 py-1 font-medium">${log.no}</td>
+          <td class="px-2 py-1">${log.islem}</td>
+          <td class="px-2 py-1 text-slate-500">${log.user}</td>
+        `;
+        logTable.appendChild(tr);
+      });
+    }
+
+    function renderOrders() {
+      sortData(orders, siparisSort.key, siparisSort.direction, $(`#ss_pageSiparis th[data-sort-key="${siparisSort.key}"]`)?.dataset.sortType);
+      table.innerHTML = "";
+      orders.forEach((o, i) => {
+        const tr = document.createElement("tr");
+        if (o.sevkeHazir) {
+          tr.style.backgroundColor = B_ROW;
+        } else if (!o.sevkTarihi) {
+          tr.classList.add("highlight");
+        } else {
+          const bg = getRowBgByDue(o.sevkTarihi);
+          if (bg) tr.style.backgroundColor = bg;
+        }
+
+        const showVal = (v) => (v === undefined || v === null || v === '' ? '<span class="text-slate-400 italic">—</span>' : String(v));
+        const span = (text, field, type, extraCls='') => `<span class="editable block min-h-[28px] w-full px-1 rounded ${extraCls}" data-field="${field}" data-type="${type}" ondblclick="window.ssApp.makeEditable(this, ${i}, '${field}', '${type}')">${showVal(text)}</span>`;
+
+        tr.innerHTML = `
+          <td class="px-3 py-2"><span class="font-semibold">${o.no}</span></td>
+          <td class="px-3 py-2">${span(o.musteri, 'musteri', 'text')}</td>
+          <td class="px-3 py-2">${span(o.urun, 'urun', 'text')}</td>
+          <td class="px-3 py-2">${span(o.milKod, 'milKod', 'text')}</td>
+          <td class="px-3 py-2 text-right">${span(o.kw, 'kw', 'number','text-right')}</td>
+          <td class="px-3 py-2 text-right">${span(o.rpm, 'rpm', 'number','text-right')}</td>
+          <td class="px-3 py-2 text-right">${span(o.volt, 'volt', 'number','text-right')}</td>
+          <td class="px-3 py-2">${span(formatDate_TR(o.sevkTarihi), 'sevkTarihi', 'date')}</td>
+          <td class="px-3 py-2"><button class="px-2 py-1 rounded-md border bg-white hover:bg-slate-50 text-xs underline" onclick="window.ssApp.openDescEditor('siparis', ${i})">${(o.aciklama || '').trim() ? 'Açıklamayı Gör' : 'Açıklama Ekle'}</button></td>
+          <td class="px-3 py-2 text-center ${o.hazir ? 'bg-green-100' : ''}"><input type="checkbox" ${o.hazir?'checked':''} onchange="window.ssApp.toggleHazir(${i}, this.checked)" /></td>
+          <td class="px-3 py-2 text-center ${o.sevkeHazir ? 'bg-blue-100' : ''}"><input type="checkbox" ${o.sevkeHazir?'checked':''} ${o.hazir?'':'disabled'} onchange="window.ssApp.toggleSevkeHazir(${i}, this.checked)" /></td>
+          <td class="px-3 py-2">${o.sevkeHazir? `<button onclick="window.ssApp.markAsSevk(${i})" class="text-blue-600 underline">Sevk Et</button>` : '<span class="text-slate-400 italic">Sevke hazır değil</span>'}</td>
+          <td class="px-3 py-2"><button class="text-rose-600 underline" onclick="window.ssApp.deleteOrder(${i})">Sil</button></td>
+        `;
+        table.appendChild(tr);
+      });
+      lastPaintDay = todayLocal().toDateString();
+      updateSortIndicators('ss_orderTable', siparisSort);
+    }
+    
+    function renderSevkList(){
+      sortData(sevkEdilenler, sevkSort.key, sevkSort.direction, $(`#ss_pageSevk th[data-sort-key="${sevkSort.key}"]`)?.dataset.sortType);
+      const q = (searchInput.value || "").toLowerCase();
+      const df = parseDdMmYyyy(dateFromInput.value);
+      const dt = parseDdMmYyyy(dateToInput.value);
+
+      const filtered = sevkEdilenler.filter(item => {
+        const txt = [item.no, item.musteri, item.urun, item.milKod].join(" ").toLowerCase();
+        const okTxt = !q || txt.includes(q);
+        const sevkDate = item.sevkEdildi ? parseAnyDate(item.sevkEdildi.split(' ')[0]) : null;
+        const okFrom = !df || (sevkDate && atLocalMidnight(sevkDate) >= df);
+        const okTo   = !dt || (sevkDate && atLocalMidnight(sevkDate) <= dt);
+        return okTxt && okFrom && okTo;
+      });
+
+      sevkTable.innerHTML = "";
+      filtered.forEach((o) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="px-3 py-2 font-semibold">${o.no}</td>
+          <td class="px-3 py-2">${o.musteri || ""}</td>
+          <td class="px-3 py-2">${o.urun || ""}</td>
+          <td class="px-3 py-2">${o.milKod || ""}</td>
+          <td class="px-3 py-2 text-right">${o.kw || ""}</td>
+          <td class="px-3 py-2 text-right">${o.rpm || ""}</td>
+          <td class="px-3 py-2 text-right">${o.volt || ""}</td>
+          <td class="px-3 py-2">${formatDate_TR(o.sevkTarihi) || ""}</td>
+          <td class="px-3 py-2">${o.sevkEdildi || ""}</td>
+          <td class="px-3 py-2">${o.kullanici || ""}</td>
+          <td class="px-3 py-2"><button class="text-slate-600 underline" onclick="window.ssApp.geriAlSevk('${o.no}')">Geri Al</button></td>
+        `;
+        sevkTable.appendChild(tr);
+      });
+      updateSortIndicators('ss_sevkTable', sevkSort);
+    }
+
+    function servisRowBg(durum){
+      switch((durum || '').toUpperCase()){
+        case "HAZIR": return "#dcfce7";
+        case "BEKLEMEDE": return "#f1f5f9";
+        case "İNCELENİYOR": case "INCELENIYOR": return "#fef3c7";
+        case "TEKLİF BEKLİYOR": case "TEKLIF BEKLIYOR": return "#ede9fe";
+        default: return "";
+      }
+    }
+    
+    function renderServisList(){
+      sortData(servisKayitlari, servisSort.key, servisSort.direction, $(`#ss_pageServis th[data-sort-key="${servisSort.key}"]`)?.dataset.sortType);
+
+      const q = (servisSearch.value || "").toLowerCase();
+      const filtered = servisKayitlari.filter(it => {
+        const txt = [it.no, it.firma, it.urun, it.ariza, it.milTipi, it.not, it.aciklama, it.durum].join(" ").toLowerCase();
+        return !q || txt.includes(q);
+      });
+
+      servisTable.innerHTML = "";
+      filtered.forEach((s) => {
+        const originalIndex = servisKayitlari.indexOf(s);
+        const tr = document.createElement("tr");
+        const bg = s.sevkTarihi ? getRowBgByDue(s.sevkTarihi) : servisRowBg(s.durum);
+        if (bg) tr.style.backgroundColor = bg;
+        
+        const showVal = (v) => (v === undefined || v === null || v === '' ? '<span class="text-slate-400 italic">—</span>' : String(v));
+        const span = (text, field, type, extraCls='') => `<span class="editable block min-h-[28px] w-full px-1 rounded ${extraCls}" ondblclick="window.ssApp.makeEditableServis(this, ${originalIndex}, '${field}', '${type}')">${showVal(text)}</span>`;
+
+        tr.innerHTML = `
+          <td class="px-3 py-2"><span class="font-semibold">${s.no || ''}</span></td>
+          <td class="px-3 py-2">${span(s.firma, 'firma', 'text')}</td>
+          <td class="px-3 py-2">${span(s.urun, 'urun', 'text')}</td>
+          <td class="px-3 py-2 text-right">${span(s.adet, 'adet', 'number','text-right')}</td>
+          <td class="px-3 py-2">${span(s.ariza, 'ariza', 'text')}</td>
+          <td class="px-3 py-2">${span(s.milTipi, 'milTipi', 'text')}</td>
+          <td class="px-3 py-2">${span(s.durum, 'durum', 'select')}</td>
+          <td class="px-3 py-2">${span(s.not, 'not', 'text')}</td>
+          <td class="px-3 py-2">${span(s.iletisim, 'iletisim', 'text')}</td>
+          <td class="px-3 py-2">${span(s.kargoTipi, 'kargoTipi', 'text')}</td>
+          <td class="px-3 py-2">${span(formatDate_TR(s.sevkTarihi), 'sevkTarihi', 'date')}</td>
+          <td class="px-3 py-2"><button class="px-2 py-1 rounded-md border bg-white hover:bg-slate-50 text-xs underline" onclick="window.ssApp.openDescEditor('servis', ${originalIndex})">${(s.aciklama || '').trim() ? 'Açıklamayı Gör' : 'Açıklama Ekle'}</button></td>
+          <td class="px-3 py-2">
+            ${(s.durum || '').toUpperCase() === 'HAZIR' ? `<button class="text-blue-600 underline" onclick="window.ssApp.markServisAsSevk(${originalIndex})">Sevk Et</button>` : '<span class="text-slate-400 italic">Sevk edilemez</span>'}
+            <span class="text-slate-400 mx-1">|</span>
+            <button class="text-blue-600 underline" onclick="window.ssApp.editServis(${originalIndex})">Düzenle</button>
+            <span class="text-slate-400 mx-1">|</span>
+            <button class="text-rose-600 underline" onclick="window.ssApp.deleteServis(${originalIndex})">Sil</button>
+          </td>
+        `;
+        servisTable.appendChild(tr);
+      });
+      updateSortIndicators('ss_servisTable', servisSort);
+    }
+    
+    function setServisDurum(i, val){
+      const s = servisKayitlari[i];
+      if (!s) return;
+      const old = s.durum || "";
+      s.durum = (val || "").toUpperCase();
+      localStorage.setItem('servisKayitlari', JSON.stringify(servisKayitlari));
+      logAction(s.no || "(servis)", `Teknik servis durumu değişti: ${old} -> ${s.durum}`);
+      renderServisList();
+    }
+    
+    function deleteServis(i){
+      if (!confirm('Kayıt silinsin mi?')) return;
+      const no = servisKayitlari[i]?.no;
+      servisKayitlari.splice(i,1);
+      localStorage.setItem('servisKayitlari', JSON.stringify(servisKayitlari));
+      if (no) logAction(no, 'Teknik servis kaydı silindi');
+      renderServisList();
+    }
+    
+    function deleteOrder(index){
+      const o = orders[index];
+      if (!o || !confirm(`#${o.no} numaralı siparişi silmek istediğinize emin misiniz?`)) return;
+      orders.splice(index, 1);
+      localStorage.setItem('siparisler', JSON.stringify(orders));
+      logAction(o.no, "Sipariş silindi");
+      renderOrders();
+    }
+    
+    function inlineUpdate(index, field, value){
+      if (!orders[index]) return;
+      const oldVal = orders[index][field];
+      orders[index][field] = value;
+      localStorage.setItem('siparisler', JSON.stringify(orders));
+      if (field !== 'sevkTarihi'){
+        logAction(orders[index].no, `Alan güncellendi: ${field} = "${oldVal ?? ''}" -> "${value}"`);
+      }
+    }
+
+    let ss_descOverlay;
+    function ensureDescOverlay(){
+      if (ss_descOverlay) return ss_descOverlay;
+      ss_descOverlay = document.createElement('div');
+      ss_descOverlay.id = 'ss_descOverlay';
+      ss_descOverlay.className = 'fixed inset-0 bg-black bg-opacity-50 z-[1000] flex items-center justify-center p-4 hidden';
+      ss_descOverlay.innerHTML = `
+        <div class="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200">
+          <div class="px-4 py-3 border-b flex items-center justify-between">
+            <h3 class="font-semibold text-slate-800">Açıklama</h3>
+            <button id="ss_descClose" class="px-3 py-1 border rounded-lg bg-white hover:bg-slate-50">Kapat</button>
+          </div>
+          <div class="p-4"><textarea id="ss_descText" class="w-full h-72 p-3 border rounded-lg" placeholder="Açıklama yazın..."></textarea></div>
+          <div class="px-4 py-3 border-t flex gap-2 justify-end"><button id="ss_descSave" class="btn-brand px-4 py-2 rounded-xl">Kaydet</button></div>
+        </div>`;
+      document.body.appendChild(ss_descOverlay);
+      ss_descOverlay.querySelector('#ss_descClose').onclick = () => ss_descOverlay.classList.add('hidden');
+      return ss_descOverlay;
+    }
+
+    let currentDescCtx = null;
+    function openDescEditor(type, index){
+      currentDescCtx = { type, index };
+      const ov = ensureDescOverlay();
+      let text = '';
+      if (type === 'siparis' && orders[index]) text = orders[index].aciklama || '';
+      if (type === 'servis' && servisKayitlari[index]) text = servisKayitlari[index].aciklama || '';
+      const ta = ov.querySelector('#ss_descText');
+      ta.value = text;
+      ov.classList.remove('hidden');
+      
+      ov.querySelector('#ss_descSave').onclick = () => {
+        const val = ta.value || '';
+        if (!currentDescCtx) return;
+        const { type, index } = currentDescCtx;
+        if (type === 'siparis' && orders[index]){
+          orders[index].aciklama = val;
+          localStorage.setItem('siparisler', JSON.stringify(orders));
+          logAction(orders[index].no, 'Açıklama güncellendi');
+          renderOrders();
+        } else if (type === 'servis' && servisKayitlari[index]){
+          servisKayitlari[index].aciklama = val;
+          localStorage.setItem('servisKayitlari', JSON.stringify(servisKayitlari));
+          logAction(servisKayitlari[index].no, 'Servis açıklaması güncellendi');
+          renderServisList();
+        }
+        ov.classList.add('hidden');
+      };
+    }
+    
+    function makeEditable(el, index, field, type){
+      const originalIndex = index;
+      const current = orders[originalIndex] ? orders[originalIndex][field] : '';
+      const td = el.parentElement;
+      let input;
+      if (type === 'date'){
+        input = document.createElement('input');
+        input.className = 'sevk-picker date-input px-2 py-1 border rounded-md bg-white w-[160px]';
+      } else {
+        input = document.createElement('input');
+        input.type = type === 'number' ? 'number' : 'text';
+        input.className = `px-2 py-1 border rounded-md w-full ${type==='number' ? 'text-right' : ''}`;
+        input.value = current ?? '';
+      }
+      td.innerHTML = '';
+      td.appendChild(input);
+      input.focus();
+      
+      const commit = () => {
+        let val = input.value;
+        if(type === 'date') {
+          const date = parseDdMmYyyy(val);
+          if(date) setSevkDate(originalIndex, date);
+          else renderOrders(); 
+        } else {
+          inlineUpdate(originalIndex, field, type==='number' ? (val===''? null : Number(val)) : val);
+          renderOrders();
+        }
+      };
+      
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') renderOrders(); });
+      input.addEventListener('blur', commit);
+
+      if (type === 'date'){
+        flatpickr(input, { ...getFPBaseOptions(), defaultDate: parseAnyDate(current) || undefined, onClose: (sel) => { if (sel && sel[0]) setSevkDate(originalIndex, sel[0]); else renderOrders(); } }).open();
+      }
+    }
+
+    function makeEditableServis(el, index, field, type){
+      const s = servisKayitlari[index];
+      if (!s) return;
+      const td = el.parentElement;
+      let input;
+
+      const commitAndRender = () => {
+        const val = input.value;
+        if (type === 'number'){ s[field] = (val === '' ? null : Number(val)); }
+        else if (type === 'date') {
+            const date = parseDdMmYyyy(val);
+            if(date) setServisSevkDate(index, date);
+            else renderServisList();
+            return; 
+        } else { s[field] = val; }
+        
+        localStorage.setItem('servisKayitlari', JSON.stringify(servisKayitlari));
+        logAction(s.no || "(servis)", `Alan güncellendi: ${field}`);
+        renderServisList();
+      };
+
+      if (type === 'select'){
+        input = document.createElement('select');
+        input.className = 'px-2 py-1 border rounded-md bg-white w-full';
+        ["", "HAZIR", "BEKLEMEDE", "İNCELENİYOR", "TEKLİF BEKLİYOR"].forEach(op => {
+          const o = document.createElement('option');
+          o.value = op;
+          o.textContent = op || '(Seçiniz)';
+          if ((s[field] || "").toUpperCase() === op) o.selected = true;
+          input.appendChild(o);
+        });
+        input.onchange = () => setServisDurum(index, input.value);
+        input.onblur = () => renderServisList(); 
+      } else {
+        input = document.createElement('input');
+        input.type = (type === 'date') ? 'text' : (type === 'number' ? 'number' : 'text');
+        input.className = `px-2 py-1 border rounded-md w-full ${type==='number' ? 'text-right' : ''}`;
+        input.value = (type === 'date') ? formatDate_TR(s[field]) : (s[field] ?? '');
+        
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') commitAndRender(); if (e.key === 'Escape') renderServisList(); });
+        input.addEventListener('blur', commitAndRender);
+      }
+
+      td.innerHTML = '';
+      td.appendChild(input);
+      input.focus();
+
+      if (type === 'date'){
+        flatpickr(input, { ...getFPBaseOptions(), defaultDate: parseAnyDate(s[field]) || undefined, onClose: (sel) => { if (sel && sel[0]) { setServisSevkDate(index, sel[0]); } else { renderServisList(); } } }).open();
+      }
+    }
+    
+    function setSevkDate(index, dateObj){
+      orders[index].sevkTarihi = formatDate_TR(dateObj);
+      localStorage.setItem("siparisler", JSON.stringify(orders));
+      logAction(orders[index].no, "Sevk tarihi güncellendi");
+      renderOrders();
+    }
+    
+    function setServisSevkDate(index, dateObj){
+      if (!servisKayitlari[index]) return;
+      servisKayitlari[index].sevkTarihi = formatDate_TR(dateObj);
+      localStorage.setItem('servisKayitlari', JSON.stringify(servisKayitlari));
+      logAction(servisKayitlari[index].no || '(servis)', 'Servis sevk tarihi güncellendi');
+      renderServisList();
+    }
+
+    function toggleHazir(index, val){
+      orders[index].hazir = !!val;
+      if (!val) orders[index].sevkeHazir = false;
+      localStorage.setItem("siparisler", JSON.stringify(orders));
+      logAction(orders[index].no, val ? "İmalat: Hazır" : "İmalat: Hazır değil");
+      renderOrders();
+    }
+    function toggleSevkeHazir(index, val){
+      if (val && !orders[index].hazir) {
+        alert("Önce 'Hazır' işaretlenmeli.");
+        renderOrders(); return;
+      }
+      orders[index].sevkeHazir = !!val;
+      localStorage.setItem("siparisler", JSON.stringify(orders));
+      logAction(orders[index].no, val ? "Sevke Hazır" : "Sevke Hazır değil");
+      renderOrders();
+    }
+    function markAsSevk(index) {
+      const user = sessionStorage.getItem("auth_user") || "(bilinmiyor)";
+      sevkEdilenler.push({ ...orders[index], sevkEdildi: formatDateTime_TR(new Date()), kullanici: user });
+      localStorage.setItem("sevkEdilenler", JSON.stringify(sevkEdilenler));
+      logAction(orders[index].no, "Sipariş sevk edildi");
+      orders.splice(index, 1);
+      localStorage.setItem("siparisler", JSON.stringify(orders));
+      renderOrders();
+      if (currentTab === "sevk") renderSevkList();
+    }
+    function geriAlSevk(no){
+      const idx = sevkEdilenler.findIndex(x => x.no === no);
+      if (idx === -1) return;
+      const [rec] = sevkEdilenler.splice(idx,1);
+      delete rec.sevkEdildi;
+      delete rec.kullanici;
+      rec.sevkeHazir = false; 
+      orders.push(rec);
+      localStorage.setItem("sevkEdilenler", JSON.stringify(sevkEdilenler));
+      localStorage.setItem("siparisler", JSON.stringify(orders));
+      logAction(rec.no, "Sevk geri alındı");
+      renderSevkList();
+      renderOrders();
+    }
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      orders.push({ 
+        ...data, 
+        kw: data.kw ? Number(data.kw) : null,
+        rpm: data.rpm ? Number(data.rpm) : null,
+        volt: data.volt ? Number(data.volt) : null,
+        sevkTarihi: formatDate_TR(parseDdMmYyyy(data.sevkTarihi)), 
+        no: getNextSiparisNo(), 
+        kullanici: sessionStorage.getItem("auth_user") || "(anonim)", 
+        hazir: false, 
+        sevkeHazir: false 
+      });
+      localStorage.setItem("siparisler", JSON.stringify(orders));
+      logAction(orders[orders.length-1].no, "Yeni sipariş eklendi");
+      form.reset();
+      form.querySelector(".sevk-picker")?._flatpickr.clear();
+      renderOrders();
+    });
+
+    servisForm.addEventListener('submit', function(e){
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(servisForm).entries());
+      const norm = { ...data, adet: data.adet ? parseInt(data.adet,10) : null };
+
+      const editIndex = servisForm.dataset.editIndex;
+      if (editIndex !== undefined){
+        const idx = parseInt(editIndex, 10);
+        const existing = servisKayitlari[idx];
+        if(existing) {
+            servisKayitlari[idx] = Object.assign(existing, norm);
+            logAction(existing.no, 'Teknik servis kaydı güncellendi');
+        }
+      } else {
+        const no = getNextServisNo();
+        servisKayitlari.unshift({ ...norm, no, durum: 'BEKLEMEDE', sevkTarihi: '' });
+        logAction(no, 'Teknik servis kaydı eklendi');
+      }
+
+      localStorage.setItem('servisKayitlari', JSON.stringify(servisKayitlari));
+      resetServisForm();
+      renderServisList();
+    });
+    
+    function editServis(index) {
+        const s = servisKayitlari[index];
+        if (!s) return;
+        Object.keys(s).forEach(key => {
+            if (servisForm.elements[key]) {
+                servisForm.elements[key].value = s[key] ?? '';
+            }
+        });
+        servisForm.dataset.editIndex = index;
+        $('#ss_servisFormSubmitButton').textContent = 'Kaydı Güncelle';
+        $('#ss_servisFormCancelButton').classList.remove('hidden');
+        servisForm.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetServisForm() {
+        servisForm.reset();
+        delete servisForm.dataset.editIndex;
+        $('#ss_servisFormSubmitButton').textContent = 'Servis Kaydı Ekle';
+        $('#ss_servisFormCancelButton').classList.add('hidden');
+    }
+    
+    $('#ss_servisFormCancelButton').addEventListener('click', resetServisForm);
+    
+    function downloadCSV(filename, rows){
+      const csv = rows.map(r => r.map(c => `"${(c ?? "").toString().replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+    }
+
+    $('#ss_btnImportJSON').onclick = () => fileInput.click();
+    $('#ss_btnExportJSON').onclick = () => {
+      const json = JSON.stringify({ orders, logs, sevkEdilenler, servisKayitlari, servisSevkEdilenler }, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `hertz_motor_yedek_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+    };
+
+    fileInput.addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (confirm("Mevcut verilerin üzerine içe aktarılan veriler yazılsın mı? Bu işlem geri alınamaz.")){
+            orders = data.orders || []; logs = data.logs || []; sevkEdilenler = data.sevkEdilenler || [];
+            servisKayitlari = data.servisKayitlari || []; servisSevkEdilenler = data.servisSevkEdilenler || [];
+            localStorage.setItem("siparisler", JSON.stringify(orders)); localStorage.setItem("siparisLog", JSON.stringify(logs));
+            localStorage.setItem("sevkEdilenler", JSON.stringify(sevkEdilenler)); localStorage.setItem("servisKayitlari", JSON.stringify(servisKayitlari));
+            localStorage.setItem("servisSevkEdilenler", JSON.stringify(servisSevkEdilenler));
+            renderAllTables();
+            alert("Veri başarıyla yüklendi.");
+          }
+        } catch (err) { alert("Geçersiz JSON dosyası."); }
+      };
+      reader.readAsText(file);
+    });
+
+    $('#ss_btnExportCSV').onclick = () => downloadCSV("siparisler.csv", [
+      ["No", "Müşteri", "Ürün", "Mil Kodu", "kW", "RPM", "Voltaj", "Sevk Tarihi", "Hazır", "Sevke Hazır", "Kullanıcı"],
+      ...orders.map(o => [o.no, o.musteri, o.urun, o.milKod, o.kw, o.rpm, o.volt, formatDate_TR(o.sevkTarihi), o.hazir?"Evet":"Hayır", o.sevkeHazir?"Evet":"Hayır", o.kullanici])
+    ]);
+    $('#ss_btnExportLogCSV').onclick = () => downloadCSV("siparis_log.csv", [
+      ["Tarih", "No", "İşlem", "Kullanıcı"],
+      ...logs.map(l => [l.tarih, l.no, l.islem, l.user])
+    ]);
+    $('#ss_btnSevkCSV').onclick = () => {
+      const tableRows = Array.from(sevkTable.querySelectorAll("tr")).map(tr => Array.from(tr.children).slice(0, -1).map(td => td.textContent));
+      downloadCSV("sevk_listesi.csv", [
+        ["No","Müşteri","Ürün","Mil Kodu","kW","RPM","Voltaj","Sevk Tarihi","Sevk Edildi","Kullanıcı"],
+        ...tableRows
+      ]);
+    };
+    $('#ss_btnServisCSV').onclick = () => downloadCSV("teknik_servis.csv", [
+      ["No","Firma","Ürün","Adet","Arıza","Durum","Not","İletişim","Kargo Tipi","Sevk Tarihi","Açıklama"],
+      ...servisKayitlari.map(s => [s.no, s.firma, s.urun, s.adet, s.ariza, s.durum, s.not, s.iletisim, s.kargoTipi, formatDate_TR(s.sevkTarihi), s.aciklama])
+    ]);
+    
+    $('#ss_btnSevkFilter').onclick = renderSevkList;
+    $('#ss_btnSevkClearFilter').onclick = () => { searchInput.value = ""; dateFromInput.value = ""; dateToInput.value = ""; renderSevkList(); };
+    $('#ss_btnSevkClearAll').onclick = () => { if(confirm("Tüm sevk kayıtları silinecek?")){ localStorage.removeItem("sevkEdilenler"); sevkEdilenler=[]; renderSevkList();} };
+    $('#ss_btnServisClearAll').onclick = () => { if(confirm('Tüm teknik servis kayıtları silinecek?')){ servisKayitlari = []; localStorage.setItem('servisKayitlari', JSON.stringify(servisKayitlari)); renderServisList(); } };
+    $('#ss_btnClearAll').onclick = () => {
+      if (confirm("TÜM SİPARİŞ/SERVİS VERİLERİ (sipariş, sevk, servis, log) silinecek. Emin misiniz?\n\nİşlemden önce otomatik olarak yedek indirilecektir.")) {
+        $('#ss_btnExportJSON').click(); // Otomatik yedekleme
+        ["siparisler", "sevkEdilenler", "servisKayitlari", "siparisLog", "servisSevkEdilenler"].forEach(k => localStorage.removeItem(k));
+        orders = []; logs = []; sevkEdilenler = []; servisKayitlari = []; servisSevkEdilenler = [];
+        renderAllTables();
+        alert("Tüm Sipariş/Servis verileri temizlendi.");
+      }
+    };
+    
+    function sortData(data, key, direction = 'asc', type = 'string') {
+        data.sort((a, b) => {
+            let valA = a[key], valB = b[key];
+            if (type === 'number') { valA = parseFloat(valA) || 0; valB = parseFloat(valB) || 0; }
+            else if (type === 'date') { valA = parseAnyDate(valA)?.getTime() || 0; valB = parseAnyDate(valB)?.getTime() || 0; }
+            else { valA = String(valA || '').toLocaleLowerCase('tr-TR'); valB = String(valB || '').toLocaleLowerCase('tr-TR'); }
+            if (valA < valB) return direction === 'asc' ? -1 : 1;
+            if (valA > valB) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    function updateSortIndicators(tableBodyId, sortState) {
+        const table = $(`#${tableBodyId}`)?.closest('table');
+        if (!table) return;
+        table.querySelectorAll('thead .sortable').forEach(th => {
+            th.classList.remove('asc', 'desc');
+            if (th.dataset.sortKey === sortState.key) th.classList.add(sortState.direction);
+        });
+    }
+
+    function setupTableSorting() {
+        $$('table thead').forEach(thead => {
+            thead.addEventListener('click', (e) => {
+                const header = e.target.closest('.sortable');
+                if (!header) return;
+                const tableId = header.closest('table').querySelector('tbody').id;
+                let currentSort, renderFunction;
+                
+                switch(tableId) {
+                    case 'ss_orderTable': currentSort = siparisSort; renderFunction = renderOrders; break;
+                    case 'ss_sevkTable': currentSort = sevkSort; renderFunction = renderSevkList; break;
+                    case 'ss_servisTable': currentSort = servisSort; renderFunction = renderServisList; break;
+                    case 'ss_servisSevkTable': currentSort = servisSevkSort; renderFunction = renderServisSevkList; break;
+                    default: return;
+                }
+
+                const sortKey = header.dataset.sortKey;
+                if (currentSort.key === sortKey) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.key = sortKey;
+                    currentSort.direction = 'asc';
+                }
+                renderFunction();
+            });
+        });
+    }
+    function renderAllTables() {
+        renderOrders(); renderLogs(); renderSevkList(); renderServisList(); renderServisSevkList();
+    }
+    
+    flatpickr($('#ss_sevkTarihi'), getFPBaseOptions());
+    flatpickr(dateFromInput, getFPBaseOptions());
+    flatpickr(dateToInput, getFPBaseOptions());
+    flatpickr(servisSevkDateFrom, getFPBaseOptions());
+    flatpickr(servisSevkDateTo, getFPBaseOptions());
+
+    document.addEventListener("visibilitychange", checkDayAndRefresh);
+    window.addEventListener("focus", checkDayAndRefresh);
+    
+    setupTableSorting();
+    renderAllTables();
+    setTab("siparis");
+
+    window.ssApp = { makeEditable, makeEditableServis, openDescEditor, toggleHazir, toggleSevkeHazir, markAsSevk, deleteOrder, geriAlSevk, editServis, deleteServis, markServisAsSevk, geriAlServisSevk, setServisDurum, resetServisForm, setSevkDate, setServisSevkDate };
+}
+
+function initializeStokTakipApp() {
+    const appContainer = document.getElementById('app-stok-takip');
+    if (!appContainer.innerHTML.trim()) return;
+
+    const $=(s,r=appContainer)=>r.querySelector(s);
+    const $$=(s,r=appContainer)=>Array.from(r.querySelectorAll(s));
+    
     const LS_KEY='stokTakip.v1';
-    const $=(s,r=document)=>r.querySelector(s);
-    const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
-
-    // Kategori/etiket sabitleri
     const CATEGORY_PREFIX={stator:'ST',rotor:'RT',mil:'MIL',rotorluMil:'RMIL',taslanmisMil:'TMIL',sargiliPaket:'SP',paketliGovde:'PG',motor:'MOT',kapak:'KAP',islenmisKapak:'IKAP',taslanmisKapak:'TKAP', rulman:'RUL', aluminyum_govde:'ALU', bakir_tel:'CUW',  yardimci_parcalar:'ACC'};
     const CATEGORY_LABEL={stator:'Stator',rotor:'Rotor',mil:'Mil',rotorluMil:'Rotorlu Mil',taslanmisMil:'Taşlanmış Mil',sargiliPaket:'Sargılı Paket',paketliGovde:'Paketli Gövde',motor:'Motor',kapak:'Kapak',islenmisKapak:'İşlenmiş Kapak',taslanmisKapak:'Taşlanmış Kapak', rulman:'Rulman', aluminyum_govde:'Alüminyum Gövde', bakir_tel:'Bakır Tel',  yardimci_parcalar:'Yardımcı Parçalar'};
 
     const state={products:[],logs:[]};
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
 
-    function load(){ try{ const raw=localStorage.getItem(LS_KEY); if(!raw) return; const data=JSON.parse(raw); state.products=data.products||[]; state.logs=data.logs||[]; }catch(e){ console.error('Yükleme hatası',e);} }
-    function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({products:state.products,logs:state.logs})); }catch(e){ console.error('Kaydetme hatası',e);} render(); }
+    function load(){ try{ const raw=localStorage.getItem(LS_KEY); if(!raw) return; const data=JSON.parse(raw); state.products=data.products||[]; state.logs=data.logs||[]; }catch(e){ console.error('Stok yükleme hatası',e);} }
+    function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({products:state.products,logs:state.logs})); }catch(e){ console.error('Stok kaydetme hatası',e);} render(); }
 
     const fmt=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(v):n};
     const nowISO=()=>new Date().toISOString();
     const currentUser=()=> (sessionStorage.getItem('auth_user')||'anon');
-    const addLog=(entry)=>
-    state.logs.unshift({id:uuid(),ts:nowISO(),user:currentUser(),...entry});
+    const addLog=(entry)=> state.logs.unshift({id:uuid(),ts:nowISO(),user:currentUser(),...entry});
     const findProduct=id=>state.products.find(p=>p.id===id);
 
     let sortBy='name', sortDir='asc';
-
     
-// ----------------- Ek Yardımcı Fonksiyonlar -----------------
-function specs(p){
-  const parts=[];
-  if(p.category==='paketliGovde'){
-    if(p.pg_rpm) parts.push(`${p.pg_rpm} rpm`);
-    if(p.pg_kw) parts.push(`${p.pg_kw} kW`);
-    if(p.pg_volt) parts.push(`${p.pg_volt} V`);
-    if(p.pg_customer) parts.push(`${p.pg_customer}`);
-    if(p.pg_conn) parts.push(`${p.pg_conn}`);
-  }else if(p.category==='motor'){
-    if(p.m_rpm) parts.push(`${p.m_rpm} rpm`);
-    if(p.m_kw) parts.push(`${p.m_kw} kW`);
-    if(p.m_volt) parts.push(`${p.m_volt} V`);
-    if(p.milType) parts.push(`${p.milType}`);
-    if(p.m_customer || p.customer) parts.push(`${p.m_customer||p.customer}`);
-    if(p.m_conn) parts.push(`${p.m_conn}`);
-    if(p.m_cover) parts.push(`${p.m_cover}`);
-    if(p.milCode) parts.push(`${p.milCode}`);
-    }else{
-    if(p.rpm) parts.push(`${p.rpm} rpm`);
-    if(p.kw) parts.push(`${p.kw} kW`);
-    if(p.volt) parts.push(`${p.volt} V`);
-    if(p.material) parts.push(`${p.material}`);
-    if(p.milCode) parts.push(`Mil: ${p.milCode}`);
-    if(p.customer) parts.push(`${p.customer}`);
-  }
-  return parts.join(' • ');
-}
-
-function searchable(p){
-
-  const base = [(p.name||''),(p.sku||''),(p.note||''),(CATEGORY_LABEL[p.category]||p.category||'')].join(' ');
-  const extra = [
-    p.pg_rpm,p.pg_kw,p.pg_volt,p.pg_customer,p.pg_conn,
-    p.m_rpm,p.m_kw,p.m_volt,p.m_customer,p.m_conn,p.m_cover,
-    p.material,p.milType,p.milCode,p.rpm,p.kw,p.volt,p.customer
-  ].filter(Boolean).join(' ');
-  return normalizeTR(base+' '+extra);
-
-  try{return normalizeTR(result);}catch(e){return normalizeTR(result||'');}
-}
-// -------------------------------------------------------------
-
-
-function normalizeTR(s){
-  return String(s||'').toLowerCase()
-    .replaceAll('ı','i').replaceAll('İ','i')
-    .replaceAll('ğ','g').replaceAll('Ğ','g')
-    .replaceAll('ü','u').replaceAll('Ü','u')
-    .replaceAll('ş','s').replaceAll('Ş','s')
-    .replaceAll('ö','o').replaceAll('Ö','o')
-    .replaceAll('ç','c').replaceAll('Ç','c');
-}
-
-function render(){
-      const qRaw=$('#search').value.trim(); const q=normalizeTR(qRaw);
-      const onlyLow=$('#onlyLow').checked;
-      const tbody=$('#tbodyDesktop'); tbody.innerHTML='';
-      const listMobile=$('#listMobile'); listMobile.innerHTML='';
-
-      let list=[...state.products];
-      // Advanced colon-based search (e.g., MOT:HMB90:Önfreze)
-      if(qRaw.includes(':')){
-        const tokens = qRaw.split(':').map(s=>s.trim()).filter(Boolean);
-        if(tokens.length){
-          const norm = (s)=>String(s||'').toLowerCase()
-            .replaceAll('ı','i').replaceAll('İ','i')
-            .replaceAll('ğ','g').replaceAll('Ğ','g')
-            .replaceAll('ü','u').replaceAll('Ü','u')
-            .replaceAll('ş','s').replaceAll('Ş','s')
-            .replaceAll('ö','o').replaceAll('Ö','o')
-            .replaceAll('ç','c').replaceAll('Ç','c');
-          list = list.filter(p=>{
-            const hay = {
-              sku: norm(p.sku),
-              name: norm(p.name),
-              cat: norm(p.category)+' '+norm((CATEGORY_LABEL[p.category]||'')),
-              kind: norm(p.kind),
-              mil: norm(p.milType)+' '+norm(p.milCode),
-              customer: norm(p.m_customer)+' '+norm(p.customer)+' '+norm(p.pg_customer),
-              specs: norm(typeof specs==='function'? specs(p):'')
-            };
-            return tokens.every(t=>{
-              const tt = norm(t);
-              return (hay.sku.includes(tt) || hay.name.includes(tt) || hay.cat.includes(tt) || hay.kind.includes(tt)
-                      || hay.mil.includes(tt) || hay.customer.includes(tt) || hay.specs.includes(tt));
-            });
-          });
-        }
-      } else if(q){
-        // fallback: classic broad search
-        list=list.filter(p=> searchable(p).includes(q));
-      }
-      if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
-
-      // Sıralama
-      list.sort((a,b)=>{ let va,vb; switch(sortBy){ case 'sku': va=(a.sku||'').toLowerCase(); vb=(b.sku||'').toLowerCase(); break; case 'qty': va=Number(a.qty||0); vb=Number(b.qty||0); break; case 'min': va=Number(a.min||0); vb=Number(b.min||0); break; default: va=(a.name||'').toLowerCase(); vb=(b.name||'').toLowerCase(); } return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1); });
-
-      $('#count').textContent=list.length;
-
-      for(const p of list){
-        const low=Number(p.qty||0) < Number(p.min||0);
-        // Masaüstü satırı
-        const tr=document.createElement('tr');
-        const kindBadge=p.kind?`<span class="badge bg-slate-100 border border-slate-200 mr-1">${p.kind==='ham'?'Hammadde':(p.kind==='yari'?'Yarı-mamul':'Mamul')}</span>`:'';
-        const catBadge=p.category?`<span class="badge" style="background: rgba(var(--brand), .15); border:1px solid rgba(var(--brand), .4); color: rgb(var(--brand))">${CATEGORY_LABEL[p.category]||p.category}</span>`:'';
-        tr.className=low? 'bg-amber-50':'';
-        tr.innerHTML=`
-          <td class="px-3 py-2 align-top">${p.sku||'-'}</td>
-          <td class="px-3 py-2 align-top">${p.name||'-'}</td>
-          <td class="px-3 py-2 align-top">${kindBadge} ${catBadge}</td>
-          <td class="px-3 py-2 align-top text-right font-medium ${low?'text-amber-700':''}">${fmt(p.qty||0)}</td>
-          <td class="px-3 py-2 align-top text-right">${fmt(p.min||0)}</td>
-          <td class="px-3 py-2 align-top text-slate-700">${specs(p)}</td>
-          <td class="px-3 py-2 align-top text-slate-600">${p.note||''}</td>
-          <td class="px-3 py-2 align-top text-right">
-            <div class="flex justify-end gap-1">
-              <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-in" data-id="${p.id}">Giriş</button>
-              <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-out" data-id="${p.id}">Çıkış</button>
-              <button class="px-2 py-1 rounded-lg" style="border:1px solid rgba(var(--brand), .5); color: rgb(var(--brand)); background:transparent" data-act="edit" data-id="${p.id}">Düzenle</button>
-              <button class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white" data-act="del" data-id="${p.id}">Sil</button>
-            </div>
-          </td>`;
-        tbody.appendChild(tr);
-
-        // Mobil kartı
-        const card=document.createElement('div');
-        card.className='rounded-2xl border border-slate-200 bg-white p-3';
-        card.innerHTML=`
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
-              <div class="text-sm text-slate-500">${p.sku||'-'}</div>
-              <div class="font-medium truncate">${p.name||'-'}</div>
-              <div class="mt-1 text-xs">${kindBadge} ${catBadge}</div>
-              <div class="mt-1 text-xs text-slate-600 truncate">${specs(p)}</div>
-            </div>
-            <div class="text-right">
-              <div class="text-xs text-slate-500">Stok</div>
-              <div class="text-base font-semibold ${low?'text-amber-700':''}">${fmt(p.qty||0)}</div>
-              <div class="text-xs text-slate-500">Min ${fmt(p.min||0)}</div>
-            </div>
-          </div>
-          ${p.note?`<div class="mt-2 text-xs text-slate-600">${p.note}</div>`:''}
-          <div class="mt-3 flex flex-wrap gap-1">
-            <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-in" data-id="${p.id}">Giriş</button>
-            <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-out" data-id="${p.id}">Çıkış</button>
-            <button class="px-2 py-1 rounded-lg" style="border:1px solid rgba(var(--brand), .5); color: rgb(var(--brand)); background:transparent" data-act="edit" data-id="${p.id}">Düzenle</button>
-            <button class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white" data-act="del" data-id="${p.id}">Sil</button>
-          </div>`;
-        listMobile.appendChild(card);
-      }
-
-      // Log
-      const logBody=$('#logBody'); logBody.innerHTML='';
-      for(const L of state.logs){ const p=findProduct(L.productId)||{name:'(silinmiş ürün)'}; const tr=document.createElement('tr'); const typeTxt=L.type==='in'?'Giriş':(L.type==='out'?'Çıkış':L.type); tr.innerHTML=`
-        <td class="px-3 py-2">${new Date(L.ts).toLocaleString('tr-TR')}</td>
-        <td class="px-3 py-2">${p.name}</td>
-        <td class="px-3 py-2">${typeTxt}</td>
-        <td class="px-3 py-2 text-right">${fmt(L.amount)}</td>
-        <td class="px-3 py-2 text-right">${fmt(L.fromQty)}</td>
-        <td class="px-3 py-2 text-right">${fmt(L.toQty)}</td>
-        <td class="px-3 py-2">${L.note||''}</td>
-        <td class="px-3 py-2">${L.user||"(bilinmiyor)"}</td>`; logBody.appendChild(tr); }
+    function specs(p){
+      const parts=[];
+      if(p.category==='paketliGovde'){ if(p.pg_rpm) parts.push(`${p.pg_rpm} rpm`); if(p.pg_kw) parts.push(`${p.pg_kw} kW`); if(p.pg_volt) parts.push(`${p.pg_volt} V`); if(p.pg_customer) parts.push(`${p.pg_customer}`); if(p.pg_conn) parts.push(`${p.pg_conn}`); }
+      else if(p.category==='motor'){ if(p.m_rpm) parts.push(`${p.m_rpm} rpm`); if(p.m_kw) parts.push(`${p.m_kw} kW`); if(p.m_volt) parts.push(`${p.m_volt} V`); if(p.milType) parts.push(`${p.milType}`); if(p.m_customer || p.customer) parts.push(`${p.m_customer||p.customer}`); if(p.m_conn) parts.push(`${p.m_conn}`); if(p.m_cover) parts.push(`${p.m_cover}`); if(p.milCode) parts.push(`${p.milCode}`); }
+      else{ if(p.rpm) parts.push(`${p.rpm} rpm`); if(p.kw) parts.push(`${p.kw} kW`); if(p.volt) parts.push(`${p.volt} V`); if(p.material) parts.push(`${p.material}`); if(p.milCode) parts.push(`Mil: ${p.milCode}`); if(p.customer) parts.push(`${p.customer}`); }
+      return parts.join(' • ');
     }
 
-    function openProductDialog(product){ const dlg=$('#productDialog'); const form=$('#productForm'); form.reset(); toggleConditionalSections(); if(product){ $('#productDialogTitle').textContent='Ürünü Düzenle'; form.kind.value=product.kind||'mamul'; form.category.value=product.category||'stator';
-      try{ ensureMaterialField(); }catch(e){}; form.name.value=product.name||''; form.sku.value=product.sku||''; form.unit.value=product.unit||''; form.min.value=product.min??0; form.note.value=product.note||'';
-      if(form.material){ form.material.value = product.material ?? ''; } form.kw.value=product.kw??''; form.rpm.value=product.rpm??''; form.volt.value=product.volt??''; form.milCode.value=product.milCode??''; form.customer.value=product.customer??''; form.pg_rpm.value=product.pg_rpm??''; form.pg_kw.value=product.pg_kw??''; form.pg_volt.value=product.pg_volt??''; form.pg_customer.value=product.pg_customer??''; form.pg_conn.value=product.pg_conn??'soketli'; form.m_rpm.value=product.m_rpm??''; form.m_kw.value=product.m_kw??''; form.m_volt.value=product.m_volt??''; form.m_conn.value=product.m_conn??'soketli'; form.milType.value=product.milType??''; form.m_cover.value=product.m_cover??'AK'; form.id.value=product.id; toggleConditionalSections(); } else { $('#productDialogTitle').textContent='Ürün Ekle'; form.kind.value='mamul'; form.category.value='stator';
-      try{ ensureMaterialField(); }catch(e){}; form.id.value=''; suggestSku(true); toggleConditionalSections(); } dlg.showModal(); }
+    function searchable(p){
+      const base = [(p.name||''),(p.sku||''),(p.note||''),(CATEGORY_LABEL[p.category]||p.category||'')].join(' ');
+      const extra = [p.pg_rpm,p.pg_kw,p.pg_volt,p.pg_customer,p.pg_conn,p.m_rpm,p.m_kw,p.m_volt,p.m_customer,p.m_conn,p.m_cover,p.material,p.milType,p.milCode,p.rpm,p.kw,p.volt,p.customer].filter(Boolean).join(' ');
+      return normalizeTR(base+' '+extra);
+    }
+    
+    function normalizeTR(s){ return String(s||'').toLowerCase().replaceAll('ı','i').replaceAll('İ','i').replaceAll('ğ','g').replaceAll('Ğ','g').replaceAll('ü','u').replaceAll('Ü','u').replaceAll('ş','s').replaceAll('Ş','s').replaceAll('ö','o').replaceAll('Ö','o').replaceAll('ç','c').replaceAll('Ç','c'); }
 
-    function openMoveDialog(product,type){ const dlg=$('#moveDialog'); const form=$('#moveForm'); form.reset(); form.id.value=product.id; $('#moveProductName').textContent=`${product.name} (${product.sku||'kod yok'})`; if(type){ $$('input[name="type"]').forEach(r=>r.checked=(r.value===type)); } dlg.showModal(); }
+    function render(){
+        const qRaw=$('#stok_search').value.trim(); const q=normalizeTR(qRaw);
+        const onlyLow=$('#stok_onlyLow').checked;
+        const tbody=$('#stok_tbodyDesktop'); tbody.innerHTML='';
+        const listMobile=$('#stok_listMobile'); listMobile.innerHTML='';
 
+        let list=[...state.products];
+        if(q){ list=list.filter(p=> searchable(p).includes(q)); }
+        if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
+
+        list.sort((a,b)=>{ let va,vb; switch(sortBy){ case 'sku': va=(a.sku||'').toLowerCase(); vb=(b.sku||'').toLowerCase(); break; case 'qty': va=Number(a.qty||0); vb=Number(b.qty||0); break; case 'min': va=Number(a.min||0); vb=Number(b.min||0); break; default: va=(a.name||'').toLowerCase(); vb=(b.name||'').toLowerCase(); } return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1); });
+
+        $('#stok_count').textContent=list.length;
+
+        for(const p of list){
+            const low=Number(p.qty||0) < Number(p.min||0);
+            const kindBadge=p.kind?`<span class="badge bg-slate-100 border border-slate-200 mr-1">${p.kind==='ham'?'Hammadde':(p.kind==='yari'?'Yarı-mamul':'Mamul')}</span>`:'';
+            const catBadge=p.category?`<span class="badge" style="background: rgba(var(--brand), .15); border:1px solid rgba(var(--brand), .4); color: rgb(var(--brand))">${CATEGORY_LABEL[p.category]||p.category}</span>`:'';
+            
+            const tr=document.createElement('tr');
+            tr.className=low? 'bg-amber-50':'';
+            tr.innerHTML=`
+            <td class="px-3 py-2 align-top">${p.sku||'-'}</td><td class="px-3 py-2 align-top">${p.name||'-'}</td>
+            <td class="px-3 py-2 align-top">${kindBadge} ${catBadge}</td><td class="px-3 py-2 align-top text-right font-medium ${low?'text-amber-700':''}">${fmt(p.qty||0)}</td>
+            <td class="px-3 py-2 align-top text-right">${fmt(p.min||0)}</td><td class="px-3 py-2 align-top text-slate-700">${specs(p)}</td>
+            <td class="px-3 py-2 align-top text-slate-600">${p.note||''}</td><td class="px-3 py-2 align-top text-right">
+                <div class="flex justify-end gap-1">
+                <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-in" data-id="${p.id}">Giriş</button>
+                <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-out" data-id="${p.id}">Çıkış</button>
+                <button class="px-2 py-1 rounded-lg" style="border:1px solid rgba(var(--brand), .5); color: rgb(var(--brand)); background:transparent" data-act="edit" data-id="${p.id}">Düzenle</button>
+                <button class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white" data-act="del" data-id="${p.id}">Sil</button>
+                </div></td>`;
+            tbody.appendChild(tr);
+
+            const card=document.createElement('div');
+            card.className='rounded-2xl border border-slate-200 bg-white p-3';
+            card.innerHTML=`
+            <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0"><div class="text-sm text-slate-500">${p.sku||'-'}</div><div class="font-medium truncate">${p.name||'-'}</div><div class="mt-1 text-xs">${kindBadge} ${catBadge}</div><div class="mt-1 text-xs text-slate-600 truncate">${specs(p)}</div></div>
+                <div class="text-right"><div class="text-xs text-slate-500">Stok</div><div class="text-base font-semibold ${low?'text-amber-700':''}">${fmt(p.qty||0)}</div><div class="text-xs text-slate-500">Min ${fmt(p.min||0)}</div></div>
+            </div>
+            ${p.note?`<div class="mt-2 text-xs text-slate-600">${p.note}</div>`:''}
+            <div class="mt-3 flex flex-wrap gap-1">
+                <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-in" data-id="${p.id}">Giriş</button>
+                <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-out" data-id="${p.id}">Çıkış</button>
+                <button class="px-2 py-1 rounded-lg" style="border:1px solid rgba(var(--brand), .5); color: rgb(var(--brand)); background:transparent" data-act="edit" data-id="${p.id}">Düzenle</button>
+                <button class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white" data-act="del" data-id="${p.id}">Sil</button>
+            </div>`;
+            listMobile.appendChild(card);
+        }
+
+        const logBody=$('#stok_logBody'); logBody.innerHTML='';
+        for(const L of state.logs){ const p=findProduct(L.productId)||{name:'(silinmiş ürün)'}; const tr=document.createElement('tr'); const typeTxt=L.type==='in'?'Giriş':(L.type==='out'?'Çıkış':L.type); tr.innerHTML=`
+            <td class="px-3 py-2">${new Date(L.ts).toLocaleString('tr-TR')}</td><td class="px-3 py-2">${p.name}</td>
+            <td class="px-3 py-2">${typeTxt}</td><td class="px-3 py-2 text-right">${fmt(L.amount)}</td>
+            <td class="px-3 py-2 text-right">${fmt(L.fromQty)}</td><td class="px-3 py-2 text-right">${fmt(L.toQty)}</td>
+            <td class="px-3 py-2">${L.note||''}</td><td class="px-3 py-2">${L.user||"(bilinmiyor)"}</td>`; logBody.appendChild(tr); }
+    }
+
+    function openProductDialog(product){ const dlg=$('#stok_productDialog'); const form=$('#stok_productForm'); form.reset(); toggleConditionalSections(); if(product){ $('#stok_productDialogTitle').textContent='Ürünü Düzenle'; form.kind.value=product.kind||'mamul'; form.category.value=product.category||'stator'; form.name.value=product.name||''; form.sku.value=product.sku||''; form.unit.value=product.unit||''; form.min.value=product.min??0; form.note.value=product.note||''; form.kw.value=product.kw??''; form.rpm.value=product.rpm??''; form.volt.value=product.volt??''; form.milCode.value=product.milCode??''; form.customer.value=product.customer??''; form.pg_rpm.value=product.pg_rpm??''; form.pg_kw.value=product.pg_kw??''; form.pg_volt.value=product.pg_volt??''; form.pg_customer.value=product.pg_customer??''; form.pg_conn.value=product.pg_conn??'soketli'; form.m_rpm.value=product.m_rpm??''; form.m_kw.value=product.m_kw??''; form.m_volt.value=product.m_volt??''; form.m_conn.value=product.m_conn??'soketli'; form.milType.value=product.milType??''; form.m_cover.value=product.m_cover??'AK'; form.id.value=product.id; toggleConditionalSections(); } else { $('#stok_productDialogTitle').textContent='Ürün Ekle'; form.kind.value='mamul'; form.category.value='stator'; form.id.value=''; suggestSku(true); toggleConditionalSections(); } dlg.showModal(); }
+    
+    function openMoveDialog(product,type){ const dlg=$('#stok_moveDialog'); const form=$('#stok_moveForm'); form.reset(); form.id.value=product.id; $('#stok_moveProductName').textContent=`${product.name} (${product.sku||'kod yok'})`; if(type){ $$('input[name="type"]').forEach(r=>r.checked=(r.value===type)); } dlg.showModal(); }
+    
     function exportJSON(){ const blob=new Blob([JSON.stringify({products:state.products,logs:state.logs},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-data-${new Date().toISOString().replace(/[:.]/g,'-')}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
     function exportCSV(){ const rows=[[ 'id','sku','name','kind','category','unit','material','qty','min','note','kw','rpm','volt','milCode','customer','pg_kw','pg_rpm','pg_volt','pg_customer','pg_conn','m_kw','m_rpm','m_volt','m_conn','milType' ]].concat( state.products.map(p=>[ p.id, p.sku, p.name, p.kind, p.category, p.unit, p.material,p.qty,p.min,(p.note||'').replaceAll('\n',' '), p.kw??'',p.rpm??'',p.volt??'',p.milCode??'',p.customer??'', p.pg_kw??'',p.pg_rpm??'',p.pg_volt??'',p.pg_customer??'',p.pg_conn??'', p.m_kw??'',p.m_rpm??'',p.m_volt??'',p.m_conn??'',p.milType??'' ]) ); const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-urunler-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
     function exportLogCSV(){ const rows=[['ts','product','type','amount','from','to','note','user']]; for(const L of state.logs){ const p=findProduct(L.productId)||{}; rows.push([L.ts,p.name||'',L.type,L.amount,L.fromQty,L.toQty,(L.note||'').replaceAll('\\n',' '), (L.user||'')]);} const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-log-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
-
+    
     function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=Array.isArray(data.products)?data.products:[]; state.logs=Array.isArray(data.logs)?data.logs:[]; save(); alert('İçe aktarıldı'); }catch(e){ alert('Dosya okunamadı: '+e.message); } }; reader.readAsText(file); }
-
-    function toggleConditionalSections(){ try{ ensureMaterialField(); }catch(e){};
-const form=$('#productForm'); const cat=form.category.value; $('[data-section="sargiliPaket"]').classList.toggle('hidden', cat!=='sargiliPaket'); $('[data-section="paketliGovde"]').classList.toggle('hidden', cat!=='paketliGovde'); const isMil=(cat==='mil'||cat==='rotorluMil'||cat==='taslanmisMil'); $('[data-section="mil"]').classList.toggle('hidden', !isMil); $('[data-section="motor"]').classList.toggle('hidden', cat!=='motor'); }
-
     
+    function toggleConditionalSections(){ 
+        const form=$('#stok_productForm'); const cat=form.category.value; 
+        $$('[data-section]').forEach(el => el.classList.add('hidden'));
+        const section = $(`[data-section="${cat}"]`);
+        if (section) section.classList.remove('hidden');
+    }
     
-    function refreshProductDialogUI(){
-      try{
-        toggleConditionalSections();
-        const covers = document.querySelectorAll('select[name=\"m_cover\"]');
-        if(covers.length>1){ for(let i=1;i<covers.length;i++){ const el=covers[i]; const wrap=el.closest('div'); (wrap||el).remove(); } }
+    function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let max=0; for(const p of state.products){ if(p.category!==cat) continue; const m=String(p.sku||'').match(new RegExp('^'+prefix+'-(\\d+)$')); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } } const next=String(max+1).padStart(4,'0'); return `${prefix}-${next}`; }
+    function suggestSku(force=false){ const form=$('#stok_productForm'); const cat=form.category.value; const suggestion=nextSkuForCategory(cat); const prefix=(CATEGORY_PREFIX[cat]||'PRD')+'-'; if(force || !form.sku.value || !form.sku.value.startsWith(prefix)){ form.sku.value=suggestion; } else { if(state.products.some(p=>(p.sku||'').toLowerCase()===form.sku.value.toLowerCase())) form.sku.value=suggestion; } }
 
-        const form = document.getElementById('productForm');
-        if(!form) return;
-        // If new product (no id), keep SKU in sync with category prefix
-        if(!form.id.value){ form.sku.value = nextSkuForCategory(form.category.value); }
-      }catch(e){ console && console.warn && console.warn('refreshProductDialogUI:', e); }
+    $('#stok_btnAdd').addEventListener('click',()=>openProductDialog());
+    $('#stok_btnExport').addEventListener('click',exportJSON);
+    $('#stok_btnExportCSV').addEventListener('click',exportCSV);
+    $('#stok_btnExportLogCSV').addEventListener('click',exportLogCSV);
+    $('#stok_btnImport').addEventListener('click',()=>$('#stok_fileInput').click());
+    $('#stok_fileInput').addEventListener('change',e=>{ const f=e.target.files?.[0]; if(f) importJSONFile(f); e.target.value=''; });
+
+    $('#stok_btnClear').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
+
+    $('#stok_search').addEventListener('input',render);
+    $('#stok_onlyLow').addEventListener('change',render);
+    $('#stok_thead').addEventListener('click',e=>{ const th=e.target.closest('th[data-sort]'); if(!th) return; const key=th.dataset.sort; if(sortBy===key) sortDir=(sortDir==='asc'?'desc':'asc'); else { sortBy=key; sortDir='asc'; } render(); });
+    
+    function delegate(container, selector, event, handler) {
+        container.addEventListener(event, e => {
+            const btn = e.target.closest(selector);
+            if (!btn) return;
+            const id = btn.dataset.id;
+            const p = findProduct(id);
+            if (!p) return;
+            const act = btn.dataset.act;
+            handler(act, p);
+        });
     }
-function prefixForCategory(cat){
-      switch(cat){
-        case 'yardimci_parcalar': return 'ACC';
 
-        case 'aluminyum_govde': return 'ALU';
-        case 'bakir_tel': return 'CUW';
+    delegate(appContainer, 'button[data-id]', 'click', (act, p) => {
+        if(act==='edit'){ openProductDialog(p); } 
+        else if(act==='del'){ if(confirm('Silinsin mi?')){ state.products=state.products.filter(x=>x.id!==p.id); addLog({productId:p.id,type:'delete',amount:0,fromQty:p.qty||0,toQty:0,note:'Ürün silindi'}); save(); } } 
+        else if(act==='move-in'){ openMoveDialog(p,'in'); } 
+        else if(act==='move-out'){ openMoveDialog(p,'out'); }
+    });
 
-        case 'rulman': return 'RUL';
-
-        case 'stator': return 'ST';
-        case 'rotor': return 'RT';
-        case 'mil': return 'MIL';
-        case 'rotorluMil': return 'RMIL';
-        case 'taslanmisMil': return 'TMIL';
-        case 'sargiliPaket': return 'SP';
-        case 'paketliGovde': return 'PG';
-        case 'motor': return 'MOT';
-        default: return 'GEN';
-      }
-    }
-    function nextSkuForCategory(cat){
-      const prefix = prefixForCategory(cat);
-      let max = 0;
-      for(const p of state.products){
-        const s = String(p.sku||'');
-        const m = s.match(new RegExp('^'+prefix+'-(\\d{4})$'));
-        if(m){ const n = parseInt(m[1],10); if(n>max) max=n; }
-      }
-      const next = String(max+1).padStart(4,'0');
-      return `${prefix}-${next}`;
-    }
-function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let max=0; for(const p of state.products){ if(p.category!==cat) continue; const m=String(p.sku||'').match(new RegExp('^'+prefix+'-(\\d+)$')); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } } const next=String(max+1).padStart(4,'0'); return `${prefix}-${next}`; }
-    function suggestSku(force=false){ const form=$('#productForm'); const cat=form.category.value; const suggestion=nextSkuForCategory(cat); const prefix=(CATEGORY_PREFIX[cat]||'PRD')+'-'; if(force || !form.sku.value || !form.sku.value.startsWith(prefix)){ form.sku.value=suggestion; } else { if(state.products.some(p=>(p.sku||'').toLowerCase()===form.sku.value.toLowerCase())) form.sku.value=suggestion; } }
-
-    // Eventler
-    $('#btnAdd').addEventListener('click',()=>openProductDialog());
-    $('#btnExport').addEventListener('click',exportJSON);
-    $('#btnExportCSV').addEventListener('click',exportCSV);
-    $('#btnExportLogCSV').addEventListener('click',exportLogCSV);
-    $('#btnImport').addEventListener('click',()=>$('#fileInput').click());
-    $('#fileInput').addEventListener('change',e=>{ const f=e.target.files?.[0]; if(f) importJSONFile(f); e.target.value=''; });
-
-    $('#btnClear').addEventListener('click',()=>{ if(!state.products.length && !state.logs.length){ alert('Zaten boş.'); return; } if(confirm('Tüm ürünler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ exportJSON(); state.products=[]; state.logs=[]; try{ localStorage.removeItem(LS_KEY);}catch{} render(); } });
-
-    $('#search').addEventListener('input',render);
-    $('#onlyLow').addEventListener('change',render);
-    $('#thead').addEventListener('click',e=>{ const th=e.target.closest('th[data-sort]'); if(!th) return; const key=th.dataset.sort; if(sortBy===key) sortDir=(sortDir==='asc'?'desc':'asc'); else { sortBy=key; sortDir='asc'; } render(); });
-
-    // Masaüstü ve mobilde ortak buton delegasyonu
-    function delegate(container){ container.addEventListener('click', e=>{ const btn=e.target.closest('button'); if(!btn) return; const id=btn.dataset.id; const p=findProduct(id); if(!p) return; const act=btn.dataset.act; if(act==='edit'){ openProductDialog(p); } else if(act==='del'){ if(confirm('Silinsin mi?')){ state.products=state.products.filter(x=>x.id!==id); addLog({productId:id,type:'delete',amount:0,fromQty:p.qty||0,toQty:0,note:'Ürün silindi'}); save(); } } else if(act==='move-in'){ openMoveDialog(p,'in'); } else if(act==='move-out'){ openMoveDialog(p,'out'); } }); }
-    delegate(document.body);
-
-    $('#productForm').addEventListener('submit',e=>{ e.preventDefault(); const form=e.target; const data=Object.fromEntries(new FormData(form).entries()); data.m_cover=(form.m_cover&&form.m_cover.value)||data.m_cover||''; const isEdit=!!data.id; const min=Number(data.min||0); if(isNaN(min)||min<0){ alert('Minimum stok 0 veya daha büyük olmalı'); return; } if(!data.name||!data.sku){ alert('Ad ve stok kodu zorunlu'); return; } if(data.category==='sargiliPaket'){ if(!(data.kw && data.rpm && data.volt)){ alert('Sargılı paket için kW, rpm ve Volt zorunludur.'); return; } } if(['mil','rotorluMil','taslanmisMil'].includes(data.category)){ if(!data.milCode){ alert('Mil türlerinde Mil Kodu zorunludur.'); return; } }
+    $('#stok_productForm').addEventListener('submit',e=>{ e.preventDefault(); const form=e.target; const data=Object.fromEntries(new FormData(form).entries()); const isEdit=!!data.id; const min=Number(data.min||0); if(isNaN(min)||min<0){ alert('Minimum stok 0 veya daha büyük olmalı'); return; } if(!data.name||!data.sku){ alert('Ad ve stok kodu zorunlu'); return; } if(data.category==='sargiliPaket'){ if(!(data.kw && data.rpm && data.volt)){ alert('Sargılı paket için kW, rpm ve Volt zorunludur.'); return; } } if(['mil','rotorluMil','taslanmisMil'].includes(data.category)){ if(!data.milCode){ alert('Mil türlerinde Mil Kodu zorunludur.'); return; } }
       const clash=state.products.some(x=>x.id!==data.id && (x.sku||'').toLowerCase()===data.sku.toLowerCase()); if(clash){ alert('Bu stok kodu başka bir üründe kullanılıyor. Otomatik yeni kod önerilecek.'); form.sku.value=nextSkuForCategory(data.category); data.sku=form.sku.value; }
-      if(isEdit){ const p=findProduct(data.id); if(!p) return; Object.assign(p,{ kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_cover:data.m_cover||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||''  , material:data.material||'',}); addLog({productId:p.id,type:'edit',amount:0,fromQty:p.qty||0,toQty:p.qty||0,note:'Ürün bilgisi güncellendi'}); } else { const p={ id:uuid(), kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, qty:0, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_cover:data.m_cover||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||'' , material:data.material||'' }; state.products.unshift(p); addLog({productId:p.id,type:'new',amount:0,fromQty:0,toQty:0,note:'Yeni ürün eklendi'}); }
-      $('#productDialog').close(); save(); });
+      const toNumOrNull = v => {const n=Number(v); return Number.isFinite(n)?n:null;};
+      const pData = { kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_cover:data.m_cover||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||'' };
+      if(isEdit){ const p=findProduct(data.id); if(!p) return; Object.assign(p, pData); addLog({productId:p.id,type:'edit',amount:0,fromQty:p.qty||0,toQty:p.qty||0,note:'Ürün bilgisi güncellendi'}); } 
+      else { const p={ id:uuid(), qty:0, ...pData }; state.products.unshift(p); addLog({productId:p.id,type:'new',amount:0,fromQty:0,toQty:0,note:'Yeni ürün eklendi'}); }
+      $('#stok_productDialog').close(); save(); });
 
-    // İPTAL butonları — diyalogları kapat
-    $('#productCancelBtn').addEventListener('click',()=> $('#productDialog').close());
-    $('#moveCancelBtn').addEventListener('click',()=> $('#moveDialog').close());
+    $('#stok_productCancelBtn').addEventListener('click',()=> $('#stok_productDialog').close());
+    $('#stok_moveCancelBtn').addEventListener('click',()=> $('#stok_moveDialog').close());
 
-    // Stok hareketini uygula
-    $('#moveForm').addEventListener('submit', (e) => {
+    $('#stok_moveForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const form = e.target;
-      const data = Object.fromEntries(new FormData(form).entries()); data.m_cover=(form.m_cover&&form.m_cover.value)||data.m_cover||''; data.m_cover = (form.m_cover && form.m_cover.value) || data.m_cover || '';
+      const data = Object.fromEntries(new FormData(form).entries());
       const p = findProduct(data.id);
       if(!p){ alert('Ürün bulunamadı'); return; }
       const amt = Number(data.amount);
@@ -772,360 +1506,49 @@ function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let 
       const to = data.type==='in' ? from + amt : from - amt;
       p.qty = to;
       addLog({ productId:p.id, type:data.type, amount:amt, fromQty:from, toQty:to, note:data.note });
-      $('#moveDialog').close();
+      $('#stok_moveDialog').close();
       save();
     });
 
-    function toNumOrNull(v){ const n=Number(v); return Number.isFinite(n)?n:null; }
+    $('#stok_btnAutoSku').addEventListener('click', () => suggestSku());
+    $('#stok_category').addEventListener('change', () => { if (!$('#stok_productForm').id.value) suggestSku(true); toggleConditionalSections(); });
+    $('#stok_kind').addEventListener('change', toggleConditionalSections);
 
-    // İlk yükleme
+    document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); $('#stok_search').focus(); } });
+    window.addEventListener('storage',e=>{ if(e.key===LS_KEY){ load(); render(); } });
+    
     load();
     render();
-    
-    // Auto SKU update on category change for new items
-    function autoUpdateSkuOnCategory(){ const form=$('#productForm'); if(!form) return; if(form.id.value) return; form.sku.value = nextSkuForCategory(form.category.value); }
-    document.getElementById('category').addEventListener('change', autoUpdateSkuOnCategory);
-    document.getElementById('kind').addEventListener('change', toggleConditionalSections);
-    document.getElementById('category').addEventListener('change', toggleConditionalSections);
-// Kısayol: Ctrl/Cmd+K arama
-    document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); $('#search').focus(); } });
-    // Sekmeler arası senkron
-    window.addEventListener('storage',e=>{ if(e.key===LS_KEY){ load(); render(); } });
-  })();
-  </script>
-
-<!-- === Firebase Live Sync (guarded by login) === -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-
-  // Config
-  const firebaseConfig = {
-    apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
-    authDomain: "hertz-stok-takip.firebaseapp.com",
-    databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "hertz-stok-takip",
-    storageBucket: "hertz-stok-takip.appspot.com",
-    messagingSenderId: "512663727455",
-    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
-  };
-
-  function startSync(){
-    const app = initializeApp(firebaseConfig);
-    const db  = getDatabase(app);
-
-    const urlDoc = new URLSearchParams(location.search).get("doc");
-    const DOC_ID = urlDoc || "stoktakip-paylasimli-orta-oda";
-    const rootRef = ref(db, `docs/${DOC_ID}`);
-    const presRef = ref(db, `docs/${DOC_ID}/presence`);
-    const meId    = crypto.randomUUID();
-    const meRef   = ref(db, `docs/${DOC_ID}/presence/${meId}`);
-    set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
-    onDisconnect(meRef).remove();
-
-    const APP_LS_KEY = "stokTakip.v1";
-    const EMPTY_DATA = { products: [], logs: [], updatedAt: Date.now() };
-    const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
-    const push = (obj)=> update(rootRef, { products: obj.products||[], logs: obj.logs||[], updatedAt: Date.now() })
-                          .catch(err => console.error("Buluta yazma hatası:", err));
-
-    // Hook LS
-    const _setItem    = localStorage.setItem.bind(localStorage);
-    const _removeItem = localStorage.removeItem.bind(localStorage);
-    const _clear      = localStorage.clear.bind(localStorage);
-
-    localStorage.setItem = function(k, v){
-      _setItem(k, v);
-      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(safeParse(v)||{});
-    };
-    localStorage.removeItem = function(k){
-      _removeItem(k);
-      if (k === APP_LS_KEY || (typeof window.LS_KEY === "string" && k === window.LS_KEY)) push(EMPTY_DATA);
-    };
-    localStorage.clear = function(){ _clear(); push(EMPTY_DATA); };
-
-    if (typeof window.save === "function") {
-      const __orig = window.save;
-      window.save = function(){ try{ __orig(); }catch(e){ console.error(e); } 
-        const raw = localStorage.getItem(APP_LS_KEY);
-        if (raw) push(safeParse(raw)||{}); else push(EMPTY_DATA);
-      };
-    }
-
-    let lastSent = null;
-    setInterval(() => {
-      const now = localStorage.getItem(APP_LS_KEY);
-      if (now !== lastSent) { lastSent = now; if (now) push(safeParse(now)||{}); else push(EMPTY_DATA); }
-    }, 1000);
-
-    onValue(rootRef, (snap) => {
-      const v = snap.val();
-      if(!v || typeof v !== "object") return;
-      const { products = [], logs = [] } = v;
-      const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-      if (JSON.stringify(local.products||[]) === JSON.stringify(products) &&
-          JSON.stringify(local.logs||[])     === JSON.stringify(logs)) return;
-      localStorage.setItem(APP_LS_KEY, JSON.stringify({ products, logs }));
-      try { if (typeof render === "function") render(); } catch(e){ console.warn("render() çağrısı hata:", e); }
-    });
-
-    setTimeout(() => {
-      onValue(rootRef, (snap) => {
-        if(!snap.exists()){
-          const local = safeParse(localStorage.getItem(APP_LS_KEY) || "null") || {products:[], logs:[]};
-          set(rootRef, { products: local.products||[], logs: local.logs||[], updatedAt: Date.now() }).catch(console.error);
-        }
-      }, { onlyOnce: true });
-    }, 300);
-
-    onValue(presRef, (snap) => {
-      const n = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
-      const el = document.getElementById("statusOnline");
-      if (el) el.textContent = `Çevrimiçi: ${n}`;
-    });
-  }
-
-  if (sessionStorage.getItem("auth_ok") === "1") startSync();
-  else document.addEventListener("auth_ok", startSync, { once: true });
+}
 </script>
-<!-- === /Firebase Live Sync (guarded) === -->
 
-
-<!-- === Kullanıcı Tablosu (Referans) ===
-| Kullanıcı Adı | Şifre | Rol    |
-| hertz         | hertz | admin  |
-| muhasebe      | 2     | user   |
-| imalat1       | 3     | user   |
-| imalat2       | 4     | user   |
-| imalat3       | 5     | user   |
-| imalat4       | 6     | user   |
-| imalat5       | 7     | user   |
-| imalat6       | 8     | user   |
-=== -->
-
-
-<!-- === Non-admin guard: continuously hide "Tüm verileri sil" === -->
-<script>
-(function(){
-  function norm(s){ return (s||"").toLowerCase().replace(/\s+/g," ").trim(); }
-  function hideClearForNonAdmin(){
-    const role = sessionStorage.getItem("role");
-    if (role === "admin") return; // admins see everything
-
-    // 1) By ID
-    const byId = document.getElementById("btnClearAll");
-    if (byId) byId.style.display = "none";
-
-    // 2) By text content (covers dynamically re-rendered buttons)
-    const nodes = document.querySelectorAll("button, a, [role='button'], .btn, .button");
-    nodes.forEach(el => {
-      const t = norm(el.textContent);
-      if (t.includes("tüm verileri sil") || t.includes("tum verileri sil")) {
-        el.style.display = "none";
-        el.disabled = true; // extra safety
-        el.setAttribute("aria-hidden", "true");
-      }
-    });
-  }
-
-  // Run on load and then every 500ms to catch re-renders
-  window.addEventListener("load", hideClearForNonAdmin);
-  setInterval(hideClearForNonAdmin, 500);
-  document.addEventListener("auth_ok", hideClearForNonAdmin);
-})();
-</script>
-<!-- === /Non-admin guard === -->
-
-
-<!-- === RTDB Real-time Sync (v26): pure polling, no overrides, in-place apply === -->
+<!-- Firebase (Modüler CDN) -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update, set, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+  // import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  // import { getDatabase } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  // import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
-    authDomain: "hertz-stok-takip.firebaseapp.com",
-    databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "hertz-stok-takip",
-    storageBucket: "hertz-stok-takip.appspot.com",
-    messagingSenderId: "512663727455",
-    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
+    apiKey: "AIzaSyDbwnPViAnSzZ_l8M6YgL75xJiPr3V4Odk",
+    authDomain: "hertz-motor-stok-takip.firebaseapp.com",
+    databaseURL: "https://hertz-motor-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "hertz-motor-stok-takip",
+    storageBucket: "hertz-motor-stok-takip.firebasestorage.app",
+    messagingSenderId: "30502784749",
+    appId: "1:30502784749:web:3de3128e6bb7c059f406e4",
+    measurementId: "G-HERC6F90FC"
   };
 
   const app = initializeApp(firebaseConfig);
-  const db  = getDatabase(app);
+  isSupported().then((ok) => {
+    if (ok) getAnalytics(app);
+  }).catch(()=>{});
 
-  const DOC_ID = new URL(location.href).searchParams.get("doc") || "stoktakip-paylasimli-orta-oda";
-
-  // ---- utils ----
-  const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
-  const isStockPayload = (obj)=> obj && typeof obj==="object" && ("products" in obj || "logs" in obj);
-  const stable = (obj)=>{
-    try{ return JSON.stringify(obj, Object.keys(obj).sort()); } catch { return ""; }
-  };
-  const hash = (str)=>{
-    let h=0, i=0, len=str.length|0; for(; i<len; i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
-    return h.toString(16);
-  };
-
-  function discoverStockKeys(){
-    const keys = new Set();
-    for (let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      if (isStockPayload(safeParse(localStorage.getItem(k)))) keys.add(k);
-    }
-    for (let i=0;i<sessionStorage.length;i++){
-      const k = sessionStorage.key(i);
-      if (isStockPayload(safeParse(sessionStorage.getItem(k)))) keys.add(k);
-    }
-    // If none found, create default key so app can pick it up
-    if (keys.size === 0){
-      const def = "stokTakip.v1";
-      localStorage.setItem(def, JSON.stringify({products:[], logs:[]}));
-      keys.add(def);
-    }
-    return keys;
-  }
-
-  // Initial key set
-  let STOCK_KEYS = discoverStockKeys();
-
-  // Presence (optional)
-  const presRef = ref(db, `docs/${DOC_ID}/presence`);
-  const meId = crypto.randomUUID();
-  const meRef = ref(db, `docs/${DOC_ID}/presence/${meId}`);
-  set(meRef, { at: Date.now(), ua: navigator.userAgent.slice(0,64) }).catch(()=>{});
-  onDisconnect(meRef).remove();
-
-  const rootRef = ref(db, `docs/${DOC_ID}`);
-
-  // Local change detection (pure polling)
-  const lastHash = new Map(); // key -> hash
-  let debounceTimer = null, pendingPush = null;
-
-  function computeHashForKey(k){
-    const v = localStorage.getItem(k) ?? sessionStorage.getItem(k);
-    const obj = safeParse(v||"null");
-    if (!isStockPayload(obj)) return null;
-    return hash(stable({products: obj.products||[], logs: obj.logs||[]}));
-  }
-
-  function scanAndMaybePush(){
-    // Re-discover keys (new ones may appear)
-    const discovered = discoverStockKeys();
-    for (const k of discovered) STOCK_KEYS.add(k);
-
-    // Find the most recently changed stock payload among keys
-    let changedKey = null;
-    for (const k of STOCK_KEYS){
-      const h = computeHashForKey(k);
-      if (!h) continue;
-      if (lastHash.get(k) !== h){
-        lastHash.set(k, h);
-        changedKey = k;
-      }
-    }
-    if (!changedKey) return;
-
-    // Prepare payload from changedKey and push to RTDB (debounced)
-    const v = localStorage.getItem(changedKey) ?? sessionStorage.getItem(changedKey);
-    const obj = safeParse(v||"null");
-    if (!isStockPayload(obj)) return;
-    pendingPush = { products: obj.products||[], logs: obj.logs||[] };
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(()=>{
-      const payload = pendingPush; pendingPush = null;
-      update(rootRef, { products: payload.products, logs: payload.logs, updatedAt: Date.now(), lastAction: "update" }).catch(console.error);
-    }, 120);
-  }
-
-  // Kick off the poller
-  setInterval(scanAndMaybePush, 500);
-
-  // In-place UI notify
-  function notifyRender(){
-    try {
-      if (typeof window.renderStok === "function") { window.renderStok(); return; }
-      if (window.app && typeof window.app.render === "function") { window.app.render(); return; }
-      document.dispatchEvent(new CustomEvent("rtdb_data_changed"));
-      // Also emit a synthetic storage event for listeners
-      for (const k of STOCK_KEYS){
-        const v = localStorage.getItem(k);
-        const evt = new StorageEvent("storage", { key: k, newValue: v, storageArea: localStorage });
-        window.dispatchEvent(evt);
-      }
-    } catch {}
-  }
-
-  // Apply from RTDB: write to ALL detected keys with native setItem (no overrides), then notify
-  let primed=false, lastApplied=0;
-  onValue(rootRef, (snap) => {
-    const v = snap.val(); if(!v || typeof v!=="object") return;
-    const { products=[], logs=[], updatedAt=0 } = v;
-
-    if (!primed){ primed=true; lastApplied = updatedAt; }
-    else { if (updatedAt <= lastApplied) return; lastApplied = updatedAt; }
-
-    // Write payload to all known keys
-    const str = JSON.stringify({products, logs});
-    // Refresh key discovery before writing
-    STOCK_KEYS = discoverStockKeys();
-    for (const k of STOCK_KEYS){
-      try { localStorage.setItem(k, str); } catch {}
-    }
-    // Update lastHash so we don't echo back immediately
-    for (const k of STOCK_KEYS){ lastHash.set(k, hash(stable({products, logs}))); }
-
-    notifyRender();
-  });
-
-  // If DB empty, seed from any local key
-  setTimeout(()=>{
-    onValue(rootRef, (s)=>{
-      if(!s.exists()){
-        STOCK_KEYS = discoverStockKeys();
-        // Find first valid payload
-        let initial = {products:[], logs:[]};
-        for (const k of STOCK_KEYS){
-          const obj = safeParse(localStorage.getItem(k)||"null");
-          if (isStockPayload(obj)){ initial = obj; break; }
-        }
-        set(rootRef, { products: initial.products||[], logs: initial.logs||[], updatedAt: Date.now(), lastAction: "seed" }).catch(console.error);
-      }
-    }, { onlyOnce: true });
-  }, 400);
-
-// === Dynamic material field only for Kapak categories ===
-function ensureMaterialField() {
-  const form = document.getElementById('productForm');
-  if(!form) return;
-  const cat = form.category?.value || '';
-  const isKapak = (cat==='kapak'||cat==='islenmisKapak'||cat==='taslanmisKapak');
-  const existing = form.querySelector('#materialField');
-  if(isKapak){
-    if(!existing){
-      const unitSelect = form.querySelector('select[name="unit"]');
-      const unitDiv = unitSelect ? unitSelect.closest('div') : null;
-      const wrap = document.createElement('div');
-      wrap.id = 'materialField';
-      wrap.innerHTML = `
-        <label class="text-sm text-slate-600">Malzeme</label>
-        <select name="material" class="w-full px-3 py-2 rounded-xl border border-slate-300">
-          <option value="aluminyum">Alüminyum</option>
-          <option value="celik">Çelik</option>
-          <option value="plastik">Plastik</option>
-        </select>
-      `;
-      if(unitDiv){ unitDiv.insertAdjacentElement('afterend', wrap); }
-      else { (form.querySelector('.grid') || form).appendChild(wrap); }
-    }
-  } else {
-    if(existing) existing.remove();
-  }
-}
-
+  window.firebaseApp = app;
 </script>
-<!-- === /RTDB Sync v26 === -->
 
 </body>
 </html>
+
