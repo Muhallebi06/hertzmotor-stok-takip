@@ -1,58 +1,120 @@
 <!doctype html>
-<meta charset="utf-8">
-<title>RTDB Quick Test</title>
-<h1>Firebase RTDB Quick Test</h1>
-<p>Status: <span id="status">Starting…</span></p>
-<label>Doc ID: <input id="doc" value="deneme-oda-1"></label>
-<button id="write">Write Timestamp</button>
-<pre id="log" style="background:#f6f8fa;padding:12px;border-radius:8px;max-width:720px;white-space:pre-wrap"></pre>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RTDB Test</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,Helvetica,sans-serif;max-width:920px;margin:0 auto;padding:24px}
+    .card{border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:12px 0}
+    input,textarea,button,select{padding:8px;border:1px solid #d1d5db;border-radius:8px;font-size:14px}
+    textarea{width:100%;height:140px}
+    label{font-weight:600}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .row>*{flex:1 1 200px}
+    .muted{font-size:12px;color:#64748b}
+    .ok{color:#059669}
+    .err{color:#dc2626}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+  </style>
+</head>
+<body>
+  <h1>Firebase Realtime Database Test</h1>
+  <p>Bu sayfa, RTDB üzerinden <code>ls/&lt;key&gt;</code> yolunda JSON veri <b>okuma</b> ve <b>yazma</b> testi yapar.</p>
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>Key (ör. <span class="mono">stokTakip.v1</span>)</label><br/>
+        <input id="key" value="stokTakip.v1" />
+      </div>
+      <div>
+        <label>Ön Tanımlı Anahtarlar</label><br/>
+        <select id="presets">
+          <option value="">-- seç --</option>
+          <option>stokTakip.v1</option>
+          <option>siparisler</option>
+          <option>siparisLog</option>
+          <option>sevkEdilenler</option>
+          <option>servisKayitlari</option>
+          <option>servisSevkEdilenler</option>
+        </select>
+      </div>
+    </div>
+    <p class="muted">Not: Değerler JSON olarak saklanır. Aşağıdaki alanlardan okuyup yazabilirsiniz.</p>
+    <div class="row">
+      <div class="card">
+        <h3>Oku</h3>
+        <button id="btnListen">Dinlemeye Başla</button>
+        <pre id="readOut" class="mono" style="white-space:pre-wrap"></pre>
+      </div>
+      <div class="card">
+        <h3>Yaz</h3>
+        <textarea id="writeBox">{ "test": "hello", "t": 0 }</textarea><br/>
+        <button id="btnWrite">Buluta Yaz</button>
+        <span id="writeStatus"></span>
+      </div>
+    </div>
+  </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, update, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-  const log = (m)=>{ document.getElementById('log').textContent += m + "\n"; };
-  const setStatus = (s)=>{ document.getElementById('status').textContent = s; };
+    const firebaseConfig = {
+      apiKey: "AIzaSyDbwnPViAnSzZ_l8M6YgL75xJiPr3V4Odk",
+      authDomain: "hertz-motor-stok-takip.firebaseapp.com",
+      databaseURL: "https://hertz-motor-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "hertz-motor-stok-takip",
+      storageBucket: "hertz-motor-stok-takip.firebasestorage.app",
+      messagingSenderId: "30502784749",
+      appId: "1:30502784749:web:3de3128e6bb7c059f406e4",
+      measurementId: "G-HERC6F90FC"
+    };
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
-    authDomain: "hertz-stok-takip.firebaseapp.com",
-    databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "hertz-stok-takip",
-    storageBucket: "hertz-stok-takip.appspot.com",
-    messagingSenderId: "512663727455",
-    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea"
-  };
-
-  try{
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
-    setStatus("Initialized");
-    const input = document.getElementById('doc');
-    const btn   = document.getElementById('write');
 
-    const attach = ()=>{
-      const rootRef = ref(db, "docs/" + input.value);
-      onValue(rootRef, (snap)=>{
-        log("onValue: " + JSON.stringify(snap.val()));
+    const el = (id)=>document.getElementById(id);
+    const keyInput = el("key");
+    el("presets").addEventListener("change", (e)=>{
+      if (e.target.value) keyInput.value = e.target.value;
+    });
+
+    let unsub = null;
+    el("btnListen").addEventListener("click", ()=>{
+      if (typeof unsub === "function"){ unsub(); unsub = null; }
+      const k = keyInput.value.trim();
+      const r = ref(db, "ls/" + encodeURIComponent(k));
+      const off = onValue(r, (snap)=>{
+        const val = snap.val();
+        el("readOut").textContent = JSON.stringify(val, null, 2);
       }, (err)=>{
-        log("onValue ERROR: " + err.message);
+        el("readOut").textContent = "Dinleme hatası: " + err;
       });
-    };
-    attach();
+      unsub = ()=>off();
+    });
 
-    btn.onclick = async ()=>{
+    el("btnWrite").addEventListener("click", async ()=>{
+      const k = keyInput.value.trim();
+      const r = ref(db, "ls/" + encodeURIComponent(k));
+      let payload;
       try{
-        const rootRef = ref(db, "docs/" + input.value);
-        await update(rootRef, { quickTest: Date.now() });
-        log("Write OK");
+        payload = JSON.parse(el("writeBox").value);
       }catch(e){
-        log("Write ERROR: " + e.message);
-        setStatus("Write failed");
+        el("writeStatus").textContent = "Geçersiz JSON";
+        el("writeStatus").className = "err";
+        return;
       }
-    };
-  }catch(e){
-    setStatus("Init failed");
-    log(e.message);
-  }
-</script>
+      try{
+        payload._manualWriteAt = Date.now();
+        await set(r, { value: payload, updatedAt: Date.now() });
+        el("writeStatus").textContent = "Yazıldı ✓";
+        el("writeStatus").className = "ok";
+      }catch(e){
+        el("writeStatus").textContent = "Yazma hatası: " + e;
+        el("writeStatus").className = "err";
+      }
+    });
+  </script>
+</body>
+</html>

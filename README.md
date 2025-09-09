@@ -1,25 +1,17 @@
-# Hertz Motor Stok/Operasyon Uygulaması (GitHub Pages Paketi)
+# Hertz Motor Stok/Operasyon — Tam Paket (GitHub Pages)
 
-Bu paket, tek sayfalık uygulamanızı GitHub Pages üzerinde çalışacak şekilde hazırlar.
+Bu paket, **eşzamanlı çoklu cihaz** desteğiyle (Firebase RTDB) çalışan sürümü içerir.
 
-## İçerik
-- `index.html`: Uygulamanın ana dosyası (Firebase entegrasyonu eklendi).
-- `404.html`: SPA yönlendirme sayfası (GitHub Pages altında path tabanlı yönlendirme için).
-- `.nojekyll`: Jekyll işlemeyi devre dışı bırakır.
-- `assets/`: Statik varlıklar (örnek logo.svg dahil).
+## Dosyalar
+- `index.html` — Realtime senkron entegreli ana uygulama
+- `index2.html` — Referans/örnek uygulama
+- `index_orig.html` — Orijinal index.html yedeği
+- `rtdb-test.html` — RTDB okuma/yazma test sayfası
+- `404.html`, `.nojekyll`, `assets/`
 
 ## Yayınlama (GitHub Pages)
-1. GitHub'da **yeni bir repository** oluşturun (örn. `hertz-motor-stok`).
-2. Bu paketin içeriğini **repo köküne** kopyalayın ve push edin.
-3. **Settings → Pages** bölümünde:
-   - **Source**: `Deploy from a branch`
-   - **Branch**: `main` / **root**
-   - Kaydedin.
-4. 1-2 dakika içinde Pages URL'iniz aktif olur (örn. `https://<kullanici>.github.io/<repo-adi>/`).
-
-> Notlar:
-> - Uygulama CDN üzerinden (Firebase, Tailwind, Flatpickr vb.) çalışır; ek build gerekmez.
-> - Firebase Analytics bazı tarayıcı/ortamlarda (3rd‑party cookie, http vs.) kısıtlı olabilir; `isSupported()` kontrolü eklidir.
-> - Kendi domain’iniz varsa `CNAME` dosyası ekleyerek Pages’a bağlayabilirsiniz.
+1. Bu klasör içeriğini repo köküne yükleyin.
+2. **Settings → Pages** → `Deploy from a branch` → `main` / **root**.
+3. Aktif olduktan sonra URL'ye gidin.
 
 _Tarih:_ 2025-09-09

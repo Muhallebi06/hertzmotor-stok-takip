@@ -5,23 +5,18 @@
   <meta http-equiv="refresh" content="0; url=/" />
   <title>Yönlendiriliyor...</title>
   <script>
-    // GitHub Pages SPA yönlendirme: /foo/bar gibi yolları index.html'e taşır.
+    // GitHub Pages SPA yönlendirme
     (function() {
       var l = window.location;
-      var path = l.pathname;
-      // Ayrıntılı SPA yönlendirme: query ve hash'i koru
       var search = l.search || "";
       var hash = l.hash || "";
-      // root'a dön
       l.replace("/" + search + hash);
     })();
   </script>
-  <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 2rem; }
-  </style>
+  <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,Helvetica,sans-serif;padding:2rem}</style>
 </head>
 <body>
   <h1>Yönlendiriliyor…</h1>
-  <p>Uygulama tek sayfalık (SPA) olduğundan bu sayfa index.html'e yönlendirir.</p>
+  <p>SPA olduğu için bu sayfa index.html'e döndürür.</p>
 </body>
 </html>
