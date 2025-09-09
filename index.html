@@ -1523,12 +1523,9 @@ function initializeStokTakipApp() {
 </script>
 
 <!-- Realtime Senkronizasyon (Firebase RTDB) -->
-
-
-<!-- === RTDB Sync (polling & hash; no reload; per-key under ls/<key>) === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDbwnPViAnSzZ_l8M6YgL75xJiPr3V4Odk",
@@ -1540,135 +1537,126 @@ function initializeStokTakipApp() {
     appId: "1:30502784749:web:3de3128e6bb7c059f406e4",
     measurementId: "G-HERC6F90FC"
   };
-
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
-  // Known keys used by bu uygulama (ekstra anahtar bulma da var)
-  const TRACK = new Set([
-    "stokTakip.v1",
-    "siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler"
-  ]);
+  const STOK_KEY = (typeof window.LS_KEY === "string" ? window.LS_KEY : "stokTakip.v1");
+  const SS_KEYS  = ["siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler"];
+  const ALL_KEYS = [STOK_KEY, ...SS_KEYS];
 
   const enc = (k)=> encodeURIComponent(k);
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
-  const stable = (obj)=> {
-    if (obj==null) return "";
-    try { return JSON.stringify(obj, Object.keys(obj).sort()); } catch { return ""; }
-  };
-  const hash = (str)=>{
-    let h=0; for (let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
-    return h.toString(16);
+  const stable = (o)=>{
+    if (o==null) return "null";
+    try { return JSON.stringify(o, Object.keys(o).sort()); } catch { return JSON.stringify(o); }
   };
 
-  function isMeaningful(val){
-    // Beklenen formatlar: {products,logs} veya genel obje/dizi
-    if (val==null) return false;
-    if (typeof val==="object") return true;
-    return false;
-  }
-
-  function discoverKeys(){
-    const keys = new Set([...TRACK]);
-    // localStorage ve sessionStorage taraması (içinde anlamlı JSON olanları ekle)
-    for (const area of [localStorage, sessionStorage]){
-      for (let i=0;i<area.length;i++){
-        const k = area.key(i);
-        try {
-          const obj = safeParse(area.getItem(k));
-          if (isMeaningful(obj)) keys.add(k);
-        } catch {}
+  function ensureBootstrap(){
+    for (const k of ALL_KEYS){
+      if (localStorage.getItem(k) == null){
+        if (k === STOK_KEY) localStorage.setItem(k, JSON.stringify({ products: [], logs: [] }));
+        else localStorage.setItem(k, JSON.stringify([]));
       }
-    }
-    return keys;
-  }
-
-  // Yerel değişiklik tespiti
-  const lastHash = new Map(); // key -> hash
-  let debounceTimer = null;
-  const lastPushedAt = new Map(); // key->ts
-
-  function computeHashForKey(k){
-    const raw = localStorage.getItem(k) ?? sessionStorage.getItem(k);
-    const obj = safeParse(raw||"null");
-    if (!isMeaningful(obj)) return null;
-    return hash(stable(obj));
-  }
-
-  function pushKey(k){
-    const raw = localStorage.getItem(k) ?? sessionStorage.getItem(k);
-    const obj = safeParse(raw||"null") || {};
-    const payload = { value: obj, updatedAt: Date.now() };
-    return update(ref(db, "ls/"+enc(k)), payload).catch(()=>{});
-  }
-
-  function scanAndPushIfChanged(){
-    const KEYS = discoverKeys();
-    let anyChanged = false;
-    for (const k of KEYS){
-      const h = computeHashForKey(k);
-      if (!h) continue;
-      if (lastHash.get(k) !== h){
-        lastHash.set(k, h);
-        anyChanged = true;
-        lastPushedAt.set(k, Date.now());
-        pushKey(k);
-      }
-    }
-    if (!anyChanged) return;
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(()=>{}, 120); // sadece debounce için
-  }
-
-  // Yarı saniyede bir yereli tarayıp buluta aktar
-  setInterval(scanAndPushIfChanged, 500);
-
-  // RTDB'den uygulama yap: döngü önleme için updatedAt ve hash kontrolü
-  const lastAppliedAt = new Map(); // key->updatedAt
-
-  function notifyUI(keys){
-    try {
-      // render fonksiyonları varsa çağır
-      if (typeof window.render === "function") window.render();
-      if (typeof window.renderStok === "function") window.renderStok();
-      // storage event takibine uygun sentetik event
-      for (const k of keys){
-        const v = localStorage.getItem(k);
-        const evt = new StorageEvent("storage", { key: k, newValue: v, storageArea: localStorage });
-        window.dispatchEvent(evt);
-      }
-      // Ek sinyal
-      document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { keys: Array.from(keys) } }));
-    } catch {}
-  }
-
-  function attachListeners(){
-    const KEYS = discoverKeys();
-    for (const k of KEYS){
-      const r = ref(db, "ls/"+enc(k));
-      onValue(r, (snap)=>{
-        const v = snap.val();
-        if (!v || typeof v!=="object") return;
-        const { value, updatedAt=0 } = v;
-        const lastApp = lastAppliedAt.get(k) || 0;
-        // Kendi yeni yazımızı görmezden gel (1.2sn pencere)
-        const lastPush = lastPushedAt.get(k) || 0;
-        if (lastPush && updatedAt && Math.abs(updatedAt - lastPush) < 1200) return;
-        if (updatedAt <= lastApp) return;
-        // Yereldeki hash ile karşılaştır
-        const current = safeParse(localStorage.getItem(k) || sessionStorage.getItem(k) || "null");
-        if (stable(current) === stable(value)) { lastAppliedAt.set(k, updatedAt); return; }
-        try { localStorage.setItem(k, JSON.stringify(value)); } catch {}
-        lastAppliedAt.set(k, updatedAt);
-        notifyUI([k]);
-      }, (err)=>{
-        console && console.warn && console.warn("[RTDB] listen error", k, err);
-      });
+      pushKeyToCloud(k).catch(()=>{});
     }
   }
 
-  attachListeners();
+  async function pushKeyToCloud(k){
+    const val = localStorage.getItem(k);
+    const parsed = safeParse(val);
+    const payload = { value: parsed, updatedAt: Date.now() };
+    return set(ref(db, "ls/" + enc(k)), payload);
+  }
+
+  function assembleBridge(){
+    const obj = {};
+    for (const k of SS_KEYS){
+      const v = safeParse(localStorage.getItem(k));
+      if (v != null) obj[k] = v;
+    }
+    const cur = safeParse(localStorage.getItem(STOK_KEY));
+    if (cur && typeof cur === "object" && ("products" in cur || "logs" in cur)){
+      obj.products = cur.products || [];
+      obj.logs = cur.logs || [];
+    }
+    return obj;
+  }
+
+  async function pushBridge(){
+    const payload = { value: assembleBridge(), updatedAt: Date.now() };
+    return set(ref(db, "ls/" + enc(STOK_KEY)), payload);
+  }
+
+  let APPLYING_REMOTE = false;
+  (function hookLS(){
+    const _set = localStorage.setItem.bind(localStorage);
+    const _rem = localStorage.removeItem.bind(localStorage);
+    const _clr = localStorage.clear.bind(localStorage);
+
+    localStorage.setItem = function(k, v){
+      _set(k, v);
+      if (!APPLYING_REMOTE && ALL_KEYS.includes(k)){
+        pushKeyToCloud(k).catch(()=>{});
+        if (SS_KEYS.includes(k)) pushBridge().catch(()=>{});
+        try { document.dispatchEvent(new CustomEvent("hertz-data-changed", { detail: { key: k } })); } catch {}
+      }
+    };
+    localStorage.removeItem = function(k){
+      _rem(k);
+      if (!APPLYING_REMOTE && ALL_KEYS.includes(k)){
+        pushKeyToCloud(k).catch(()=>{});
+        if (SS_KEYS.includes(k)) pushBridge().catch(()=>{});
+        try { document.dispatchEvent(new CustomEvent("hertz-data-changed", { detail: { key: k } })); } catch {}
+      }
+    };
+    localStorage.clear = function(){
+      _clr();
+      if (!APPLYING_REMOTE){
+        for (const k of ALL_KEYS) pushKeyToCloud(k).catch(()=>{});
+        pushBridge().catch(()=>{});
+        try { document.dispatchEvent(new CustomEvent("hertz-data-changed", { detail: { key: null } })); } catch {}
+      }
+    };
+  })();
+
+  function applyIncoming(k, incoming){
+    const current = safeParse(localStorage.getItem(k));
+    if (stable(current) === stable(incoming)) return false;
+    APPLYING_REMOTE = true;
+    try { localStorage.setItem(k, JSON.stringify(incoming)); } finally { APPLYING_REMOTE = false; }
+    try { document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { key: k } })); } catch {}
+    return true;
+  }
+
+  function attach(k){
+    const r = ref(db, "ls/" + enc(k));
+    onValue(r, (snap)=>{
+      const data = snap.val();
+      if (!data || typeof data !== "object") return;
+      const val = data.value;
+      if (k === STOK_KEY && val && typeof val === "object"){
+        let any = false;
+        for (const key of SS_KEYS){
+          if (key in val) any = applyIncoming(key, val[key]) || any;
+        }
+        if ("products" in val || "logs" in val){
+          applyIncoming(STOK_KEY, { products: val.products || [], logs: val.logs || [] });
+        }
+        if (any) return;
+      } else {
+        applyIncoming(k, val);
+      }
+    });
+  }
+
+  ensureBootstrap();
+  for (const k of ALL_KEYS) attach(k);
+
+  window.__RealtimeSync = { db, keys: ALL_KEYS.slice(), pushKeyToCloud, pushBridge };
+  console.log("%cRTDB Sync hazır (no-reload, stokTakip.v1 köprü aktif)","color:#16a34a;font-weight:600");
 </script>
+
+
 </body>
 </html>
 
