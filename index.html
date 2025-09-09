@@ -1538,6 +1538,7 @@ function initializeStokTakipApp() {
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
+  // Keys used by this app
   const STOK_KEY = (typeof window.LS_KEY === "string" ? window.LS_KEY : "stokTakip.v1");
   const SS_KEYS  = ["siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler"];
   const ALL_KEYS = [STOK_KEY, ...SS_KEYS];
@@ -1560,6 +1561,7 @@ function initializeStokTakipApp() {
       const v = localStorage.getItem(k);
       try { window.dispatchEvent(new StorageEvent("storage", { key: k, newValue: v, storageArea: localStorage })); } catch {}
       document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { key: k } }));
+      if (typeof window.renderAllTables === "function") window.renderAllTables();
       if (typeof window.render === "function") window.render();
       if (typeof window.renderStok === "function") window.renderStok();
     } catch {}
@@ -1596,6 +1598,7 @@ function initializeStokTakipApp() {
     await set(ref(db, "ls/" + enc(STOK_KEY)), payload);
   }
 
+  // Hook localStorage
   (function hookLS(){
     const _set = localStorage.setItem.bind(localStorage);
     const _rem = localStorage.removeItem.bind(localStorage);
@@ -1626,6 +1629,7 @@ function initializeStokTakipApp() {
     };
   })();
 
+  // Listeners
   function attach(k){
     onValue(ref(db, "ls/" + enc(k)), (snap)=>{
       const data = snap.val();
@@ -1647,6 +1651,7 @@ function initializeStokTakipApp() {
   }
   for (const k of ALL_KEYS) attach(k);
 
+  // Hydrate: prefer remote; else local/defaults -> push
   (async function hydrate(){
     for (const k of ALL_KEYS){
       try{
@@ -1662,10 +1667,10 @@ function initializeStokTakipApp() {
       }catch(e){ console.warn("[RTDB hydrate] warning for", k, e); }
     }
     try { await pushBridge(); } catch {}
-    console.log("%cRTDB realtime (hydrate+bridge) aktif","color:#16a34a;font-weight:600");
+    console.log("%cRTDB realtime aktif (hydrate + bridge + polling)","color:#16a34a;font-weight:600");
   })();
 
-  // Polling fallback (2s) — WS düşerse yine yakalar
+  // Polling fallback (2s)
   async function pollOnce(){
     for (const k of ALL_KEYS){
       try{
