@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RTDB Diagnose</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,Helvetica,sans-serif;max-width:1000px;margin:0 auto;padding:24px}
+    pre{background:#0b1020;color:#d1e7ff;padding:16px;border-radius:10px;white-space:pre-wrap}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .row>*{flex:1 1 300px}
+    input,button{padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px}
+    h2{margin-top:24px}
+  </style>
+</head>
+<body>
+  <h1>Firebase RTDB Teşhis</h1>
+  <div class="row">
+    <div>
+      <label>Key</label><br/>
+      <input id="k" value="stokTakip.v1" />
+    </div>
+    <div>
+      <label>İşlem</label><br/>
+      <button id="btnListen">Dinle</button>
+      <button id="btnWrite">Yaz</button>
+    </div>
+  </div>
+
+  <h2>Durum / Log</h2>
+  <pre id="out"></pre>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+
+    const out = document.getElementById("out");
+    const log = (...a)=>{ out.textContent += a.join(" ") + "\n"; };
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDbwnPViAnSzZ_l8M6YgL75xJiPr3V4Odk",
+      authDomain: "hertz-motor-stok-takip.firebaseapp.com",
+      databaseURL: "https://hertz-motor-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "hertz-motor-stok-takip",
+      storageBucket: "hertz-motor-stok-takip.firebasestorage.app",
+      messagingSenderId: "30502784749",
+      appId: "1:30502784749:web:3de3128e6bb7c059f406e4",
+      measurementId: "G-HERC6F90FC"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
+
+    // SDK ve config göster
+    log("SDK: 12.2.1");
+    log("DB URL:", firebaseConfig.databaseURL);
+
+    // Connection state
+    try {
+      const infoRef = ref(db, ".info/connected");
+      onValue(infoRef, (snap)=>{
+        log("[.info/connected] =", String(snap.val()));
+      });
+    } catch (e){
+      log("connected kontrolünde hata:", e);
+    }
+
+    document.getElementById("btnListen").addEventListener("click", ()=>{
+      const k = document.getElementById("k").value.trim();
+      const r = ref(db, "ls/" + encodeURIComponent(k));
+      log("Dinleme başlatıldı:", "ls/" + encodeURIComponent(k));
+      onValue(r, (snap)=>{
+        log("[UPDATE]", JSON.stringify(snap.val()));
+      }, (err)=> log("[ERROR]", err));
+    });
+
+    document.getElementById("btnWrite").addEventListener("click", async ()=>{
+      const k = document.getElementById("k").value.trim();
+      const r = ref(db, "ls/" + encodeURIComponent(k));
+      const payload = { value: { _diagnose: true, t: Date.now() }, updatedAt: Date.now() };
+      try {
+        await set(r, payload);
+        log("[WRITE] OK", JSON.stringify(payload));
+      } catch(e) {
+        log("[WRITE] ERROR", e);
+      }
+    });
+  </script>
+</body>
+</html>
