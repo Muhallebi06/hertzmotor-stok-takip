@@ -1521,34 +1521,6 @@ function initializeStokTakipApp() {
     render();
 }
 </script>
-
-<!-- Firebase (Modüler CDN) -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
-  // import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  // import { getDatabase } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  // import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyDbwnPViAnSzZ_l8M6YgL75xJiPr3V4Odk",
-    authDomain: "hertz-motor-stok-takip.firebaseapp.com",
-    databaseURL: "https://hertz-motor-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "hertz-motor-stok-takip",
-    storageBucket: "hertz-motor-stok-takip.firebasestorage.app",
-    messagingSenderId: "30502784749",
-    appId: "1:30502784749:web:3de3128e6bb7c059f406e4",
-    measurementId: "G-HERC6F90FC"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  isSupported().then((ok) => {
-    if (ok) getAnalytics(app);
-  }).catch(()=>{});
-
-  window.firebaseApp = app;
-</script>
-
 </body>
 </html>
 
