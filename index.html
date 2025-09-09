@@ -1468,6 +1468,7 @@ function initializeSiparisServisApp() {
     setupTableSorting();
     renderAllTables();
     setTab("siparis");
+    scheduleMidnightRefresh(); // Gece yarısı yenilemesini etkinleştir.
 
     window.ssApp = { makeEditable, makeEditableServis, openDescEditor, toggleHazir, toggleSevkeHazir, markAsSevk, deleteOrder, geriAlSevk, editServis, deleteServis, markServisAsSevk, geriAlServisSevk, setServisDurum, resetServisForm, setSevkDate, setServisSevkDate };
 
@@ -1803,4 +1804,5 @@ function initializeStokTakipApp() {
 
 </body>
 </html>
+
 
