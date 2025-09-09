@@ -76,21 +76,23 @@
 <!-- === /Giriş Ekranı === -->
 
 <header class="sticky top-0 z-20 bg-white/80 backdrop-blur-lg border-b border-slate-200 shadow-sm">
-    <div class="max-w-screen-2xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-3">
+    <div class="max-w-screen-2xl mx-auto px-2 sm:px-4 py-3 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-3 flex-shrink-0">
             <div class="shrink-0 w-10 h-10 grid place-items-center rounded-2xl text-white font-bold" style="background: rgb(var(--brand))">HM</div>
             <div>
-                <h1 class="text-lg md:text-xl font-semibold truncate">Hertz Motor Yönetim Platformu</h1>
+                <h1 class="text-base md:text-xl font-semibold truncate">Hertz Motor</h1>
             </div>
         </div>
-        <div class="absolute left-1/2 -translate-x-1/2">
+        
+        <div class="flex-1 flex justify-center">
             <div id="main-nav-tabs" class="flex items-center gap-2 bg-slate-200 p-1 rounded-xl">
-                <button id="mainTabSiparis" class="main-tab px-4 py-1.5 rounded-lg text-sm font-semibold">Sipariş & Servis</button>
-                <button id="mainTabStok" class="main-tab px-4 py-1.5 rounded-lg text-sm font-semibold">Stok Yönetimi</button>
+                <button id="mainTabSiparis" class="main-tab px-2 md:px-4 py-1.5 rounded-lg text-sm font-semibold">Sipariş & Servis</button>
+                <button id="mainTabStok" class="main-tab px-2 md:px-4 py-1.5 rounded-lg text-sm font-semibold">Stok Yönetimi</button>
             </div>
         </div>
-        <div class="flex items-center gap-2">
-            <div id="siparis-header-buttons" class="flex items-center gap-2">
+
+        <div class="flex items-center gap-2 flex-shrink-0">
+            <div id="siparis-header-buttons" class="hidden sm:flex items-center gap-2">
                 <label class="text-sm">
                     <input accept="application/json" class="hidden" id="ss_fileInput" type="file">
                     <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnImportJSON">İçe aktar</button>
@@ -100,10 +102,10 @@
                 <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportLogCSV">Log CSV</button>
                 <button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnClearAll">Tüm Veriyi Sil</button>
             </div>
-            <div id="stok-header-buttons" class="hidden flex-wrap items-center gap-2">
+             <div id="stok-header-buttons" class="hidden sm:flex items-center gap-2">
                 <button id="stok_btnAdd" class="px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
-                <button id="stok_btnImport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe aktar</button>
-                <button id="stok_btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
+                <button id="stok_btnImport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
+                <button id="stok_btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa Aktar</button>
                 <button id="stok_btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
                 <button id="stok_btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
                 <button id="stok_btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
@@ -139,13 +141,13 @@ function setActiveMainTab(tabName) {
     if (tabName === 'siparis') {
         appSiparisServis.classList.remove('hidden');
         mainTabSiparis.classList.add('bg-white', 'shadow-md');
-        siparisButtons.classList.remove('hidden');
-        stokButtons.classList.add('hidden');
+        siparisButtons.style.display = 'flex';
+        stokButtons.style.display = 'none';
     } else if (tabName === 'stok') {
         appStokTakip.classList.remove('hidden');
         mainTabStok.classList.add('bg-white', 'shadow-md');
-        siparisButtons.classList.add('hidden');
-        stokButtons.classList.remove('hidden');
+        siparisButtons.style.display = 'none';
+        stokButtons.style.display = 'flex';
     }
 }
 mainTabSiparis.addEventListener('click', () => setActiveMainTab('siparis'));
@@ -253,11 +255,11 @@ function ensureArray(data) {
 
 const SIPARIS_SERVIS_HTML = `
 <div class="max-w-7xl mx-auto px-4 py-6">
-    <div class="flex gap-2 mb-5">
-        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_tabSiparis">📦 Siparişler</button>
-        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_tabSevk">🚚 Sevk Listesi</button>
-        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_tabServis">🛠️ Teknik Servis</button>
-        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_tabServisSevk">🚚 Servis Sevkleri</button>
+    <div class="flex gap-2 mb-5 overflow-x-auto pb-2">
+        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabSiparis">📦 Siparişler</button>
+        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabSevk">🚚 Sevk Listesi</button>
+        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabServis">🛠️ Teknik Servis</button>
+        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabServisSevk">🚚 Servis Sevkleri</button>
     </div>
     <section id="ss_pageSiparis">
         <form class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6 bg-white p-4 rounded-xl shadow" id="ss_orderForm">
@@ -412,7 +414,6 @@ const SIPARIS_SERVIS_HTML = `
 
 const STOK_TAKIP_HTML = `
 <div class="mx-auto max-w-7xl p-3 md:p-4">
-    <!-- Stok header'ı (butonlar hariç) -->
      <header class="flex flex-col md:flex-row gap-2 md:gap-3 items-stretch md:items-center mb-3 md:mb-4">
       <div class="flex items-center gap-2 grow">
         <input id="stok_search" type="search" placeholder="Ara: ad, stok kodu…" class="w-full md:max-w-sm px-3 py-2 rounded-xl border border-slate-300 bg-white" />
