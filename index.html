@@ -198,12 +198,9 @@ mainTabStok.addEventListener('click', () => setActiveMainTab('stok'));
 
 let platformAppsInitialized = false;
 function initializePlatformApps() {
-    // Uygulamaların birden fazla kez başlatılmasını engelle
     if (platformAppsInitialized) return;
-    
     initializeSiparisServisApp();
     initializeStokTakipApp();
-
     platformAppsInitialized = true;
 }
 
@@ -227,8 +224,6 @@ function ensureArray(data) {
     } else {
         return [];
     }
-    // HATA DÜZELTMESİ: Dizideki null, undefined veya boş nesne {} gibi istenmeyen
-    // kayıtları filtreleyerek "undefined" satırların oluşmasını engelliyoruz.
     return arr.filter(item => item && typeof item === 'object' && Object.keys(item).length > 0);
 }
 
@@ -1382,7 +1377,23 @@ function initializeStokTakipApp() {
     const state={products:[],logs:[]};
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
 
-    function load(){ try{ const raw=localStorage.getItem(LS_KEY); if(!raw) return; const data=JSON.parse(raw); state.products=ensureArray(data.products||[]); state.logs=ensureArray(data.logs||[]); }catch(e){ console.error('Stok yükleme hatası',e);} }
+    function load(){ 
+        try { 
+            const raw=localStorage.getItem(LS_KEY); 
+            if(!raw || raw === "undefined") {
+                state.products = [];
+                state.logs = [];
+                return;
+            }; 
+            const data=JSON.parse(raw); 
+            state.products=ensureArray(data.products||[]); 
+            state.logs=ensureArray(data.logs||[]); 
+        } catch(e) {
+            console.error('Stok yükleme hatası',e);
+            state.products = [];
+            state.logs = [];
+        } 
+    }
     function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({products:state.products,logs:state.logs})); }catch(e){ console.error('Stok kaydetme hatası',e);} render(); }
 
     const fmt=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(v):n};
@@ -1578,6 +1589,7 @@ function initializeStokTakipApp() {
     appId: "1:512663727455:web:99e15a20f7ae9b77a39aea",
     measurementId: "G-00WN8FD5K9"
   };
+
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
@@ -1587,101 +1599,92 @@ function initializeStokTakipApp() {
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
   const stable = (o)=>{ if(o==null) return "null"; try{return JSON.stringify(o, Object.keys(o).sort());}catch{return JSON.stringify(o)} };
 
-  // --- Gerçek zamanlı güncelleme için arayüz yenileme fonksiyonları ---
-  let refreshSiparisServisUI = () => {};
-  let refreshStokTakipUI = () => {};
-
-  window.setSiparisServisRefresher = (refresher) => {
-      refreshSiparisServisUI = refresher;
-  };
-  window.setStokTakipRefresher = (refresher) => {
-      refreshStokTakipUI = refresher;
-  };
-
-  // --- localStorage Değişikliklerini Yakala ve Firebase'e Gönder ---
+  let siparisServisRefresher = () => {};
+  let stokTakipRefresher = () => {};
+  window.setSiparisServisRefresher = (fn) => { siparisServisRefresher = fn; };
+  window.setStokTakipRefresher = (fn) => { stokTakipRefresher = fn; };
+  
   let APPLYING_REMOTE = false;
   (function hookLS(){
-    const _set = localStorage.setItem.bind(localStorage);
-    const _rem = localStorage.removeItem.bind(localStorage);
-    const _clr = localStorage.clear.bind(localStorage);
-    
+    const _set = localStorage.setItem;
     localStorage.setItem = function(k,v){ 
         const isTracked = KEYS.includes(k);
         const changed = localStorage.getItem(k) !== v;
-        _set(k,v);
+        _set.call(localStorage, k, v);
         if(!APPLYING_REMOTE && isTracked && changed) {
             pushKey(k).catch(e => console.error("Firebase push error:", e));
         }
     };
-    localStorage.removeItem = function(k) {
-        _rem(k);
-        if(!APPLYING_REMOTE && KEYS.includes(k)) {
-            pushKey(k).catch(e => console.error("Firebase push error on remove:", e));
-        }
-    };
-    localStorage.clear = function() {
-        _clr();
-        for(const k of KEYS) {
-            pushKey(k).catch(e => console.error("Firebase push error on clear:", e));
-        }
-    };
+     // Diğer hook'lar (removeItem, clear) basitlik için şimdilik çıkarıldı, gerekirse eklenebilir.
   })();
 
   async function pushKey(k) {
     const val = safeParse(localStorage.getItem(k));
     const payload = { value: val, updatedAt: Date.now(), user: sessionStorage.getItem("auth_user") || "unknown" };
-    await set(ref(db, "ls/"+enc(k)), payload);
+    try {
+        await set(ref(db, "ls/" + enc(k)), payload);
+    } catch (error) {
+        console.error(`Firebase set failed for key ${k}:`, error);
+    }
   }
 
-  // --- Firebase'den Gelen Değişiklikleri Uygula ---
   function applyIncoming(k, incoming) {
-    const cur = safeParse(localStorage.getItem(k));
-    if (stable(cur) === stable(incoming)) return false;
+    const sanitizedIncoming = (k === 'stokTakip-v1') 
+        ? incoming 
+        : ensureArray(incoming);
+    
+    const stringifiedIncoming = JSON.stringify(sanitizedIncoming);
+    
+    if (localStorage.getItem(k) === stringifiedIncoming) {
+        return false;
+    }
+    
     APPLYING_REMOTE = true;
-    try { 
-        localStorage.setItem(k, JSON.stringify(incoming ?? [])); 
-    } finally { 
-        APPLYING_REMOTE = false; 
+    try {
+        localStorage.setItem(k, stringifiedIncoming);
+    } finally {
+        APPLYING_REMOTE = false;
     }
     return true;
   }
 
-  function attach(k) {
-    onValue(ref(db, "ls/"+enc(k)), (snap)=>{
-      const data = snap.val();
-      if (!data || typeof data !== "object") return;
-      if(applyIncoming(k, data.value)) {
-           if (k === 'stokTakip-v1') {
-               refreshStokTakipUI();
-           } else {
-               refreshSiparisServisUI();
-           }
-      }
+  const initialLoadPromises = KEYS.map(k => {
+    return new Promise((resolve) => {
+        const dbRef = ref(db, "ls/" + enc(k));
+        onValue(dbRef, (snap) => {
+            if (!snap.exists()) {
+                console.log(`Key ${k} not found in Firebase, initializing.`);
+                const defaultValue = k === 'stokTakip-v1' ? JSON.stringify({products:[], logs:[]}) : JSON.stringify([]);
+                localStorage.setItem(k, defaultValue);
+                pushKey(k);
+            } else {
+                applyIncoming(k, snap.val().value);
+            }
+            resolve();
+        }, { onlyOnce: true });
     });
-  }
-  
-  // --- Sayfa Yüklendiğinde Verileri Senkronize Et ve Uygulamayı Başlat ---
-  (async function hydrate(){
-    for (const k of KEYS) {
-      try {
-        const snap = await get(ref(db, "ls/"+enc(k)));
-        if (snap.exists() && snap.val() && typeof snap.val() === "object") {
-          applyIncoming(k, snap.val().value);
-        } else {
-          if (safeParse(localStorage.getItem(k)) == null) {
-            const defaultValue = k === 'stokTakip-v1' ? JSON.stringify({products:[], logs:[]}) : JSON.stringify([]);
-            localStorage.setItem(k, defaultValue);
-          }
-          await pushKey(k);
-        }
-      } catch(e) { console.warn("[hydrate]", k, e); }
-    }
-    
-    initializePlatformApps();
-    for (const k of KEYS) attach(k);
+  });
 
-    console.log("%cRTDB köprü aktif: ls/<key> senkron","color:#16a34a;font-weight:600");
-  })();
+  Promise.all(initialLoadPromises).then(() => {
+      console.log("Initial data sync complete. Initializing UI.");
+      initializePlatformApps();
+
+      KEYS.forEach(k => {
+          const dbRef = ref(db, "ls/" + enc(k));
+          onValue(dbRef, (snap) => {
+              if (applyIncoming(k, snap.val()?.value)) {
+                  console.log(`Remote update for ${k}, refreshing UI.`);
+                  if (k === 'stokTakip-v1') {
+                      stokTakipRefresher();
+                  } else {
+                      siparisServisRefresher();
+                  }
+              }
+          });
+      });
+
+      console.log("%cRTDB köprü aktif: Gerçek zamanlı senkronizasyon başladı.","color:#16a34a;font-weight:600");
+  });
 </script>
 
 </body>
