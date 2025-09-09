@@ -329,25 +329,53 @@ const SIPARIS_SERVIS_HTML = `
             <div class="flex gap-2"><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnSevkFilter">Filtrele</button><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnSevkClearFilter">Temizle</button></div>
             <div class="ml-auto flex gap-2 justify-end md:col-span-1"><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnSevkCSV">CSV</button><button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnSevkClearAll">Tüm Sevkleri Sil</button></div>
         </div>
-        <div class="overflow-auto rounded-xl shadow">
-            <table class="w-full text-sm bg-white">
-                <thead class="bg-slate-200 text-slate-600">
-                    <tr>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="musteri" data-sort-type="string">Müşteri<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="milKod" data-sort-type="string">Mil Kodu<span class="sort-indicator"></span></th>
-                        <th class="sortable text-right px-3 py-2" data-sort-key="kw" data-sort-type="number">kW<span class="sort-indicator"></span></th>
-                        <th class="sortable text-right px-3 py-2" data-sort-key="rpm" data-sort-type="number">RPM<span class="sort-indicator"></span></th>
-                        <th class="sortable text-right px-3 py-2" data-sort-key="volt" data-sort-type="number">Voltaj<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="sevkTarihi" data-sort-type="date">Sevk Tarihi<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="sevkEdildi" data-sort-type="date">Sevk Edildi<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="kullanici" data-sort-type="string">Kullanıcı<span class="sort-indicator"></span></th>
-                        <th class="text-left px-3 py-2">İşlem</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100" id="ss_sevkTable"></tbody>
-            </table>
+        <div class="grid grid-rows-2 gap-6" style="height: calc(100vh - 260px);">
+            <!-- Üst Bölüm: Sipariş Sevk Listesi -->
+            <div class="flex flex-col h-full overflow-hidden">
+                <h2 class="text-lg font-semibold mb-2 px-2 text-slate-700">Sipariş Sevk Listesi</h2>
+                <div class="overflow-auto rounded-xl shadow flex-1">
+                    <table class="w-full text-sm bg-white">
+                        <thead class="bg-slate-200 text-slate-600 sticky top-0 z-10">
+                            <tr>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="musteri" data-sort-type="string">Müşteri<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="milKod" data-sort-type="string">Mil Kodu<span class="sort-indicator"></span></th>
+                                <th class="sortable text-right px-3 py-2" data-sort-key="kw" data-sort-type="number">kW<span class="sort-indicator"></span></th>
+                                <th class="sortable text-right px-3 py-2" data-sort-key="rpm" data-sort-type="number">RPM<span class="sort-indicator"></span></th>
+                                <th class="sortable text-right px-3 py-2" data-sort-key="volt" data-sort-type="number">Voltaj<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="sevkTarihi" data-sort-type="date">Sevk Tarihi<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="sevkEdildi" data-sort-type="date">Sevk Edildi<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="kullanici" data-sort-type="string">Kullanıcı<span class="sort-indicator"></span></th>
+                                <th class="text-left px-3 py-2">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="ss_sevkTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Alt Bölüm: Teknik Servis Sevk Listesi -->
+            <div class="flex flex-col h-full overflow-hidden">
+                <h2 class="text-lg font-semibold mb-2 px-2 text-slate-700">Teknik Servis Sevk Listesi</h2>
+                <div class="overflow-auto rounded-xl shadow flex-1">
+                    <table class="w-full text-sm bg-white">
+                        <thead class="bg-slate-200 text-slate-600 sticky top-0 z-10">
+                            <tr>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="firma" data-sort-type="string">Firma<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="milTipi" data-sort-type="string">Mil Tipi<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="ariza" data-sort-type="string">Arıza<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="sevkEdildi" data-sort-type="date">Sevk Edildi<span class="sort-indicator"></span></th>
+                                <th class="sortable text-left px-3 py-2" data-sort-key="kullanici" data-sort-type="string">Kullanıcı<span class="sort-indicator"></span></th>
+                                <th class="text-left px-3 py-2">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="ss_teknikServisSevkTable"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </section>
     <section class="hidden" id="ss_pageServis">
@@ -528,6 +556,7 @@ function initializeSiparisServisApp() {
     let sevkSort = { key: 'sevkEdildi', direction: 'desc' };
     let servisSort = { key: 'no', direction: 'desc' };
     let servisSevkSort = { key: 'sevkEdildi', direction: 'desc' };
+    let teknikServisSevkSort = { key: 'sevkEdildi', direction: 'desc' };
 
     const allPages = $$("section[id^='ss_page']");
     const allTabs = $$(".tab-btn");
@@ -537,6 +566,7 @@ function initializeSiparisServisApp() {
     const fileInput = $('#ss_fileInput');
     const fileInputMobile = $('#ss_fileInput_mobile');
     const sevkTable = appContainer.querySelector('#ss_sevkTable');
+    const teknikServisSevkTable = appContainer.querySelector('#ss_teknikServisSevkTable');
     const servisSevkTable = appContainer.querySelector('#ss_servisSevkTable');
     const searchInput = appContainer.querySelector('#ss_sevkSearch');
     const servisSevkSearch = appContainer.querySelector('#ss_servisSevkSearch');
@@ -723,6 +753,7 @@ function initializeSiparisServisApp() {
 
       renderServisList();
       if (currentTab === "servisSevk") renderServisSevkList();
+      if (currentTab === "sevk") renderTeknikServisSevkList();
     }
     
     function renderServisSevkList(){
@@ -743,32 +774,7 @@ function initializeSiparisServisApp() {
       });
 
       servisSevkTable.innerHTML = "";
-      
-      
-      // Empty-state for Servis Sevkleri
-      if (typeof filtered !== 'undefined' && Array.isArray(filtered) && filtered.length === 0) {
-        servisSevkTable.innerHTML = `<tr>
-          <td colspan="9" class="px-3 py-6 text-center text-slate-500">
-            Şu anda sevk edilmiş teknik servis kaydı yok.
-            <div class="mt-2 text-slate-400 text-sm">Teknik Servis sekmesinde bir kaydı <b>HAZIR</b> durumuna getirip <b>Sevk Et</b> ile buraya taşıyın.</div>
-            <div class="mt-3"><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" onclick="document.querySelector('#ss_tabServis')?.click()">🛠️ Teknik Servis'e git</button></div>
-          </td>
-        </tr>`;
-        if (typeof updateSortIndicators === 'function') updateSortIndicators(servisSevkTable.id, servisSevkSort);
-        return;
-      }
-if (filtered.length === 0) {
-        servisSevkTable.innerHTML = `<tr>
-          <td colspan="9" class="px-3 py-6 text-center text-slate-500">
-            Şu anda listede sevk edilmiş teknik servis kaydı yok.
-            <div class="mt-2 text-slate-400 text-sm">Kayıt eklemek için <b>🛠️ Teknik Servis</b> sekmesine gidin, durumu <b>HAZIR</b> yapın ve <b>Sevk Et</b> butonuna tıklayın.</div>
-            <div class="mt-3"><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" onclick="document.querySelector('#ss_tabServis')?.click()">Teknik Servis'e git</button></div>
-          </td>
-        </tr>`;
-        updateSortIndicators(servisSevkTable.id, servisSevkSort);
-        return;
-      }
-filtered.forEach(o => {
+      filtered.forEach(o => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td class="px-3 py-2">${o.no || ""}</td>
@@ -800,6 +806,7 @@ filtered.forEach(o => {
       logAction(rec.no || "(servis)", "Servis sevk geri alındı");
       renderServisSevkList();
       renderServisList();
+      if (currentTab === "sevk") renderTeknikServisSevkList();
     }
 
     appContainer.querySelector('#ss_btnServisSevkFilter').addEventListener("click", renderServisSevkList);
@@ -876,6 +883,40 @@ filtered.forEach(o => {
       updateSortIndicators(table.id, siparisSort);
     }
     
+    function renderTeknikServisSevkList() {
+        sortData(servisSevkEdilenler, teknikServisSevkSort.key, teknikServisSevkSort.direction, appContainer.querySelector(`#ss_teknikServisSevkTable th[data-sort-key="${teknikServisSevkSort.key}"]`)?.dataset.sortType);
+
+        const q = (searchInput.value || "").toLowerCase();
+        const df = parseDdMmYyyy(dateFromInput.value);
+        const dt = parseDdMmYyyy(dateToInput.value);
+
+        const filtered = servisSevkEdilenler.filter(item => {
+            const txt = [item.no, item.firma, item.urun, item.milTipi, item.ariza].join(" ").toLowerCase();
+            const okTxt = !q || txt.includes(q);
+            const sevkDate = item.sevkEdildi ? parseAnyDate(item.sevkEdildi.split(' ')[0]) : null;
+            const okFrom = !df || (sevkDate && atLocalMidnight(sevkDate) >= df);
+            const okTo   = !dt || (sevkDate && atLocalMidnight(sevkDate) <= dt);
+            return okTxt && okFrom && okTo;
+        });
+
+        teknikServisSevkTable.innerHTML = "";
+        filtered.forEach((o) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td class="px-3 py-2 font-semibold">${o.no}</td>
+                <td class="px-3 py-2">${o.firma || ""}</td>
+                <td class="px-3 py-2">${o.urun || ""}</td>
+                <td class="px-3 py-2">${o.milTipi || ""}</td>
+                <td class="px-3 py-2">${o.ariza || ""}</td>
+                <td class="px-3 py-2">${o.sevkEdildi || ""}</td>
+                <td class="px-3 py-2">${o.kullanici || ""}</td>
+                <td class="px-3 py-2"><button class="text-slate-600 underline" onclick="window.ssApp.geriAlServisSevk('${o.no}')">Geri Al</button></td>
+            `;
+            teknikServisSevkTable.appendChild(tr);
+        });
+        updateSortIndicators(teknikServisSevkTable.id, teknikServisSevkSort);
+    }
+
     function renderSevkList(){
       sortData(sevkEdilenler, sevkSort.key, sevkSort.direction, appContainer.querySelector(`#ss_pageSevk th[data-sort-key="${sevkSort.key}"]`)?.dataset.sortType);
       const q = (searchInput.value || "").toLowerCase();
@@ -910,6 +951,7 @@ filtered.forEach(o => {
         sevkTable.appendChild(tr);
       });
       updateSortIndicators(sevkTable.id, sevkSort);
+      renderTeknikServisSevkList();
     }
 
     function servisRowBg(durum){
@@ -1426,6 +1468,7 @@ filtered.forEach(o => {
                 switch(tableId) {
                     case 'ss_orderTable': currentSort = siparisSort; renderFunction = renderOrders; break;
                     case 'ss_sevkTable': currentSort = sevkSort; renderFunction = renderSevkList; break;
+                    case 'ss_teknikServisSevkTable': currentSort = teknikServisSevkSort; renderFunction = renderTeknikServisSevkList; break;
                     case 'ss_servisTable': currentSort = servisSort; renderFunction = renderServisList; break;
                     case 'ss_servisSevkTable': currentSort = servisSevkSort; renderFunction = renderServisSevkList; break;
                     default: return;
@@ -1794,4 +1837,3 @@ function initializeStokTakipApp() {
 
 </body>
 </html>
-
