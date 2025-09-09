@@ -196,18 +196,20 @@ mainTabStok.addEventListener('click', () => setActiveMainTab('stok'));
   window.addEventListener("load", applyRoleUI);
 })();
 
-// Düzeltme: Uygulama başlatma mantığı, Firebase'den ilk verinin çekilmesini bekleyecek şekilde yeniden düzenlendi.
-// Bu, sayfa ilk açıldığında eski verinin kısa süreliğine görünmesini engeller.
+let platformAppsInitialized = false;
 function initializePlatformApps() {
+    // Uygulamaların birden fazla kez başlatılmasını engelle
+    if (platformAppsInitialized) return;
+    
     initializeSiparisServisApp();
     initializeStokTakipApp();
+
+    platformAppsInitialized = true;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Önce uygulama modüllerinin HTML iskeletini sayfaya ekliyoruz.
     document.getElementById('app-siparis-servis').innerHTML = SIPARIS_SERVIS_HTML;
     document.getElementById('app-stok-takip').innerHTML = STOK_TAKIP_HTML;
-    // Uygulama fonksiyonlarının başlatılması Firebase senkronizasyonundan sonraya bırakıldı.
 });
 </script>
 
@@ -216,12 +218,18 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===                     UYGULAMA HTML İÇERİKLERİ VE SCRIPTLERİ                    ===
 // ===================================================================================
 
-// Firebase'den gelen ve obje olarak saklanabilen dizileri güvenli bir şekilde
-// diziye dönüştüren yardımcı fonksiyon.
 function ensureArray(data) {
-    if (Array.isArray(data)) return data;
-    if (data && typeof data === 'object') return Object.values(data);
-    return [];
+    let arr;
+    if (Array.isArray(data)) {
+        arr = data;
+    } else if (data && typeof data === 'object') {
+        arr = Object.values(data);
+    } else {
+        return [];
+    }
+    // HATA DÜZELTMESİ: Dizideki null, undefined veya boş nesne {} gibi istenmeyen
+    // kayıtları filtreleyerek "undefined" satırların oluşmasını engelliyoruz.
+    return arr.filter(item => item && typeof item === 'object' && Object.keys(item).length > 0);
 }
 
 const SIPARIS_SERVIS_HTML = `
@@ -522,11 +530,15 @@ function initializeSiparisServisApp() {
     const servisSearch = $('#ss_servisSearch');
     const servisTable = $('#ss_servisTable');
     
-    let orders = ensureArray(JSON.parse(localStorage.getItem("siparisler") || "[]"));
-    let logs = ensureArray(JSON.parse(localStorage.getItem("siparisLog") || "[]"));
-    let sevkEdilenler = ensureArray(JSON.parse(localStorage.getItem("sevkEdilenler") || "[]"));
-    let servisKayitlari = ensureArray(JSON.parse(localStorage.getItem("servisKayitlari") || "[]"));
-    let servisSevkEdilenler = ensureArray(JSON.parse(localStorage.getItem("servisSevkEdilenler") || "[]"));
+    let orders, logs, sevkEdilenler, servisKayitlari, servisSevkEdilenler;
+
+    function loadDataFromStorage() {
+        orders = ensureArray(JSON.parse(localStorage.getItem("siparisler") || "[]"));
+        logs = ensureArray(JSON.parse(localStorage.getItem("siparisLog") || "[]"));
+        sevkEdilenler = ensureArray(JSON.parse(localStorage.getItem("sevkEdilenler") || "[]"));
+        servisKayitlari = ensureArray(JSON.parse(localStorage.getItem("servisKayitlari") || "[]"));
+        servisSevkEdilenler = ensureArray(JSON.parse(localStorage.getItem("servisSevkEdilenler") || "[]"));
+    }
 
     function formatDate_TR(input) {
       if (!input) return "";
@@ -1334,6 +1346,7 @@ function initializeSiparisServisApp() {
         renderOrders(); renderLogs(); renderSevkList(); renderServisList(); renderServisSevkList();
     }
     
+    loadDataFromStorage();
     flatpickr($('#ss_sevkTarihi'), getFPBaseOptions());
     flatpickr(dateFromInput, getFPBaseOptions());
     flatpickr(dateToInput, getFPBaseOptions());
@@ -1348,6 +1361,11 @@ function initializeSiparisServisApp() {
     setTab("siparis");
 
     window.ssApp = { makeEditable, makeEditableServis, openDescEditor, toggleHazir, toggleSevkeHazir, markAsSevk, deleteOrder, geriAlSevk, editServis, deleteServis, markServisAsSevk, geriAlServisSevk, setServisDurum, resetServisForm, setSevkDate, setServisSevkDate };
+
+    window.setSiparisServisRefresher(() => {
+        loadDataFromStorage();
+        renderAllTables();
+    });
 }
 
 function initializeStokTakipApp() {
@@ -1534,76 +1552,97 @@ function initializeStokTakipApp() {
     $('#stok_kind').addEventListener('change', toggleConditionalSections);
 
     document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); $('#stok_search').focus(); } });
-    window.addEventListener('storage',e=>{ if(e.key===LS_KEY){ load(); render(); } });
     
     load();
     render();
+
+    window.setStokTakipRefresher(() => {
+        load();
+        render();
+    });
 }
 </script>
 
-<!-- === Firebase RTDB Bridge (A seçeneği: ls/<key>) === -->
+<!-- === Firebase RTDB Bridge === -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
   import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   const firebaseConfig = {
-    "apiKey": "AIzaSyDbwnPViAnSzZ_l8M6YgL75xJiPr3V4Odk",
-    "authDomain": "hertz-motor-stok-takip.firebaseapp.com",
-    "databaseURL": "https://hertz-motor-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
-    "projectId": "hertz-motor-stok-takip",
-    "storageBucket": "hertz-motor-stok-takip.firebasestorage.app",
-    "messagingSenderId": "30502784749",
-    "appId": "1:30502784749:web:257335fa1934477af406e4",
-    "measurementId": "G-T5ZGWC6CKS"
+    apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
+    authDomain: "hertz-stok-takip.firebaseapp.com",
+    databaseURL: "https://hertz-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "hertz-stok-takip",
+    storageBucket: "hertz-stok-takip.firebasestorage.app",
+    messagingSenderId: "512663727455",
+    appId: "1:512663727455:web:99e15a20f7ae9b77a39aea",
+    measurementId: "G-00WN8FD5K9"
   };
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
-  // === Anahtarlar (A seçeneği: ls/<key>) ===
-  // Düzeltme: Stok yönetimi için kullanılan anahtar "stokUrunleri" yerine "stokTakip.v1" olarak güncellendi.
-  // Bu, stok uygulamasının localStorage'a yazdığı anahtarla eşleşmesini ve verinin doğru senkronize edilmesini sağlar.
   const KEYS = ["siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler","stokTakip-v1"];
 
-  // === Yardımcılar ===
   const enc = (s)=>encodeURIComponent(s);
   const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
   const stable = (o)=>{ if(o==null) return "null"; try{return JSON.stringify(o, Object.keys(o).sort());}catch{return JSON.stringify(o)} };
 
-  // UI tetikleyici (geniş set)
-  function triggerAll() {
-    // Bu fonksiyon, veri değiştiğinde tüm modüllerin yeniden render edilmesini tetikler.
-    // Orijinal kodda bu fonksiyonlar global scope'ta olduğu için try-catch blokları kullanılmıştır.
-    try { if (typeof initializePlatformApps === "function") initializePlatformApps(); } catch(e) { console.error("Platform başlatılamadı:", e); }
-  }
+  // --- Gerçek zamanlı güncelleme için arayüz yenileme fonksiyonları ---
+  let refreshSiparisServisUI = () => {};
+  let refreshStokTakipUI = () => {};
 
-  // === localStorage köprüsü ===
-  let APPLYING_REMOTE = false; // Uzaktan gelen veriyi işlerken tekrar buluta göndermeyi engellemek için kullanılan bayrak.
+  window.setSiparisServisRefresher = (refresher) => {
+      refreshSiparisServisUI = refresher;
+  };
+  window.setStokTakipRefresher = (refresher) => {
+      refreshStokTakipUI = refresher;
+  };
+
+  // --- localStorage Değişikliklerini Yakala ve Firebase'e Gönder ---
+  let APPLYING_REMOTE = false;
   (function hookLS(){
     const _set = localStorage.setItem.bind(localStorage);
     const _rem = localStorage.removeItem.bind(localStorage);
     const _clr = localStorage.clear.bind(localStorage);
-    localStorage.setItem = function(k,v){ _set(k,v);
-      if(!APPLYING_REMOTE && KEYS.includes(k)) pushKey(k).catch(()=>{});
+    
+    localStorage.setItem = function(k,v){ 
+        const isTracked = KEYS.includes(k);
+        const changed = localStorage.getItem(k) !== v;
+        _set(k,v);
+        if(!APPLYING_REMOTE && isTracked && changed) {
+            pushKey(k).catch(e => console.error("Firebase push error:", e));
+        }
     };
-    localStorage.removeItem = function(k){ _rem(k);
-      if(!APPLYING_REMOTE && KEYS.includes(k)) pushKey(k).catch(()=>{});
+    localStorage.removeItem = function(k) {
+        _rem(k);
+        if(!APPLYING_REMOTE && KEYS.includes(k)) {
+            pushKey(k).catch(e => console.error("Firebase push error on remove:", e));
+        }
     };
-    localStorage.clear = function(){ _clr();
-      for(const k of KEYS) pushKey(k).catch(()=>{});
+    localStorage.clear = function() {
+        _clr();
+        for(const k of KEYS) {
+            pushKey(k).catch(e => console.error("Firebase push error on clear:", e));
+        }
     };
   })();
 
   async function pushKey(k) {
     const val = safeParse(localStorage.getItem(k));
-    const payload = { value: val, updatedAt: Date.now() };
+    const payload = { value: val, updatedAt: Date.now(), user: sessionStorage.getItem("auth_user") || "unknown" };
     await set(ref(db, "ls/"+enc(k)), payload);
   }
 
+  // --- Firebase'den Gelen Değişiklikleri Uygula ---
   function applyIncoming(k, incoming) {
     const cur = safeParse(localStorage.getItem(k));
-    if (stable(cur) === stable(incoming)) return false; // Değişiklik yoksa işlem yapma
+    if (stable(cur) === stable(incoming)) return false;
     APPLYING_REMOTE = true;
-    try { localStorage.setItem(k, JSON.stringify(incoming ?? [])); } finally { APPLYING_REMOTE = false; }
+    try { 
+        localStorage.setItem(k, JSON.stringify(incoming ?? [])); 
+    } finally { 
+        APPLYING_REMOTE = false; 
+    }
     return true;
   }
 
@@ -1612,15 +1651,16 @@ function initializeStokTakipApp() {
       const data = snap.val();
       if (!data || typeof data !== "object") return;
       if(applyIncoming(k, data.value)) {
-         // Veri değiştiyse, değişikliği yansıtmak için uygulamaları yeniden başlat.
-         // Bu, başka bir cihazdan gelen güncellemelerin anında görünmesini sağlar.
-         initializePlatformApps();
+           if (k === 'stokTakip-v1') {
+               refreshStokTakipUI();
+           } else {
+               refreshSiparisServisUI();
+           }
       }
     });
   }
   
-  // === Hydrate (önce bulut) ===
-  // Sayfa yüklendiğinde ilk olarak Firebase'den veriyi alıp yerel depolamayı günceller.
+  // --- Sayfa Yüklendiğinde Verileri Senkronize Et ve Uygulamayı Başlat ---
   (async function hydrate(){
     for (const k of KEYS) {
       try {
@@ -1628,18 +1668,16 @@ function initializeStokTakipApp() {
         if (snap.exists() && snap.val() && typeof snap.val() === "object") {
           applyIncoming(k, snap.val().value);
         } else {
-          // Bulutta yoksa yereli/boşu buluta yaz
-          if (safeParse(localStorage.getItem(k)) == null) localStorage.setItem(k, JSON.stringify([]));
+          if (safeParse(localStorage.getItem(k)) == null) {
+            const defaultValue = k === 'stokTakip-v1' ? JSON.stringify({products:[], logs:[]}) : JSON.stringify([]);
+            localStorage.setItem(k, defaultValue);
+          }
           await pushKey(k);
         }
       } catch(e) { console.warn("[hydrate]", k, e); }
     }
     
-    // Tüm veriler Firebase'den çekilip localStorage'a yazıldıktan sonra
-    // uygulama fonksiyonlarını başlatıyoruz.
     initializePlatformApps();
-    
-    // Dinleyicileri şimdi başlatıyoruz.
     for (const k of KEYS) attach(k);
 
     console.log("%cRTDB köprü aktif: ls/<key> senkron","color:#16a34a;font-weight:600");
