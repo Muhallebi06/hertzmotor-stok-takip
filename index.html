@@ -321,66 +321,64 @@ const SIPARIS_SERVIS_HTML = `
         </div>
     </section>
     <section class="hidden" id="ss_pageSevk">
-        <div class="grid grid-rows-2 gap-6" style="height: calc(100vh - 160px);">
-            <!-- Üst Bölüm: Sipariş Sevk Listesi -->
-            <div class="flex flex-col h-full overflow-hidden bg-white p-4 rounded-xl shadow">
-                <h2 class="text-lg font-semibold mb-3 text-slate-700">Sipariş Sevk Listesi</h2>
-                <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end mb-3">
-                    <div class="md:col-span-2"><label class="text-xs text-slate-500 block mb-1">Metne göre ara</label><input class="px-3 py-2 border rounded-xl w-full" id="ss_sevkSearch" placeholder="Müşteri, ürün, No..."></div>
-                    <div><label class="text-xs text-slate-500 block mb-1">Başlangıç (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_sevkDateFrom" placeholder="gg/aa/yyyy" type="text"></div>
-                    <div><label class="text-xs text-slate-500 block mb-1">Bitiş (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_sevkDateTo" placeholder="gg/aa/yyyy" type="text"></div>
-                    <div class="flex gap-2"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnSevkFilter">Filtrele</button><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnSevkClearFilter">Temizle</button></div>
-                    <div class="ml-auto flex gap-2 justify-end md:col-span-1"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnSevkCSV">CSV</button><button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnSevkClearAll">Tüm Sevkleri Sil</button></div>
-                </div>
-                <div class="overflow-auto flex-1">
-                    <table class="w-full text-sm">
-                        <thead class="bg-slate-100 text-slate-600 sticky top-0 z-10">
-                            <tr>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="musteri" data-sort-type="string">Müşteri<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="milKod" data-sort-type="string">Mil Kodu<span class="sort-indicator"></span></th>
-                                <th class="sortable text-right px-3 py-2" data-sort-key="kw" data-sort-type="number">kW<span class="sort-indicator"></span></th>
-                                <th class="sortable text-right px-3 py-2" data-sort-key="rpm" data-sort-type="number">RPM<span class="sort-indicator"></span></th>
-                                <th class="sortable text-right px-3 py-2" data-sort-key="volt" data-sort-type="number">Voltaj<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="sevkTarihi" data-sort-type="date">Sevk Tarihi<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="sevkEdildi" data-sort-type="date">Sevk Edildi<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="kullanici" data-sort-type="string">Kullanıcı<span class="sort-indicator"></span></th>
-                                <th class="text-left px-3 py-2">İşlem</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100" id="ss_sevkTable"></tbody>
-                    </table>
-                </div>
+        <!-- Üst Bölüm: Sipariş Sevk Listesi -->
+        <div class="bg-white p-4 rounded-xl shadow mb-6">
+            <h2 class="text-lg font-semibold mb-3 text-slate-700">Sipariş Sevk Listesi</h2>
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end mb-3">
+                <div class="md:col-span-2"><label class="text-xs text-slate-500 block mb-1">Metne göre ara</label><input class="px-3 py-2 border rounded-xl w-full" id="ss_sevkSearch" placeholder="Müşteri, ürün, No..."></div>
+                <div><label class="text-xs text-slate-500 block mb-1">Başlangıç (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_sevkDateFrom" placeholder="gg/aa/yyyy" type="text"></div>
+                <div><label class="text-xs text-slate-500 block mb-1">Bitiş (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_sevkDateTo" placeholder="gg/aa/yyyy" type="text"></div>
+                <div class="flex gap-2 flex-wrap"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnSevkFilter">Filtrele</button><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnSevkClearFilter">Temizle</button></div>
+                <div class="md:ml-auto flex gap-2 flex-wrap justify-start md:justify-end md:col-span-1"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnSevkCSV">CSV</button><button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnSevkClearAll">Tüm Sevkleri Sil</button></div>
             </div>
+            <div class="overflow-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-100 text-slate-600">
+                        <tr>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="musteri" data-sort-type="string">Müşteri<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="milKod" data-sort-type="string">Mil Kodu<span class="sort-indicator"></span></th>
+                            <th class="sortable text-right px-3 py-2" data-sort-key="kw" data-sort-type="number">kW<span class="sort-indicator"></span></th>
+                            <th class="sortable text-right px-3 py-2" data-sort-key="rpm" data-sort-type="number">RPM<span class="sort-indicator"></span></th>
+                            <th class="sortable text-right px-3 py-2" data-sort-key="volt" data-sort-type="number">Voltaj<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="sevkTarihi" data-sort-type="date">Sevk Tarihi<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="sevkEdildi" data-sort-type="date">Sevk Edildi<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="kullanici" data-sort-type="string">Kullanıcı<span class="sort-indicator"></span></th>
+                            <th class="text-left px-3 py-2">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100" id="ss_sevkTable"></tbody>
+                </table>
+            </div>
+        </div>
 
-            <!-- Alt Bölüm: Teknik Servis Sevk Listesi -->
-            <div class="flex flex-col h-full overflow-hidden bg-white p-4 rounded-xl shadow">
-                <h2 class="text-lg font-semibold mb-3 text-slate-700">Teknik Servis Sevk Listesi</h2>
-                <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end mb-3">
-                    <div class="md:col-span-2"><label class="text-xs text-slate-500 block mb-1">Metne göre ara</label><input class="px-3 py-2 border rounded-xl w-full" id="ss_teknikSevkSearch" placeholder="Firma, ürün, No..."></div>
-                    <div><label class="text-xs text-slate-500 block mb-1">Başlangıç (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_teknikSevkDateFrom" placeholder="gg/aa/yyyy" type="text"></div>
-                    <div><label class="text-xs text-slate-500 block mb-1">Bitiş (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_teknikSevkDateTo" placeholder="gg/aa/yyyy" type="text"></div>
-                    <div class="flex gap-2"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnTeknikSevkFilter">Filtrele</button><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnTeknikSevkClearFilter">Temizle</button></div>
-                    <div class="ml-auto flex gap-2 justify-end md:col-span-1"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnTeknikSevkCSV">CSV</button><button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnTeknikSevkClearAll">Tümünü Sil</button></div>
-                </div>
-                <div class="overflow-auto flex-1">
-                    <table class="w-full text-sm">
-                        <thead class="bg-slate-100 text-slate-600 sticky top-0 z-10">
-                            <tr>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="firma" data-sort-type="string">Firma<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="milTipi" data-sort-type="string">Mil Tipi<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="ariza" data-sort-type="string">Arıza<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="sevkEdildi" data-sort-type="date">Sevk Edildi<span class="sort-indicator"></span></th>
-                                <th class="sortable text-left px-3 py-2" data-sort-key="kullanici" data-sort-type="string">Kullanıcı<span class="sort-indicator"></span></th>
-                                <th class="text-left px-3 py-2">İşlem</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100" id="ss_teknikServisSevkTable"></tbody>
-                    </table>
-                </div>
+        <!-- Alt Bölüm: Teknik Servis Sevk Listesi -->
+        <div class="bg-white p-4 rounded-xl shadow">
+            <h2 class="text-lg font-semibold mb-3 text-slate-700">Teknik Servis Sevk Listesi</h2>
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end mb-3">
+                <div class="md:col-span-2"><label class="text-xs text-slate-500 block mb-1">Metne göre ara</label><input class="px-3 py-2 border rounded-xl w-full" id="ss_teknikSevkSearch" placeholder="Firma, ürün, No..."></div>
+                <div><label class="text-xs text-slate-500 block mb-1">Başlangıç (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_teknikSevkDateFrom" placeholder="gg/aa/yyyy" type="text"></div>
+                <div><label class="text-xs text-slate-500 block mb-1">Bitiş (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_teknikSevkDateTo" placeholder="gg/aa/yyyy" type="text"></div>
+                <div class="flex gap-2 flex-wrap"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnTeknikSevkFilter">Filtrele</button><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnTeknikSevkClearFilter">Temizle</button></div>
+                <div class="md:ml-auto flex gap-2 flex-wrap justify-start md:justify-end md:col-span-1"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnTeknikSevkCSV">CSV</button><button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnTeknikSevkClearAll">Tümünü Sil</button></div>
+            </div>
+            <div class="overflow-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-100 text-slate-600">
+                        <tr>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="firma" data-sort-type="string">Firma<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="milTipi" data-sort-type="string">Mil Tipi<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="ariza" data-sort-type="string">Arıza<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="sevkEdildi" data-sort-type="date">Sevk Edildi<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="kullanici" data-sort-type="string">Kullanıcı<span class="sort-indicator"></span></th>
+                            <th class="text-left px-3 py-2">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100" id="ss_teknikServisSevkTable"></tbody>
+                </table>
             </div>
         </div>
     </section>
@@ -617,15 +615,16 @@ function initializeSiparisServisApp() {
       const dayMs = 86400000;
       const diff = (atLocalMidnight(due) - today) / dayMs;
 
-      if (diff < 0 && isHazir) {
-          return Y_FULL; 
+      if (diff < 0) { // Termin tarihi geçmiş
+        return isHazir ? Y_FULL : R_FULL;
       }
 
-      if (diff > 3) return null;
-      if (diff >= 0 && diff <= 3){ const t = (3 - diff) / 3; return mixHex(Y_LIGHT, Y_FULL, t); }
-      if (diff <= -3) return R_FULL;
-      const t2 = (-diff) / 3;
-      return mixHex(Y_FULL, R_FULL, t2);
+      if (diff <= 3){ // Termine 3 gün veya daha az kalmış
+        const t = (3 - diff) / 3; 
+        return mixHex(Y_LIGHT, Y_FULL, t); 
+      }
+      
+      return null; // Diğer durumlar için özel renk yok
     }
     
     function getNextSiparisNo() {
@@ -895,13 +894,9 @@ function initializeSiparisServisApp() {
         const isServisHazir = (s.durum || '').toUpperCase() === 'HAZIR';
 
         if (s.sevkTarihi) {
-            // Termin tarihine göre renklendirme önceliklidir.
-            // Siparişlerdeki gibi gecikme/yaklaşma durumuna göre sarı-kırmızı tonları atanır.
             bg = getRowBgByDue(s.sevkTarihi, isServisHazir);
         }
         
-        // Eğer termin tarihine göre bir renk atanmadıysa (örn. tarih ilerideyse),
-        // o zaman duruma göre varsayılan renklendirme yapılır.
         if (!bg) {
             bg = servisRowBg(s.durum);
         }
@@ -1808,9 +1803,4 @@ function initializeStokTakipApp() {
 
 </body>
 </html>
-
-
-
-
-
 
