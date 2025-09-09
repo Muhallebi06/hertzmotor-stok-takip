@@ -259,7 +259,6 @@ const SIPARIS_SERVIS_HTML = `
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabSiparis">📦 Siparişler</button>
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabSevk">🚚 Sevk Listesi</button>
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabServis">🛠️ Teknik Servis</button>
-        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabServisSevk">🚚 Servis Sevkleri</button>
     </div>
     <div class="sm:hidden flex flex-wrap gap-2 mb-4" id="siparis-mobile-buttons">
         <label class="text-sm flex-1">
@@ -322,20 +321,20 @@ const SIPARIS_SERVIS_HTML = `
         </div>
     </section>
     <section class="hidden" id="ss_pageSevk">
-        <div class="bg-white p-4 rounded-xl shadow mb-4 grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-            <div class="md:col-span-2"><label class="text-xs text-slate-500 block mb-1">Metne göre ara</label><input class="px-3 py-2 border rounded-xl w-full" id="ss_sevkSearch" placeholder="Müşteri, ürün, No..."></div>
-            <div><label class="text-xs text-slate-500 block mb-1">Başlangıç (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_sevkDateFrom" placeholder="gg/aa/yyyy" type="text"></div>
-            <div><label class="text-xs text-slate-500 block mb-1">Bitiş (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_sevkDateTo" placeholder="gg/aa/yyyy" type="text"></div>
-            <div class="flex gap-2"><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnSevkFilter">Filtrele</button><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnSevkClearFilter">Temizle</button></div>
-            <div class="ml-auto flex gap-2 justify-end md:col-span-1"><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnSevkCSV">CSV</button><button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnSevkClearAll">Tüm Sevkleri Sil</button></div>
-        </div>
-        <div class="grid grid-rows-2 gap-6" style="height: calc(100vh - 260px);">
+        <div class="grid grid-rows-2 gap-6" style="height: calc(100vh - 160px);">
             <!-- Üst Bölüm: Sipariş Sevk Listesi -->
-            <div class="flex flex-col h-full overflow-hidden">
-                <h2 class="text-lg font-semibold mb-2 px-2 text-slate-700">Sipariş Sevk Listesi</h2>
-                <div class="overflow-auto rounded-xl shadow flex-1">
-                    <table class="w-full text-sm bg-white">
-                        <thead class="bg-slate-200 text-slate-600 sticky top-0 z-10">
+            <div class="flex flex-col h-full overflow-hidden bg-white p-4 rounded-xl shadow">
+                <h2 class="text-lg font-semibold mb-3 text-slate-700">Sipariş Sevk Listesi</h2>
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end mb-3">
+                    <div class="md:col-span-2"><label class="text-xs text-slate-500 block mb-1">Metne göre ara</label><input class="px-3 py-2 border rounded-xl w-full" id="ss_sevkSearch" placeholder="Müşteri, ürün, No..."></div>
+                    <div><label class="text-xs text-slate-500 block mb-1">Başlangıç (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_sevkDateFrom" placeholder="gg/aa/yyyy" type="text"></div>
+                    <div><label class="text-xs text-slate-500 block mb-1">Bitiş (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_sevkDateTo" placeholder="gg/aa/yyyy" type="text"></div>
+                    <div class="flex gap-2"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnSevkFilter">Filtrele</button><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnSevkClearFilter">Temizle</button></div>
+                    <div class="ml-auto flex gap-2 justify-end md:col-span-1"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnSevkCSV">CSV</button><button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnSevkClearAll">Tüm Sevkleri Sil</button></div>
+                </div>
+                <div class="overflow-auto flex-1">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-100 text-slate-600 sticky top-0 z-10">
                             <tr>
                                 <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
                                 <th class="sortable text-left px-3 py-2" data-sort-key="musteri" data-sort-type="string">Müşteri<span class="sort-indicator"></span></th>
@@ -356,11 +355,18 @@ const SIPARIS_SERVIS_HTML = `
             </div>
 
             <!-- Alt Bölüm: Teknik Servis Sevk Listesi -->
-            <div class="flex flex-col h-full overflow-hidden">
-                <h2 class="text-lg font-semibold mb-2 px-2 text-slate-700">Teknik Servis Sevk Listesi</h2>
-                <div class="overflow-auto rounded-xl shadow flex-1">
-                    <table class="w-full text-sm bg-white">
-                        <thead class="bg-slate-200 text-slate-600 sticky top-0 z-10">
+            <div class="flex flex-col h-full overflow-hidden bg-white p-4 rounded-xl shadow">
+                <h2 class="text-lg font-semibold mb-3 text-slate-700">Teknik Servis Sevk Listesi</h2>
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end mb-3">
+                    <div class="md:col-span-2"><label class="text-xs text-slate-500 block mb-1">Metne göre ara</label><input class="px-3 py-2 border rounded-xl w-full" id="ss_teknikSevkSearch" placeholder="Firma, ürün, No..."></div>
+                    <div><label class="text-xs text-slate-500 block mb-1">Başlangıç (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_teknikSevkDateFrom" placeholder="gg/aa/yyyy" type="text"></div>
+                    <div><label class="text-xs text-slate-500 block mb-1">Bitiş (tarih)</label><input class="date-input px-3 py-2 border rounded-xl w-full" id="ss_teknikSevkDateTo" placeholder="gg/aa/yyyy" type="text"></div>
+                    <div class="flex gap-2"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnTeknikSevkFilter">Filtrele</button><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnTeknikSevkClearFilter">Temizle</button></div>
+                    <div class="ml-auto flex gap-2 justify-end md:col-span-1"><button class="px-3 py-2 rounded-xl border bg-slate-50 hover:bg-slate-100 text-sm" id="ss_btnTeknikSevkCSV">CSV</button><button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnTeknikSevkClearAll">Tümünü Sil</button></div>
+                </div>
+                <div class="overflow-auto flex-1">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-100 text-slate-600 sticky top-0 z-10">
                             <tr>
                                 <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
                                 <th class="sortable text-left px-3 py-2" data-sort-key="firma" data-sort-type="string">Firma<span class="sort-indicator"></span></th>
@@ -413,37 +419,6 @@ const SIPARIS_SERVIS_HTML = `
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100" id="ss_servisTable"></tbody>
-            </table>
-        </div>
-    </section>
-    <section class="hidden" id="ss_pageServisSevk">
-        <div class="bg-white p-4 rounded-xl shadow mb-4">
-            <div class="flex flex-wrap gap-2 items-end">
-                <input class="px-3 py-2 border rounded-xl" id="ss_servisSevkSearch" placeholder="Ara (No, Firma, Ürün, Mil Tipi)">
-                <input class="px-3 py-2 border rounded-xl date-input" id="ss_servisSevkDateFrom" placeholder="Başlangıç (gg/aa/yyyy)">
-                <input class="px-3 py-2 border rounded-xl date-input" id="ss_servisSevkDateTo" placeholder="Bitiş (gg/aa/yyyy)">
-                <button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnServisSevkFilter">Filtrele</button>
-                <button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnServisSevkClearFilter">Temizle</button>
-                <button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnServisSevkCSV">CSV Dışa Aktar</button>
-                <button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnServisSevkClearAll">Tümünü Temizle</button>
-            </div>
-        </div>
-        <div class="bg-white p-4 rounded-xl shadow">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50">
-                    <tr>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="no" data-sort-type="string">No<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="firma" data-sort-type="string">Firma<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="milTipi" data-sort-type="string">Mil Tipi<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="ariza" data-sort-type="string">Arıza<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="sevkTarihi" data-sort-type="date">Sevk Tarihi<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="sevkEdildi" data-sort-type="date">Sevk Edildi<span class="sort-indicator"></span></th>
-                        <th class="sortable text-left px-3 py-2" data-sort-key="kullanici" data-sort-type="string">Kullanıcı<span class="sort-indicator"></span></th>
-                        <th class="text-left px-3 py-2">İşlem</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100" id="ss_servisSevkTable"></tbody>
             </table>
         </div>
     </section>
@@ -555,7 +530,6 @@ function initializeSiparisServisApp() {
     let siparisSort = { key: 'no', direction: 'desc' };
     let sevkSort = { key: 'sevkEdildi', direction: 'desc' };
     let servisSort = { key: 'no', direction: 'desc' };
-    let servisSevkSort = { key: 'sevkEdildi', direction: 'desc' };
     let teknikServisSevkSort = { key: 'sevkEdildi', direction: 'desc' };
 
     const allPages = $$("section[id^='ss_page']");
@@ -567,16 +541,15 @@ function initializeSiparisServisApp() {
     const fileInputMobile = $('#ss_fileInput_mobile');
     const sevkTable = appContainer.querySelector('#ss_sevkTable');
     const teknikServisSevkTable = appContainer.querySelector('#ss_teknikServisSevkTable');
-    const servisSevkTable = appContainer.querySelector('#ss_servisSevkTable');
     const searchInput = appContainer.querySelector('#ss_sevkSearch');
-    const servisSevkSearch = appContainer.querySelector('#ss_servisSevkSearch');
     const dateFromInput = appContainer.querySelector('#ss_sevkDateFrom');
     const dateToInput = appContainer.querySelector('#ss_sevkDateTo');
-    const servisSevkDateFrom = appContainer.querySelector('#ss_servisSevkDateFrom');
-    const servisSevkDateTo = appContainer.querySelector('#ss_servisSevkDateTo');
     const servisForm = appContainer.querySelector('#ss_servisForm');
     const servisSearch = appContainer.querySelector('#ss_servisSearch');
     const servisTable = appContainer.querySelector('#ss_servisTable');
+    const teknikSevkSearch = appContainer.querySelector('#ss_teknikSevkSearch');
+    const teknikSevkDateFrom = appContainer.querySelector('#ss_teknikSevkDateFrom');
+    const teknikSevkDateTo = appContainer.querySelector('#ss_teknikSevkDateTo');
     
     let orders, logs, sevkEdilenler, servisKayitlari, servisSevkEdilenler;
 
@@ -715,10 +688,10 @@ function initializeSiparisServisApp() {
     function setTab(tabId){
       currentTab = tabId;
       const pageMap = {
-          siparis: '#ss_pageSiparis', sevk: '#ss_pageSevk', servis: '#ss_pageServis', servisSevk: '#ss_pageServisSevk'
+          siparis: '#ss_pageSiparis', sevk: '#ss_pageSevk', servis: '#ss_pageServis'
       };
       const tabMap = {
-          siparis: '#ss_tabSiparis', sevk: '#ss_tabSevk', servis: '#ss_tabServis', servisSevk: '#ss_tabServisSevk'
+          siparis: '#ss_tabSiparis', sevk: '#ss_tabSevk', servis: '#ss_tabServis'
       };
 
       allPages.forEach(p => p.classList.add("hidden"));
@@ -730,9 +703,11 @@ function initializeSiparisServisApp() {
       if(pageToShow) pageToShow.classList.remove("hidden");
       if(tabToActivate) tabToActivate.classList.add("font-medium", "bg-slate-100");
 
-      if (tabId === 'sevk') renderSevkList();
+      if (tabId === 'sevk') {
+        renderSevkList();
+        renderTeknikServisSevkList();
+      }
       if (tabId === 'servis') renderServisList();
-      if (tabId === 'servisSevk') renderServisSevkList();
     }
 
     allTabs.forEach(tab => {
@@ -752,46 +727,9 @@ function initializeSiparisServisApp() {
       window.pushData('servisKayitlari');
 
       renderServisList();
-      if (currentTab === "servisSevk") renderServisSevkList();
       if (currentTab === "sevk") renderTeknikServisSevkList();
     }
     
-    function renderServisSevkList(){
-      sortData(servisSevkEdilenler, servisSevkSort.key, servisSevkSort.direction, appContainer.querySelector(`#ss_pageServisSevk th[data-sort-key="${servisSevkSort.key}"]`)?.dataset.sortType);
-
-      const q = (servisSevkSearch.value || "").toLowerCase();
-      const df = parseDdMmYyyy(servisSevkDateFrom.value);
-      const dt = parseDdMmYyyy(servisSevkDateTo.value);
-
-      const filtered = servisSevkEdilenler.filter(item => {
-        const txt = [item.no, item.firma, item.urun, item.milTipi].join(" ").toLowerCase();
-        const okTxt = !q || txt.includes(q);
-        const sevkDate = item.sevkEdildi ? parseAnyDate(item.sevkEdildi.split(' ')[0]) : null;
-        let okDate = true;
-        if (df) okDate = okDate && sevkDate && atLocalMidnight(sevkDate) >= atLocalMidnight(df);
-        if (dt) okDate = okDate && sevkDate && atLocalMidnight(sevkDate) <= atLocalMidnight(dt);
-        return okTxt && okDate;
-      });
-
-      servisSevkTable.innerHTML = "";
-      filtered.forEach(o => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td class="px-3 py-2">${o.no || ""}</td>
-          <td class="px-3 py-2">${o.firma || ""}</td>
-          <td class="px-3 py-2">${o.urun || ""}</td>
-          <td class="px-3 py-2">${o.milTipi || ""}</td>
-          <td class="px-3 py-2">${o.ariza || ""}</td>
-          <td class="px-3 py-2">${formatDate_TR(o.sevkTarihi) || ""}</td>
-          <td class="px-3 py-2">${o.sevkEdildi || ""}</td>
-          <td class="px-3 py-2">${o.kullanici || ""}</td>
-          <td class="px-3 py-2"><button class="text-slate-600 underline" onclick="window.ssApp.geriAlServisSevk('${o.no}')">Geri Al</button></td>
-        `;
-        servisSevkTable.appendChild(tr);
-      });
-      updateSortIndicators(servisSevkTable.id, servisSevkSort);
-    }
-
     function geriAlServisSevk(no){
       const idx = servisSevkEdilenler.findIndex(x => x.no === no);
       if (idx === -1) return;
@@ -804,33 +742,10 @@ function initializeSiparisServisApp() {
       window.dataStore['servisKayitlari'] = servisKayitlari;
       window.pushData('servisKayitlari');
       logAction(rec.no || "(servis)", "Servis sevk geri alındı");
-      renderServisSevkList();
       renderServisList();
       if (currentTab === "sevk") renderTeknikServisSevkList();
     }
 
-    appContainer.querySelector('#ss_btnServisSevkFilter').addEventListener("click", renderServisSevkList);
-    appContainer.querySelector('#ss_btnServisSevkClearFilter').addEventListener("click", ()=>{
-      servisSevkSearch.value=''; servisSevkDateFrom.value=''; servisSevkDateTo.value=''; renderServisSevkList();
-    });
-    appContainer.querySelector('#ss_btnServisSevkCSV').addEventListener("click", ()=>{
-      downloadCSV("servis_sevk_listesi_filtrelenmis.csv", [
-        ["No","Firma","Ürün","Mil Tipi","Arıza","Sevk Tarihi","Sevk Edildi","Kullanıcı"],
-        ...Array.from(servisSevkTable.querySelectorAll('tr')).map(tr => Array.from(tr.children).slice(0,-1).map(td => td.textContent))
-      ]);
-    });
-    appContainer.querySelector('#ss_btnServisSevkClearAll').addEventListener("click", ()=>{
-      if (confirm("Servis sevk listesindeki TÜM kayıtlar silinsin mi?")){
-        servisSevkEdilenler = [];
-        window.dataStore['servisSevkEdilenler'] = servisSevkEdilenler;
-        window.pushData('servisSevkEdilenler');
-        renderServisSevkList();
-      }
-    });
-
-    flatpickr(servisSevkDateFrom, getFPBaseOptions());
-    flatpickr(servisSevkDateTo, getFPBaseOptions());
-    
     function renderLogs() {
       logTable.innerHTML = "";
       logs.slice(0, 100).forEach(log => {
@@ -874,8 +789,8 @@ function initializeSiparisServisApp() {
           <td class="px-3 py-2"><button class="px-2 py-1 rounded-md border bg-white hover:bg-slate-50 text-xs underline" onclick="window.ssApp.openDescEditor('siparis', ${i})">${(o.aciklama || '').trim() ? 'Açıklamayı Gör' : 'Açıklama Ekle'}</button></td>
           <td class="px-3 py-2 text-center ${o.hazir ? 'bg-green-100' : ''}"><input type="checkbox" ${o.hazir?'checked':''} onchange="window.ssApp.toggleHazir(${i}, this.checked)" /></td>
           <td class="px-3 py-2 text-center ${o.sevkeHazir ? 'bg-blue-100' : ''}"><input type="checkbox" ${o.sevkeHazir?'checked':''} ${o.hazir?'':'disabled'} onchange="window.ssApp.toggleSevkeHazir(${i}, this.checked)" /></td>
-          <td class="px-3 py-2">${o.sevkeHazir? `<button onclick="window.ssApp.markAsSevk(${i})" class="text-blue-600 underline">Sevk Et</button>` : '<span class="text-slate-400 italic">Sevke hazır değil</span>'}</td>
-          <td class="px-3 py-2"><button class="text-rose-600 underline" onclick="window.ssApp.deleteOrder(${i})">Sil</button></td>
+          <td class="px-3 py-2">${o.sevkeHazir? `<button onclick="window.ssApp.markAsSevk('${o.no}')" class="text-blue-600 underline">Sevk Et</button>` : '<span class="text-slate-400 italic">Sevke hazır değil</span>'}</td>
+          <td class="px-3 py-2"><button class="text-rose-600 underline" onclick="window.ssApp.deleteOrder('${o.no}')">Sil</button></td>
         `;
         table.appendChild(tr);
       });
@@ -886,9 +801,9 @@ function initializeSiparisServisApp() {
     function renderTeknikServisSevkList() {
         sortData(servisSevkEdilenler, teknikServisSevkSort.key, teknikServisSevkSort.direction, appContainer.querySelector(`#ss_teknikServisSevkTable th[data-sort-key="${teknikServisSevkSort.key}"]`)?.dataset.sortType);
 
-        const q = (searchInput.value || "").toLowerCase();
-        const df = parseDdMmYyyy(dateFromInput.value);
-        const dt = parseDdMmYyyy(dateToInput.value);
+        const q = (teknikSevkSearch.value || "").toLowerCase();
+        const df = parseDdMmYyyy(teknikSevkDateFrom.value);
+        const dt = parseDdMmYyyy(teknikSevkDateTo.value);
 
         const filtered = servisSevkEdilenler.filter(item => {
             const txt = [item.no, item.firma, item.urun, item.milTipi, item.ariza].join(" ").toLowerCase();
@@ -951,7 +866,6 @@ function initializeSiparisServisApp() {
         sevkTable.appendChild(tr);
       });
       updateSortIndicators(sevkTable.id, sevkSort);
-      renderTeknikServisSevkList();
     }
 
     function servisRowBg(durum){
@@ -1030,9 +944,16 @@ function initializeSiparisServisApp() {
       renderServisList();
     }
     
-    function deleteOrder(index){
+    function deleteOrder(no){
+      const index = orders.findIndex(o => o.no === no);
+      if (index === -1) {
+          console.error("Silinecek sipariş bulunamadı:", no);
+          alert("Hata: Silinecek sipariş bulunamadı.");
+          return;
+      }
       const o = orders[index];
-      if (!o || !confirm(`#${o.no} numaralı siparişi silmek istediğinize emin misiniz?`)) return;
+      if (!confirm(`#${o.no} numaralı siparişi silmek istediğinize emin misiniz?`)) return;
+      
       orders.splice(index, 1);
       window.dataStore['siparisler'] = orders;
       window.pushData('siparisler');
@@ -1230,19 +1151,26 @@ function initializeSiparisServisApp() {
       logAction(orders[index].no, val ? "Sevke Hazır" : "Sevke Hazır değil");
       renderOrders();
     }
-    function markAsSevk(index) {
+    function markAsSevk(no) {
+      const index = orders.findIndex(o => o.no === no);
+      if (index === -1) {
+          console.error("Sevk edilecek sipariş bulunamadı:", no);
+          alert("Hata: Sevk edilecek sipariş bulunamadı. Lütfen sayfayı yenileyip tekrar deneyin.");
+          return;
+      }
+      const orderToShip = orders[index];
       const user = sessionStorage.getItem("auth_user") || "(bilinmiyor)";
-      sevkEdilenler.push({ ...orders[index], sevkEdildi: formatDateTime_TR(new Date()), kullanici: user });
+      sevkEdilenler.push({ ...orderToShip, sevkEdildi: formatDateTime_TR(new Date()), kullanici: user });
       window.dataStore['sevkEdilenler'] = sevkEdilenler;
       window.pushData('sevkEdilenler');
       
-      logAction(orders[index].no, "Sipariş sevk edildi");
+      logAction(orderToShip.no, "Sipariş sevk edildi");
       orders.splice(index, 1);
       window.dataStore['siparisler'] = orders;
       window.pushData('siparisler');
       
       renderOrders();
-      if (currentTab === "sevk") renderSevkList();
+      renderSevkList();
     }
     function geriAlSevk(no){
       const idx = sevkEdilenler.findIndex(x => x.no === no);
@@ -1421,12 +1349,35 @@ function initializeSiparisServisApp() {
     
     appContainer.querySelector('#ss_btnSevkFilter').onclick = renderSevkList;
     appContainer.querySelector('#ss_btnSevkClearFilter').onclick = () => { searchInput.value = ""; dateFromInput.value = ""; dateToInput.value = ""; renderSevkList(); };
-    appContainer.querySelector('#ss_btnSevkClearAll').onclick = () => { if(confirm("Tüm sevk kayıtları silinecek?")){ 
+    appContainer.querySelector('#ss_btnSevkClearAll').onclick = () => { if(confirm("Tüm sipariş sevk kayıtları silinecek?")){ 
         sevkEdilenler=[]; 
         window.dataStore['sevkEdilenler'] = sevkEdilenler;
         window.pushData('sevkEdilenler');
         renderSevkList();
     }};
+    
+    appContainer.querySelector('#ss_btnTeknikSevkFilter').addEventListener('click', renderTeknikServisSevkList);
+    appContainer.querySelector('#ss_btnTeknikSevkClearFilter').addEventListener('click', () => {
+        teknikSevkSearch.value = "";
+        teknikSevkDateFrom.value = "";
+        teknikSevkDateTo.value = "";
+        renderTeknikServisSevkList();
+    });
+    appContainer.querySelector('#ss_btnTeknikSevkCSV').addEventListener('click', () => {
+      downloadCSV("teknik_servis_sevk_listesi.csv", [
+        ["No", "Firma", "Ürün", "Mil Tipi", "Arıza", "Sevk Edildi", "Kullanıcı"],
+        ...Array.from(teknikServisSevkTable.querySelectorAll('tr')).map(tr => Array.from(tr.children).slice(0,-1).map(td => td.textContent))
+      ]);
+    });
+    appContainer.querySelector('#ss_btnTeknikSevkClearAll').addEventListener('click', () => {
+        if (confirm("Tüm teknik servis sevk kayıtları silinecek. Emin misiniz?")) {
+            servisSevkEdilenler = [];
+            window.dataStore['servisSevkEdilenler'] = servisSevkEdilenler;
+            window.pushData('servisSevkEdilenler');
+            renderTeknikServisSevkList();
+        }
+    });
+
     appContainer.querySelector('#ss_btnServisClearAll').onclick = () => { if(confirm('Tüm teknik servis kayıtları silinecek?')){ 
         servisKayitlari = []; 
         window.dataStore['servisKayitlari'] = servisKayitlari;
@@ -1470,7 +1421,6 @@ function initializeSiparisServisApp() {
                     case 'ss_sevkTable': currentSort = sevkSort; renderFunction = renderSevkList; break;
                     case 'ss_teknikServisSevkTable': currentSort = teknikServisSevkSort; renderFunction = renderTeknikServisSevkList; break;
                     case 'ss_servisTable': currentSort = servisSort; renderFunction = renderServisList; break;
-                    case 'ss_servisSevkTable': currentSort = servisSevkSort; renderFunction = renderServisSevkList; break;
                     default: return;
                 }
 
@@ -1486,15 +1436,20 @@ function initializeSiparisServisApp() {
         });
     }
     function renderAllTables() {
-        renderOrders(); renderLogs(); renderSevkList(); renderServisList(); renderServisSevkList();
+        renderOrders(); 
+        renderLogs(); 
+        renderSevkList(); 
+        renderServisList();
+        renderTeknikServisSevkList();
     }
     
     loadDataFromStorage();
     flatpickr(appContainer.querySelector('#ss_sevkTarihi'), getFPBaseOptions());
     flatpickr(dateFromInput, getFPBaseOptions());
     flatpickr(dateToInput, getFPBaseOptions());
-    flatpickr(servisSevkDateFrom, getFPBaseOptions());
-    flatpickr(servisSevkDateTo, getFPBaseOptions());
+    flatpickr(teknikSevkDateFrom, getFPBaseOptions());
+    flatpickr(teknikSevkDateTo, getFPBaseOptions());
+
 
     document.addEventListener("visibilitychange", checkDayAndRefresh);
     window.addEventListener("focus", checkDayAndRefresh);
@@ -1837,3 +1792,5 @@ function initializeStokTakipApp() {
 
 </body>
 </html>
+
+
