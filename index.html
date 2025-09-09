@@ -397,7 +397,6 @@ const SIPARIS_SERVIS_HTML = `
             <input class="px-3 py-2 border rounded-xl col-span-2" name="aciklama" placeholder="Açıklama">
             <div class="col-span-2 md:col-span-8 flex gap-2"><button class="btn-brand px-4 py-2 rounded-xl flex-grow" id="ss_servisFormSubmitButton">Servis Kaydı Ekle</button><button class="hidden px-4 py-2 rounded-xl border bg-white hover:bg-slate-50" id="ss_servisFormCancelButton" type="button">İptal Et</button></div>
         </form>
-        <div class="bg-white p-3 rounded-xl shadow mb-3 text-sm flex flex-wrap gap-3 items-center"><span class="text-slate-600">Durum Renkleri:</span><span class="px-2 py-1 rounded-md" style="background:#dcfce7">Hazır</span><span class="px-2 py-1 rounded-md" style="background:#f1f5f9">Beklemede</span><span class="px-2 py-1 rounded-md" style="background:#fef3c7">İnceleniyor</span><span class="px-2 py-1 rounded-md" style="background:#ede9fe">Teklif Bekliyor</span></div>
         <div class="bg-white p-4 rounded-xl shadow mb-3 flex flex-wrap gap-2 items-center"><input class="px-3 py-2 border rounded-xl w-full md:w-auto flex-grow md:flex-grow-0" id="ss_servisSearch" placeholder="Ara: firma, ürün, arıza, not..."><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" id="ss_btnServisCSV">CSV</button><button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnServisClearAll">Tüm Servis Kayıtlarını Sil</button></div>
         <div class="overflow-auto rounded-xl shadow">
             <table class="w-full text-sm bg-white">
@@ -870,7 +869,7 @@ function initializeSiparisServisApp() {
 
     function servisRowBg(durum){
       switch((durum || '').toUpperCase()){
-        case "HAZIR": return "#dcfce7";
+        case "HAZIR": return "#fef3c7";
         case "BEKLEMEDE": return "#f1f5f9";
         case "İNCELENİYOR": case "INCELENIYOR": return "#fef3c7";
         case "TEKLİF BEKLİYOR": case "TEKLIF BEKLIYOR": return "#ede9fe";
@@ -891,8 +890,25 @@ function initializeSiparisServisApp() {
       filtered.forEach((s) => {
         const originalIndex = servisKayitlari.indexOf(s);
         const tr = document.createElement("tr");
-        const bg = s.sevkTarihi ? getRowBgByDue(s.sevkTarihi) : servisRowBg(s.durum);
-        if (bg) tr.style.backgroundColor = bg;
+        
+        let bg = null;
+        const isServisHazir = (s.durum || '').toUpperCase() === 'HAZIR';
+
+        if (s.sevkTarihi) {
+            // Termin tarihine göre renklendirme önceliklidir.
+            // Siparişlerdeki gibi gecikme/yaklaşma durumuna göre sarı-kırmızı tonları atanır.
+            bg = getRowBgByDue(s.sevkTarihi, isServisHazir);
+        }
+        
+        // Eğer termin tarihine göre bir renk atanmadıysa (örn. tarih ilerideyse),
+        // o zaman duruma göre varsayılan renklendirme yapılır.
+        if (!bg) {
+            bg = servisRowBg(s.durum);
+        }
+
+        if (bg) {
+            tr.style.backgroundColor = bg;
+        }
         
         const showVal = (v) => (v === undefined || v === null || v === '' ? '<span class="text-slate-400 italic">—</span>' : String(v));
         const span = (text, field, type, extraCls='') => `<span class="editable block min-h-[28px] w-full px-1 rounded ${extraCls}" ondblclick="window.ssApp.makeEditableServis(this, ${originalIndex}, '${field}', '${type}')">${showVal(text)}</span>`;
@@ -1792,5 +1808,9 @@ function initializeStokTakipApp() {
 
 </body>
 </html>
+
+
+
+
 
 
