@@ -90,7 +90,6 @@
             </div>
         </div>
         <div class="flex items-center gap-2">
-            <!-- DÜZELTME: Butonlar headera taşındı ve görünürlükleri JS ile kontrol edilecek -->
             <div id="siparis-header-buttons" class="flex items-center gap-2">
                 <label class="text-sm">
                     <input accept="application/json" class="hidden" id="ss_fileInput" type="file">
@@ -502,7 +501,7 @@ function initializeSiparisServisApp() {
     const appContainer = document.getElementById('app-siparis-servis');
     if (!appContainer.innerHTML.trim()) return; 
 
-    const $ = (selector) => document.querySelector(selector); // Use document to find header buttons
+    const $ = (selector) => document.querySelector(selector);
     const $$ = (selector) => Array.from(appContainer.querySelectorAll(selector));
     
     let currentTab = "siparis";
@@ -1637,12 +1636,10 @@ function initializeStokTakipApp() {
   const db  = getDatabase(app);
 
   const KEYS = ["siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler","stokTakip-v1"];
+  const CLIENT_ID = 'client-' + Math.random().toString(36).slice(2);
 
   const enc = (s)=>encodeURIComponent(s);
-  const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
-  const stable = (o)=>{ if(o==null) return "null"; try{return JSON.stringify(o, Object.keys(o).sort());}catch{return JSON.stringify(o)} };
 
-  // --- Global Veri Deposu ve Arayüz Yenileme Fonksiyonları ---
   window.dataStore = {};
   let siparisServisRefresher = () => console.warn("Sipariş yenileme fonksiyonu henüz ayarlanmadı.");
   let stokTakipRefresher = () => console.warn("Stok yenileme fonksiyonu henüz ayarlanmadı.");
@@ -1651,7 +1648,12 @@ function initializeStokTakipApp() {
   
   window.pushData = async function(key) {
     if (!KEYS.includes(key)) return;
-    const payload = { value: window.dataStore[key], updatedAt: Date.now(), user: sessionStorage.getItem("auth_user") || "unknown" };
+    const payload = { 
+        value: window.dataStore[key], 
+        updatedAt: Date.now(), 
+        user: sessionStorage.getItem("auth_user") || "unknown",
+        updatedBy: CLIENT_ID 
+    };
     try {
         await set(ref(db, "ls/" + enc(key)), payload);
     } catch (error) {
@@ -1659,7 +1661,6 @@ function initializeStokTakipApp() {
     }
   }
   
-  // --- Ana Senkronizasyon Mantığı ---
   const initialLoadPromises = KEYS.map(key => {
     return new Promise((resolve) => {
         const dbRef = ref(db, "ls/" + enc(key));
@@ -1676,7 +1677,7 @@ function initializeStokTakipApp() {
         }).catch(error => {
             console.error(`Firebase'den veri okunurken hata oluştu (${key}):`, error);
             window.dataStore[key] = key === 'stokTakip-v1' ? { products: [], logs: [] } : [];
-            resolve(); // Hata durumunda da devam et
+            resolve();
         });
     });
   });
@@ -1688,18 +1689,18 @@ function initializeStokTakipApp() {
       KEYS.forEach(key => {
           const dbRef = ref(db, "ls/" + enc(key));
           onValue(dbRef, (snap) => {
-              const remoteValue = snap.val()?.value;
-              const localValue = window.dataStore[key];
+              const data = snap.val();
+              if (!data || data.updatedBy === CLIENT_ID) {
+                  return; 
+              }
               
-              if (stable(localValue) !== stable(remoteValue)) {
-                  console.log(`${key} için uzaktan güncelleme geldi, arayüz yenileniyor.`);
-                  window.dataStore[key] = (key === 'stokTakip-v1') ? remoteValue : ensureArray(remoteValue);
-                  
-                  if (key === 'stokTakip-v1') {
-                      stokTakipRefresher();
-                  } else {
-                      siparisServisRefresher();
-                  }
+              console.log(`${key} için uzaktan güncelleme geldi, arayüz yenileniyor.`);
+              window.dataStore[key] = (key === 'stokTakip-v1') ? data.value : ensureArray(data.value);
+              
+              if (key === 'stokTakip-v1') {
+                  stokTakipRefresher();
+              } else {
+                  siparisServisRefresher();
               }
           });
       });
