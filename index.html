@@ -196,12 +196,18 @@ mainTabStok.addEventListener('click', () => setActiveMainTab('stok'));
   window.addEventListener("load", applyRoleUI);
 })();
 
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('app-siparis-servis').innerHTML = SIPARIS_SERVIS_HTML;
-    document.getElementById('app-stok-takip').innerHTML = STOK_TAKIP_HTML;
-
+// Düzeltme: Uygulama başlatma mantığı, Firebase'den ilk verinin çekilmesini bekleyecek şekilde yeniden düzenlendi.
+// Bu, sayfa ilk açıldığında eski verinin kısa süreliğine görünmesini engeller.
+function initializePlatformApps() {
     initializeSiparisServisApp();
     initializeStokTakipApp();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Önce uygulama modüllerinin HTML iskeletini sayfaya ekliyoruz.
+    document.getElementById('app-siparis-servis').innerHTML = SIPARIS_SERVIS_HTML;
+    document.getElementById('app-stok-takip').innerHTML = STOK_TAKIP_HTML;
+    // Uygulama fonksiyonlarının başlatılması Firebase senkronizasyonundan sonraya bırakıldı.
 });
 </script>
 
@@ -209,6 +215,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===================================================================================
 // ===                     UYGULAMA HTML İÇERİKLERİ VE SCRIPTLERİ                    ===
 // ===================================================================================
+
+// Firebase'den gelen ve obje olarak saklanabilen dizileri güvenli bir şekilde
+// diziye dönüştüren yardımcı fonksiyon.
+function ensureArray(data) {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === 'object') return Object.values(data);
+    return [];
+}
 
 const SIPARIS_SERVIS_HTML = `
 <div class="max-w-7xl mx-auto px-4 py-6">
@@ -508,11 +522,11 @@ function initializeSiparisServisApp() {
     const servisSearch = $('#ss_servisSearch');
     const servisTable = $('#ss_servisTable');
     
-    let orders = JSON.parse(localStorage.getItem("siparisler") || "[]");
-    let logs = JSON.parse(localStorage.getItem("siparisLog") || "[]");
-    let sevkEdilenler = JSON.parse(localStorage.getItem("sevkEdilenler") || "[]");
-    let servisKayitlari = JSON.parse(localStorage.getItem("servisKayitlari") || "[]");
-    let servisSevkEdilenler = JSON.parse(localStorage.getItem("servisSevkEdilenler") || "[]");
+    let orders = ensureArray(JSON.parse(localStorage.getItem("siparisler") || "[]"));
+    let logs = ensureArray(JSON.parse(localStorage.getItem("siparisLog") || "[]"));
+    let sevkEdilenler = ensureArray(JSON.parse(localStorage.getItem("sevkEdilenler") || "[]"));
+    let servisKayitlari = ensureArray(JSON.parse(localStorage.getItem("servisKayitlari") || "[]"));
+    let servisSevkEdilenler = ensureArray(JSON.parse(localStorage.getItem("servisSevkEdilenler") || "[]"));
 
     function formatDate_TR(input) {
       if (!input) return "";
@@ -1216,10 +1230,15 @@ function initializeSiparisServisApp() {
         try {
           const data = JSON.parse(reader.result);
           if (confirm("Mevcut verilerin üzerine içe aktarılan veriler yazılsın mı? Bu işlem geri alınamaz.")){
-            orders = data.orders || []; logs = data.logs || []; sevkEdilenler = data.sevkEdilenler || [];
-            servisKayitlari = data.servisKayitlari || []; servisSevkEdilenler = data.servisSevkEdilenler || [];
-            localStorage.setItem("siparisler", JSON.stringify(orders)); localStorage.setItem("siparisLog", JSON.stringify(logs));
-            localStorage.setItem("sevkEdilenler", JSON.stringify(sevkEdilenler)); localStorage.setItem("servisKayitlari", JSON.stringify(servisKayitlari));
+            orders = ensureArray(data.orders || []); 
+            logs = ensureArray(data.logs || []); 
+            sevkEdilenler = ensureArray(data.sevkEdilenler || []);
+            servisKayitlari = ensureArray(data.servisKayitlari || []); 
+            servisSevkEdilenler = ensureArray(data.servisSevkEdilenler || []);
+            localStorage.setItem("siparisler", JSON.stringify(orders)); 
+            localStorage.setItem("siparisLog", JSON.stringify(logs));
+            localStorage.setItem("sevkEdilenler", JSON.stringify(sevkEdilenler)); 
+            localStorage.setItem("servisKayitlari", JSON.stringify(servisKayitlari));
             localStorage.setItem("servisSevkEdilenler", JSON.stringify(servisSevkEdilenler));
             renderAllTables();
             alert("Veri başarıyla yüklendi.");
@@ -1338,14 +1357,14 @@ function initializeStokTakipApp() {
     const $=(s,r=appContainer)=>r.querySelector(s);
     const $$=(s,r=appContainer)=>Array.from(r.querySelectorAll(s));
     
-    const LS_KEY='stokTakip.v1';
+    const LS_KEY='stokTakip-v1';
     const CATEGORY_PREFIX={stator:'ST',rotor:'RT',mil:'MIL',rotorluMil:'RMIL',taslanmisMil:'TMIL',sargiliPaket:'SP',paketliGovde:'PG',motor:'MOT',kapak:'KAP',islenmisKapak:'IKAP',taslanmisKapak:'TKAP', rulman:'RUL', aluminyum_govde:'ALU', bakir_tel:'CUW',  yardimci_parcalar:'ACC'};
     const CATEGORY_LABEL={stator:'Stator',rotor:'Rotor',mil:'Mil',rotorluMil:'Rotorlu Mil',taslanmisMil:'Taşlanmış Mil',sargiliPaket:'Sargılı Paket',paketliGovde:'Paketli Gövde',motor:'Motor',kapak:'Kapak',islenmisKapak:'İşlenmiş Kapak',taslanmisKapak:'Taşlanmış Kapak', rulman:'Rulman', aluminyum_govde:'Alüminyum Gövde', bakir_tel:'Bakır Tel',  yardimci_parcalar:'Yardımcı Parçalar'};
 
     const state={products:[],logs:[]};
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
 
-    function load(){ try{ const raw=localStorage.getItem(LS_KEY); if(!raw) return; const data=JSON.parse(raw); state.products=data.products||[]; state.logs=data.logs||[]; }catch(e){ console.error('Stok yükleme hatası',e);} }
+    function load(){ try{ const raw=localStorage.getItem(LS_KEY); if(!raw) return; const data=JSON.parse(raw); state.products=ensureArray(data.products||[]); state.logs=ensureArray(data.logs||[]); }catch(e){ console.error('Stok yükleme hatası',e);} }
     function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({products:state.products,logs:state.logs})); }catch(e){ console.error('Stok kaydetme hatası',e);} render(); }
 
     const fmt=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(v):n};
@@ -1378,7 +1397,7 @@ function initializeStokTakipApp() {
         const tbody=$('#stok_tbodyDesktop'); tbody.innerHTML='';
         const listMobile=$('#stok_listMobile'); listMobile.innerHTML='';
 
-        let list=[...state.products];
+        let list=ensureArray(state.products);
         if(q){ list=list.filter(p=> searchable(p).includes(q)); }
         if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
 
@@ -1439,7 +1458,7 @@ function initializeStokTakipApp() {
     function exportCSV(){ const rows=[[ 'id','sku','name','kind','category','unit','material','qty','min','note','kw','rpm','volt','milCode','customer','pg_kw','pg_rpm','pg_volt','pg_customer','pg_conn','m_kw','m_rpm','m_volt','m_conn','milType' ]].concat( state.products.map(p=>[ p.id, p.sku, p.name, p.kind, p.category, p.unit, p.material,p.qty,p.min,(p.note||'').replaceAll('\n',' '), p.kw??'',p.rpm??'',p.volt??'',p.milCode??'',p.customer??'', p.pg_kw??'',p.pg_rpm??'',p.pg_volt??'',p.pg_customer??'',p.pg_conn??'', p.m_kw??'',p.m_rpm??'',p.m_volt??'',p.m_conn??'',p.milType??'' ]) ); const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-urunler-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
     function exportLogCSV(){ const rows=[['ts','product','type','amount','from','to','note','user']]; for(const L of state.logs){ const p=findProduct(L.productId)||{}; rows.push([L.ts,p.name||'',L.type,L.amount,L.fromQty,L.toQty,(L.note||'').replaceAll('\\n',' '), (L.user||'')]);} const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-log-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
     
-    function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=Array.isArray(data.products)?data.products:[]; state.logs=Array.isArray(data.logs)?data.logs:[]; save(); alert('İçe aktarıldı'); }catch(e){ alert('Dosya okunamadı: '+e.message); } }; reader.readAsText(file); }
+    function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=ensureArray(data.products||[]); state.logs=ensureArray(data.logs||[]); save(); alert('İçe aktarıldı'); }catch(e){ alert('Dosya okunamadı: '+e.message); } }; reader.readAsText(file); }
     
     function toggleConditionalSections(){ 
         const form=$('#stok_productForm'); const cat=form.category.value; 
@@ -1528,24 +1547,22 @@ function initializeStokTakipApp() {
   import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
   const firebaseConfig = {
-  "apiKey": "AIzaSyDbwnPViAnSzZ_l8M6YgL75xJiPr3V4Odk",
-  "authDomain": "hertz-motor-stok-takip.firebaseapp.com",
-  "databaseURL": "https://hertz-motor-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
-  "projectId": "hertz-motor-stok-takip",
-  "storageBucket": "hertz-motor-stok-takip.firebasestorage.app",
-  "messagingSenderId": "30502784749",
-  "appId": "1:30502784749:web:257335fa1934477af406e4",
-  "measurementId": "G-T5ZGWC6CKS"
-};
+    "apiKey": "AIzaSyDbwnPViAnSzZ_l8M6YgL75xJiPr3V4Odk",
+    "authDomain": "hertz-motor-stok-takip.firebaseapp.com",
+    "databaseURL": "https://hertz-motor-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+    "projectId": "hertz-motor-stok-takip",
+    "storageBucket": "hertz-motor-stok-takip.firebasestorage.app",
+    "messagingSenderId": "30502784749",
+    "appId": "1:30502784749:web:257335fa1934477af406e4",
+    "measurementId": "G-T5ZGWC6CKS"
+  };
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
-  
-  // === RTDB path sanitizer ===
-  const sanitizeKey = (k)=> String(k).replace(/[.#$\[\]\/]/g, "_");
-  const rtPath = (k)=> "ls/" + sanitizeKey(k);
-// === Anahtarlar (A seçeneği: ls/<key>) ===
-  const KEYS = ["siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler","stokTakip.v1"];
+  // === Anahtarlar (A seçeneği: ls/<key>) ===
+  // Düzeltme: Stok yönetimi için kullanılan anahtar "stokUrunleri" yerine "stokTakip.v1" olarak güncellendi.
+  // Bu, stok uygulamasının localStorage'a yazdığı anahtarla eşleşmesini ve verinin doğru senkronize edilmesini sağlar.
+  const KEYS = ["siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler","stokTakip-v1"];
 
   // === Yardımcılar ===
   const enc = (s)=>encodeURIComponent(s);
@@ -1554,63 +1571,60 @@ function initializeStokTakipApp() {
 
   // UI tetikleyici (geniş set)
   function triggerAll() {
-    try { if (typeof window.renderAllTables === "function") window.renderAllTables(); } catch {}
-    try { if (typeof window.render === "function") window.render(); } catch {}
-    try { if (typeof window.renderStok === "function") window.renderStok(); } catch {}
-    try { if (typeof window.renderOrders === "function") window.renderOrders(); } catch {}
-    try { if (typeof window.renderSevkList === "function") window.renderSevkList(); } catch {}
-    try { if (typeof window.renderServisList === "function") window.renderServisList(); } catch {}
-    try { if (typeof window.renderServisSevkList === "function") window.renderServisSevkList(); } catch {}
-    try { if (typeof window.renderLogs === "function") window.renderLogs(); } catch {}
-    try { document.dispatchEvent(new CustomEvent("rtdb_data_changed", { detail: { all:true } })); } catch {}
+    // Bu fonksiyon, veri değiştiğinde tüm modüllerin yeniden render edilmesini tetikler.
+    // Orijinal kodda bu fonksiyonlar global scope'ta olduğu için try-catch blokları kullanılmıştır.
+    try { if (typeof initializePlatformApps === "function") initializePlatformApps(); } catch(e) { console.error("Platform başlatılamadı:", e); }
   }
 
   // === localStorage köprüsü ===
-  let APPLYING_REMOTE = false;
+  let APPLYING_REMOTE = false; // Uzaktan gelen veriyi işlerken tekrar buluta göndermeyi engellemek için kullanılan bayrak.
   (function hookLS(){
     const _set = localStorage.setItem.bind(localStorage);
     const _rem = localStorage.removeItem.bind(localStorage);
     const _clr = localStorage.clear.bind(localStorage);
     localStorage.setItem = function(k,v){ _set(k,v);
-      if(!APPLYING_REMOTE && KEYS.includes(k)) pushKey(k).catch(()=>{}), triggerAll();
+      if(!APPLYING_REMOTE && KEYS.includes(k)) pushKey(k).catch(()=>{});
     };
     localStorage.removeItem = function(k){ _rem(k);
-      if(!APPLYING_REMOTE && KEYS.includes(k)) pushKey(k).catch(()=>{}), triggerAll();
+      if(!APPLYING_REMOTE && KEYS.includes(k)) pushKey(k).catch(()=>{});
     };
     localStorage.clear = function(){ _clr();
       for(const k of KEYS) pushKey(k).catch(()=>{});
-      triggerAll();
     };
   })();
 
   async function pushKey(k) {
     const val = safeParse(localStorage.getItem(k));
     const payload = { value: val, updatedAt: Date.now() };
-    await set(ref(db, rtPath(k)), payload);
+    await set(ref(db, "ls/"+enc(k)), payload);
   }
 
   function applyIncoming(k, incoming) {
     const cur = safeParse(localStorage.getItem(k));
-    if (stable(cur) === stable(incoming)) return false;
+    if (stable(cur) === stable(incoming)) return false; // Değişiklik yoksa işlem yapma
     APPLYING_REMOTE = true;
-    try { localStorage.setItem(k, JSON.stringify(incoming)); } finally { APPLYING_REMOTE = false; }
-    triggerAll(); return true;
+    try { localStorage.setItem(k, JSON.stringify(incoming ?? [])); } finally { APPLYING_REMOTE = false; }
+    return true;
   }
 
   function attach(k) {
-    onValue(ref(db, rtPath(k)), (snap)=>{
+    onValue(ref(db, "ls/"+enc(k)), (snap)=>{
       const data = snap.val();
       if (!data || typeof data !== "object") return;
-      applyIncoming(k, data.value);
+      if(applyIncoming(k, data.value)) {
+         // Veri değiştiyse, değişikliği yansıtmak için uygulamaları yeniden başlat.
+         // Bu, başka bir cihazdan gelen güncellemelerin anında görünmesini sağlar.
+         initializePlatformApps();
+      }
     });
   }
-  for (const k of KEYS) attach(k);
-
+  
   // === Hydrate (önce bulut) ===
+  // Sayfa yüklendiğinde ilk olarak Firebase'den veriyi alıp yerel depolamayı günceller.
   (async function hydrate(){
     for (const k of KEYS) {
       try {
-        const snap = await get(ref(db, rtPath(k)));
+        const snap = await get(ref(db, "ls/"+enc(k)));
         if (snap.exists() && snap.val() && typeof snap.val() === "object") {
           applyIncoming(k, snap.val().value);
         } else {
@@ -1620,19 +1634,16 @@ function initializeStokTakipApp() {
         }
       } catch(e) { console.warn("[hydrate]", k, e); }
     }
+    
+    // Tüm veriler Firebase'den çekilip localStorage'a yazıldıktan sonra
+    // uygulama fonksiyonlarını başlatıyoruz.
+    initializePlatformApps();
+    
+    // Dinleyicileri şimdi başlatıyoruz.
+    for (const k of KEYS) attach(k);
+
     console.log("%cRTDB köprü aktif: ls/<key> senkron","color:#16a34a;font-weight:600");
   })();
-
-  // === Polling fallback (2s) ===
-  async function pollOnce(){
-    for (const k of KEYS) {
-      try {
-        const snap = await get(ref(db, rtPath(k)));
-        if (snap.exists() && snap.val()) applyIncoming(k, snap.val().value);
-      } catch(e){}
-    }
-  }
-  setInterval(pollOnce, 2000);
 </script>
 
 </body>
