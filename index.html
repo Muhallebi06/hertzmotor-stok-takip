@@ -743,7 +743,32 @@ function initializeSiparisServisApp() {
       });
 
       servisSevkTable.innerHTML = "";
-      filtered.forEach(o => {
+      
+      
+      // Empty-state for Servis Sevkleri
+      if (typeof filtered !== 'undefined' && Array.isArray(filtered) && filtered.length === 0) {
+        servisSevkTable.innerHTML = `<tr>
+          <td colspan="9" class="px-3 py-6 text-center text-slate-500">
+            Şu anda sevk edilmiş teknik servis kaydı yok.
+            <div class="mt-2 text-slate-400 text-sm">Teknik Servis sekmesinde bir kaydı <b>HAZIR</b> durumuna getirip <b>Sevk Et</b> ile buraya taşıyın.</div>
+            <div class="mt-3"><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" onclick="document.querySelector('#ss_tabServis')?.click()">🛠️ Teknik Servis'e git</button></div>
+          </td>
+        </tr>`;
+        if (typeof updateSortIndicators === 'function') updateSortIndicators(servisSevkTable.id, servisSevkSort);
+        return;
+      }
+if (filtered.length === 0) {
+        servisSevkTable.innerHTML = `<tr>
+          <td colspan="9" class="px-3 py-6 text-center text-slate-500">
+            Şu anda listede sevk edilmiş teknik servis kaydı yok.
+            <div class="mt-2 text-slate-400 text-sm">Kayıt eklemek için <b>🛠️ Teknik Servis</b> sekmesine gidin, durumu <b>HAZIR</b> yapın ve <b>Sevk Et</b> butonuna tıklayın.</div>
+            <div class="mt-3"><button class="px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm" onclick="document.querySelector('#ss_tabServis')?.click()">Teknik Servis'e git</button></div>
+          </td>
+        </tr>`;
+        updateSortIndicators(servisSevkTable.id, servisSevkSort);
+        return;
+      }
+filtered.forEach(o => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td class="px-3 py-2">${o.no || ""}</td>
