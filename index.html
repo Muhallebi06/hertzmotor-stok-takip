@@ -1542,7 +1542,7 @@ function initializeStokTakipApp() {
   const toRTPath   = (k)=> "ls/" + sanitizeKey(k);
   const refKey     = (k)=> ref(db, toRTPath(k));
 
-const STOK_KEY = (typeof window.LS_KEY === "string" ? window.LS_KEY : "stokTakip.v1");
+const STOK_KEY = (typeof window.LS_KEY === "string" ? window.LS_KEY : BRIDGE_KEYS.legacy);
   const SS_KEYS  = ["siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler"];
   const ALL_KEYS = [STOK_KEY, ...SS_KEYS];
 
@@ -1598,7 +1598,10 @@ const STOK_KEY = (typeof window.LS_KEY === "string" ? window.LS_KEY : "stokTakip
   }
   for(const k of ALL_KEYS) attach(k);
 
-  (async function hydrate(){
+  
+attach(BRIDGE_KEYS.safe);
+attach(BRIDGE_KEYS.legacy);
+(async function hydrate(){
     for(const k of ALL_KEYS){
       try{ const snap=await get(refKey(k));
         if(snap.exists()){ const v=snap.val().value; if(v!=null) applyIncoming(k,v); }
