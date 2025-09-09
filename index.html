@@ -1540,8 +1540,12 @@ function initializeStokTakipApp() {
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
 
-  // === Anahtarlar (A seçeneği: ls/<key>) ===
-  const KEYS = ["siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler","stokUrunleri"];
+  
+  // === RTDB path sanitizer ===
+  const sanitizeKey = (k)=> String(k).replace(/[.#$\[\]\/]/g, "_");
+  const rtPath = (k)=> "ls/" + sanitizeKey(k);
+// === Anahtarlar (A seçeneği: ls/<key>) ===
+  const KEYS = ["siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler","stokTakip.v1"];
 
   // === Yardımcılar ===
   const enc = (s)=>encodeURIComponent(s);
@@ -1582,7 +1586,7 @@ function initializeStokTakipApp() {
   async function pushKey(k) {
     const val = safeParse(localStorage.getItem(k));
     const payload = { value: val, updatedAt: Date.now() };
-    await set(ref(db, "ls/"+enc(k)), payload);
+    await set(ref(db, rtPath(k)), payload);
   }
 
   function applyIncoming(k, incoming) {
@@ -1594,7 +1598,7 @@ function initializeStokTakipApp() {
   }
 
   function attach(k) {
-    onValue(ref(db, "ls/"+enc(k)), (snap)=>{
+    onValue(ref(db, rtPath(k)), (snap)=>{
       const data = snap.val();
       if (!data || typeof data !== "object") return;
       applyIncoming(k, data.value);
@@ -1606,7 +1610,7 @@ function initializeStokTakipApp() {
   (async function hydrate(){
     for (const k of KEYS) {
       try {
-        const snap = await get(ref(db, "ls/"+enc(k)));
+        const snap = await get(ref(db, rtPath(k)));
         if (snap.exists() && snap.val() && typeof snap.val() === "object") {
           applyIncoming(k, snap.val().value);
         } else {
@@ -1623,7 +1627,7 @@ function initializeStokTakipApp() {
   async function pollOnce(){
     for (const k of KEYS) {
       try {
-        const snap = await get(ref(db, "ls/"+enc(k)));
+        const snap = await get(ref(db, rtPath(k)));
         if (snap.exists() && snap.val()) applyIncoming(k, snap.val().value);
       } catch(e){}
     }
