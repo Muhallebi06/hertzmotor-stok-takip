@@ -1521,6 +1521,92 @@ function initializeStokTakipApp() {
     render();
 }
 </script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+  import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDbwnPViAnSzZ_l8M6YgL75xJiPr3V4Odk",
+    authDomain: "hertz-motor-stok-takip.firebaseapp.com",
+    databaseURL: "https://hertz-motor-stok-takip-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "hertz-motor-stok-takip",
+    storageBucket: "hertz-motor-stok-takip.firebasestorage.app",
+    messagingSenderId: "30502784749",
+    appId: "1:30502784749:web:3de3128e6bb7c059f406e4",
+    measurementId: "G-HERC6F90FC"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  const STOK_KEY = (typeof window.LS_KEY === "string" ? window.LS_KEY : "stokTakip.v1");
+  const SS_KEYS  = ["siparisler","siparisLog","sevkEdilenler","servisKayitlari","servisSevkEdilenler"];
+  const ALL_KEYS = [STOK_KEY, ...SS_KEYS];
+
+  const enc = (k)=> encodeURIComponent(k);
+  const safeParse = (x)=>{ try { return JSON.parse(x); } catch { return null; } };
+  const stable = (o)=>{ if(o==null) return "null"; try { return JSON.stringify(o, Object.keys(o).sort()); } catch { return JSON.stringify(o); } };
+
+  function defaultFor(k){ return (k===STOK_KEY)? {products:[], logs:[]} : []; }
+
+  let APPLYING_REMOTE=false;
+  function triggerUI(k){
+    if(typeof window.renderAllTables==="function") window.renderAllTables();
+    if(typeof window.render==="function") window.render();
+    if(typeof window.renderStok==="function") window.renderStok();
+    document.dispatchEvent(new CustomEvent("rtdb_data_changed",{detail:{key:k}}));
+  }
+  function applyIncoming(k,v){
+    const cur=safeParse(localStorage.getItem(k));
+    if(stable(cur)===stable(v)) return false;
+    APPLYING_REMOTE=true;
+    try{ localStorage.setItem(k, JSON.stringify(v)); }finally{ APPLYING_REMOTE=false; }
+    triggerUI(k); return true;
+  }
+  async function pushKey(k){
+    const val=safeParse(localStorage.getItem(k));
+    await set(ref(db,"ls/"+enc(k)), {value:val,updatedAt:Date.now()});
+  }
+  function buildBridge(){
+    const obj={};
+    for(const k of SS_KEYS){ const v=safeParse(localStorage.getItem(k)); if(v!=null) obj[k]=v; }
+    const cur=safeParse(localStorage.getItem(STOK_KEY));
+    if(cur&&typeof cur==="object"){ if("products" in cur) obj.products=cur.products; if("logs" in cur) obj.logs=cur.logs; }
+    return obj;
+  }
+  async function pushBridge(){ await set(ref(db,"ls/"+enc(STOK_KEY)), {value:buildBridge(),updatedAt:Date.now()}); }
+
+  // hook
+  (function(){
+    const _set=localStorage.setItem.bind(localStorage);
+    localStorage.setItem=function(k,v){ _set(k,v);
+      if(!APPLYING_REMOTE && ALL_KEYS.includes(k)){ pushKey(k); if(SS_KEYS.includes(k)) pushBridge(); triggerUI(k);} };
+  })();
+
+  function attach(k){
+    onValue(ref(db,"ls/"+enc(k)),snap=>{
+      const d=snap.val(); if(!d||typeof d!=="object") return;
+      const val=d.value;
+      if(k===STOK_KEY && val && typeof val==="object"){
+        for(const kk of SS_KEYS) if(kk in val) applyIncoming(kk,val[kk]);
+        if("products" in val||"logs" in val) applyIncoming(STOK_KEY,{products:val.products||[], logs:val.logs||[]});
+      }else applyIncoming(k,val);
+    });
+  }
+  for(const k of ALL_KEYS) attach(k);
+
+  (async function hydrate(){
+    for(const k of ALL_KEYS){
+      try{ const snap=await get(ref(db,"ls/"+enc(k)));
+        if(snap.exists()){ const v=snap.val().value; if(v!=null) applyIncoming(k,v); }
+        else { const l=safeParse(localStorage.getItem(k)); if(l==null) localStorage.setItem(k,JSON.stringify(defaultFor(k))); await pushKey(k); }
+      }catch(e){}
+    }
+    await pushBridge();
+    console.log("Realtime sync aktif");
+  })();
+
+  setInterval(async()=>{ for(const k of ALL_KEYS){ try{ const s=await get(ref(db,"ls/"+enc(k))); if(s.exists()){ const v=s.val().value; if(v!=null) applyIncoming(k,v);} }catch(e){} } },2000);
+</script>
 </body>
 </html>
 
