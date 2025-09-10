@@ -94,6 +94,32 @@
             display: none; /* Bu etiketleri gizle, içeriği tam genişlik kullanabilsin */
         }
     }
+    
+    /* === Düğme Görünürlük Kontrolü === */
+    #siparis-header-buttons, #stok-header-buttons, 
+    #siparis-mobile-buttons, #stok-mobile-buttons {
+        display: none;
+    }
+    
+    /* Masaüstü Görünümü */
+    @media (min-width: 640px) { /* sm breakpoint */
+        body[data-active-app="siparis"] #siparis-header-buttons {
+            display: flex;
+        }
+        body[data-active-app="stok"] #stok-header-buttons {
+            display: flex;
+        }
+    }
+
+    /* Mobil Görünümü */
+    @media (max-width: 639.98px) { /* below sm breakpoint */
+        body[data-active-app="siparis"] #siparis-mobile-buttons {
+            display: flex;
+        }
+        body[data-active-app="stok"] #stok-mobile-buttons {
+            display: flex;
+        }
+    }
   </style>
 </head>
 
@@ -148,7 +174,7 @@
         </div>
 
         <div class="flex items-center gap-2 flex-shrink-0 order-2 sm:order-3">
-            <div id="siparis-header-buttons" class="hidden sm:flex items-center gap-2">
+            <div id="siparis-header-buttons" class="items-center gap-2">
                 <label class="text-sm">
                     <input accept="application/json" class="hidden" id="ss_fileInput" type="file">
                     <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnImportJSON">İçe aktar</button>
@@ -158,7 +184,7 @@
                 <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportLogCSV">Log CSV</button>
                 <button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnClearAll">Tüm Veriyi Sil</button>
             </div>
-             <div id="stok-header-buttons" class="hidden sm:flex items-center gap-2">
+             <div id="stok-header-buttons" class="items-center gap-2">
                 <button id="stok_btnAdd" class="px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
                 <button id="stok_btnImport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
                 <button id="stok_btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa Aktar</button>
@@ -191,19 +217,14 @@ function setActiveMainTab(tabName) {
     allAppContainers.forEach(app => app.classList.add('hidden'));
     allMainTabs.forEach(tab => tab.classList.remove('bg-white', 'shadow-md'));
 
-    const siparisButtons = document.getElementById('siparis-header-buttons');
-    const stokButtons = document.getElementById('stok-header-buttons');
+    document.body.dataset.activeApp = tabName;
 
     if (tabName === 'siparis') {
         appSiparisServis.classList.remove('hidden');
         mainTabSiparis.classList.add('bg-white', 'shadow-md');
-        siparisButtons.style.display = 'flex';
-        stokButtons.style.display = 'none';
     } else if (tabName === 'stok') {
         appStokTakip.classList.remove('hidden');
         mainTabStok.classList.add('bg-white', 'shadow-md');
-        siparisButtons.style.display = 'none';
-        stokButtons.style.display = 'flex';
     }
 }
 mainTabSiparis.addEventListener('click', () => setActiveMainTab('siparis'));
@@ -316,7 +337,7 @@ const SIPARIS_SERVIS_HTML = `
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabSevk">🚚 Sevk Listesi</button>
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabServis">🛠️ Teknik Servis</button>
     </div>
-    <div class="sm:hidden flex flex-wrap gap-2 mb-4" id="siparis-mobile-buttons">
+    <div class="flex flex-wrap gap-2 mb-4" id="siparis-mobile-buttons">
         <label class="text-sm flex-1">
             <input accept="application/json" class="hidden" id="ss_fileInput_mobile" type="file">
             <button class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnImportJSON_mobile">İçe aktar</button>
@@ -491,7 +512,7 @@ const STOK_TAKIP_HTML = `
         <div class="text-sm text-slate-500">Kayıt: <span id="stok_count">0</span></div>
       </div>
     </header>
-     <div class="sm:hidden flex flex-wrap gap-2 mb-4" id="stok-mobile-buttons">
+     <div class="flex flex-wrap gap-2 mb-4" id="stok-mobile-buttons">
         <button id="stok_btnAdd_mobile" class="flex-1 px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
         <button id="stok_btnImport_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
         <button id="stok_btnExport_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
@@ -1860,3 +1881,4 @@ function initializeStokTakipApp() {
 
 </body>
 </html>
+
