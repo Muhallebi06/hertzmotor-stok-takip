@@ -892,7 +892,7 @@ function initializeSiparisServisApp() {
           <td data-label="Açıklama"><button class="px-2 py-1 rounded-md border bg-white hover:bg-slate-50 text-xs underline" onclick="window.ssApp.openDescEditor('siparis', ${i})">${(o.aciklama || '').trim() ? 'Açıklamayı Gör' : 'Açıklama Ekle'}</button></td>
           <td data-label="Hazır" class="${o.hazir ? 'bg-green-100' : ''}"><input type="checkbox" ${o.hazir?'checked':''} onchange="window.ssApp.toggleHazir(${i}, this.checked)" /></td>
           <td data-label="Sevke Hazır" class="${o.sevkeHazir ? 'bg-blue-100' : ''}"><input type="checkbox" ${o.sevkeHazir?'checked':''} ${o.hazir?'':'disabled'} onchange="window.ssApp.toggleSevkeHazir(${i}, this.checked)" /></td>
-          <td data-label="Durum">${o.sevkeHazir? `<button onclick="window.ssApp.markAsSevk('${o.no}')" class="text-blue-600 underline">Sevk Et</button>` : '<span class="text-slate-400 italic">Sevke hazır değil</span>'}</td>
+          <td data-label="Durum">${o.sevkeHazir ? (o.sevkTarihi ? `<button onclick="window.ssApp.markAsSevk('${o.no}')" class="text-blue-600 underline">Sevk Et</button>` : '<span class="text-slate-400 italic">Tarih belirtilmemiş</span>') : '<span class="text-slate-400 italic">Sevke hazır değil</span>'}</td>
           <td data-label="İşlemler"><button class="text-rose-600 underline" onclick="window.ssApp.deleteOrder('${o.no}')">Sil</button></td>
         `;
         table.appendChild(tr);
