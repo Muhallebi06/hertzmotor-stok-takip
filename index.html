@@ -38,6 +38,8 @@
     .stok-takip-app .badge{display:inline-block;padding:.125rem .5rem;border-radius:.5rem;font-size:.75rem}
     .stok-takip-app .no-scrollbar::-webkit-scrollbar{ display:none; }
     .stok-takip-app .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
+    .stok-takip-app .editable-qty { cursor: pointer; border-radius: 4px; padding: 2px 4px; transition: background-color 0.2s; }
+    .stok-takip-app .editable-qty:hover { background-color: #fef9c3; } /* yellow-100 */
 
     /* === MOBİL UYUMLULUK İÇİN RESPONSIVE TABLO STİLLERİ === */
     @media screen and (max-width: 768px) {
@@ -501,17 +503,42 @@ const SIPARIS_SERVIS_HTML = `
 
 const STOK_TAKIP_HTML = `
 <div class="mx-auto max-w-7xl p-3 md:p-4">
-     <header class="flex flex-col md:flex-row gap-2 md:gap-3 items-stretch md:items-center mb-3 md:mb-4">
-      <div class="flex items-center gap-2 grow">
-        <input id="stok_search" type="search" placeholder="Ara: ad, stok kodu…" class="w-full md:max-w-sm px-3 py-2 rounded-xl border border-slate-300 bg-white" />
-        <label class="flex items-center gap-2 text-sm text-slate-600">
-          <input id="stok_onlyLow" type="checkbox" class="w-4 h-4"> Sadece kritik stok
-        </label>
-      </div>
-      <div class="flex-shrink-0 flex items-center gap-2 flex-wrap justify-end">
-        <div class="text-sm text-slate-500">Kayıt: <span id="stok_count">0</span></div>
-      </div>
+     <div class="p-4 mb-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
+        <h3 class="text-base font-semibold text-slate-700 mb-3">Gösterge Paneli</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+            <div>
+                <div class="text-2xl font-bold text-slate-800" id="stok_totalProducts">0</div>
+                <div class="text-xs text-slate-500">Toplam Ürün</div>
+            </div>
+            <div>
+                <div class="text-2xl font-bold text-amber-600" id="stok_criticalProducts">0</div>
+                <div class="text-xs text-slate-500">Kritik Seviyedeki Ürün</div>
+            </div>
+        </div>
+    </div>
+     <header class="grid grid-cols-1 md:grid-cols-2 gap-3 items-center mb-2 p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input id="stok_search" type="search" placeholder="Ara: ad, kod, not..." class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white" />
+            <label class="flex items-center gap-2 text-sm text-slate-600">
+                <input id="stok_onlyLow" type="checkbox" class="w-4 h-4 rounded"> Sadece kritik stok
+            </label>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+             <select id="stok_filterKind" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm">
+                <option value="">Tüm Türler</option>
+                <option value="mamul">Mamul</option>
+                <option value="yari">Yarı-mamul</option>
+                <option value="ham">Hammadde</option>
+            </select>
+            <select id="stok_filterCategory" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm">
+                <option value="">Tüm Çeşitler</option>
+            </select>
+            <button id="stok_btnClearFilters" class="px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-sm">Filtreleri Temizle</button>
+        </div>
     </header>
+    <p class="text-xs text-slate-500 text-center md:text-left mb-2 px-1">
+        İpucu: Gelişmiş arama için <strong>kod:</strong>, <strong>ad:</strong>, <strong>not:</strong> veya çeşit adı (<strong>rulman:</strong>) gibi anahtar kelimeler kullanın.
+    </p>
      <div class="flex flex-wrap gap-2 mb-4" id="stok-mobile-buttons">
         <button id="stok_btnAdd_mobile" class="flex-1 px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
         <button id="stok_btnImport_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
@@ -520,6 +547,7 @@ const STOK_TAKIP_HTML = `
         <button id="stok_btnExportLogCSV_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
         <button id="stok_btnClear_mobile" class="flex-1 px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
     </div>
+    <div class="text-sm text-slate-500 mb-2">Toplam <span id="stok_count" class="font-bold">0</span> kayıt listeleniyor.</div>
     <div class="hidden md:block overflow-auto rounded-2xl border border-slate-200 bg-white">
       <table class="min-w-full text-sm">
         <thead id="stok_thead" class="bg-slate-100 text-slate-700">
@@ -1564,7 +1592,7 @@ function initializeStokTakipApp() {
     
     const LS_KEY='stokTakip-v1';
     const CATEGORY_PREFIX={stator:'ST',rotor:'RT',mil:'MIL',rotorluMil:'RMIL',taslanmisMil:'TMIL',sargiliPaket:'SP',paketliGovde:'PG',motor:'MOT',kapak:'KAP',islenmisKapak:'IKAP',taslanmisKapak:'TKAP', rulman:'RUL', aluminyum_govde:'ALU', bakir_tel:'CUW',  yardimci_parcalar:'ACC'};
-    const CATEGORY_LABEL={stator:'Stator',rotor:'Rotor',mil:'Mil',rotorluMil:'Rotorlu Mil',taslanmisMil:'Taşlanmış Mil',sargiliPaket:'Sargılı Paket',paketliGovde:'Paketli Gövde',motor:'Motor',kapak:'Kapak',islenmisKapak:'İşlenmiş Kapak',taslanmisKapak:'Taşlanmış Kapak', rulman:'Rulman', aluminyum_govde:'Alüminyum Gövde', bakir_tel:'Bakır Tel',  yardimci_parcalar:'Yardımcı Parçalar'};
+    const CATEGORY_LABEL={'stator':'Stator','rotor':'Rotor','mil':'Mil','rotorluMil':'Rotorlu Mil','taslanmisMil':'Taşlanmış Mil','sargiliPaket':'Sargılı Paket','paketliGovde':'Paketli Gövde','motor':'Motor','kapak':'Kapak','islenmisKapak':'İşlenmiş Kapak','taslanmisKapak':'Taşlanmış Kapak', 'rulman':'Rulman', 'aluminyum_govde':'Alüminyum Gövde', 'bakir_tel':'Bakır Tel',  'yardimci_parcalar':'Yardımcı Parçalar'};
 
     let state={products:[],logs:[]};
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
@@ -1585,6 +1613,18 @@ function initializeStokTakipApp() {
     const currentUser=()=> (sessionStorage.getItem('auth_user')||'anon');
     const addLog=(entry)=> state.logs.unshift({id:uuid(),ts:nowISO(),user:currentUser(),...entry});
     const findProduct=id=>state.products.find(p=>p.id===id);
+    
+    const normalizeTR = (s) => String(s||'').toLowerCase().replace(/ı/g, 'i').replace(/İ/g, 'i').replace(/ğ/g, 'g').replace(/Ğ/g, 'g').replace(/ü/g, 'u').replace(/Ü/g, 'u').replace(/ş/g, 's').replace(/Ş/g, 's').replace(/ö/g, 'o').replace(/Ö/g, 'o').replace(/ç/g, 'c').replace(/Ç/g, 'c');
+    
+    const SEARCH_ALIASES = {
+        'ad': 'name', 'isim': 'name',
+        'kod': 'sku', 'sku': 'sku',
+        'not': 'note',
+        'tur': 'kind', 'tür': 'kind',
+        'cesit': 'category', 'çeşit': 'category',
+        ...Object.fromEntries(Object.entries(CATEGORY_PREFIX).map(([cat, prefix]) => [prefix.toLowerCase(), cat])),
+        ...Object.fromEntries(Object.entries(CATEGORY_LABEL).map(([cat, label]) => [normalizeTR(label), cat]))
+    };
 
     let sortBy='name', sortDir='asc';
     
@@ -1602,24 +1642,51 @@ function initializeStokTakipApp() {
       return normalizeTR(base+' '+extra);
     }
     
-    function normalizeTR(s){ return String(s||'').toLowerCase().replaceAll('ı','i').replaceAll('İ','i').replaceAll('ğ','g').replaceAll('Ğ','g').replaceAll('ü','u').replaceAll('Ü','u').replaceAll('ş','s').replaceAll('Ş','s').replaceAll('ö','o').replaceAll('Ö','o').replaceAll('ç','c').replaceAll('Ç','c'); }
-
     function render(){
-        const qRaw=appContainer.querySelector('#stok_search').value.trim(); const q=normalizeTR(qRaw);
-        const onlyLow=appContainer.querySelector('#stok_onlyLow').checked;
-        const tbody=appContainer.querySelector('#stok_tbodyDesktop'); tbody.innerHTML='';
-        const listMobile=appContainer.querySelector('#stok_listMobile'); listMobile.innerHTML='';
-
         let list=ensureArray(state.products);
-        if(q){ list=list.filter(p=> searchable(p).includes(q)); }
-        if(onlyLow) list=list.filter(p=>Number(p.qty||0) < Number(p.min||0));
+        const qRaw=$('#stok_search').value.trim();
+        const onlyLow=$('#stok_onlyLow').checked;
+        const filterKindVal = $('#stok_filterKind').value;
+        const filterCategoryVal = $('#stok_filterCategory').value;
+        
+        // Gelişmiş arama mantığı
+        if (qRaw.includes(':')) {
+            const parts = qRaw.split(':');
+            const keyRaw = normalizeTR(parts[0]);
+            const val = normalizeTR(parts.slice(1).join(':'));
+            const target = SEARCH_ALIASES[keyRaw];
+
+            if (target) {
+                if (['name', 'sku', 'note', 'kind', 'category'].includes(target)) {
+                    list = list.filter(p => p[target] && normalizeTR(p[target]).includes(val));
+                } else {
+                    list = list.filter(p => p.category === target && searchable(p).includes(val));
+                }
+            } else {
+                const q = normalizeTR(qRaw);
+                list = list.filter(p => searchable(p).includes(q));
+            }
+        } else if (qRaw) {
+            const q = normalizeTR(qRaw);
+            list = list.filter(p => searchable(p).includes(q));
+        }
+
+        if(onlyLow) { list=list.filter(p=>Number(p.qty||0) < Number(p.min||0)); }
+        if(filterKindVal) { list=list.filter(p => p.kind === filterKindVal); }
+        if(filterCategoryVal) { list=list.filter(p => p.category === filterCategoryVal); }
+
+        const tbody=$('#stok_tbodyDesktop'); tbody.innerHTML='';
+        const listMobile=$('#stok_listMobile'); listMobile.innerHTML='';
 
         list.sort((a,b)=>{ let va,vb; switch(sortBy){ case 'sku': va=(a.sku||'').toLowerCase(); vb=(b.sku||'').toLowerCase(); break; case 'qty': va=Number(a.qty||0); vb=Number(b.qty||0); break; case 'min': va=Number(a.min||0); vb=Number(b.min||0); break; default: va=(a.name||'').toLowerCase(); vb=(b.name||'').toLowerCase(); } return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1); });
 
-        appContainer.querySelector('#stok_count').textContent=list.length;
+        $('#stok_totalProducts').textContent = state.products.length;
+        $('#stok_criticalProducts').textContent = state.products.filter(p => Number(p.qty||0) < Number(p.min||0)).length;
+        $('#stok_count').textContent=list.length;
 
         for(const p of list){
             const low=Number(p.qty||0) < Number(p.min||0);
+            const lowIcon = low ? ' <span title="Stok kritik seviyede">⚠️</span>' : '';
             const kindBadge=p.kind?`<span class="badge bg-slate-100 border border-slate-200 mr-1">${p.kind==='ham'?'Hammadde':(p.kind==='yari'?'Yarı-mamul':'Mamul')}</span>`:'';
             const catBadge=p.category?`<span class="badge" style="background: rgba(var(--brand), .15); border:1px solid rgba(var(--brand), .4); color: rgb(var(--brand))">${CATEGORY_LABEL[p.category]||p.category}</span>`:'';
             
@@ -1627,7 +1694,10 @@ function initializeStokTakipApp() {
             tr.className=low? 'bg-amber-50':'';
             tr.innerHTML=`
             <td class="px-3 py-2 align-top">${p.sku||'-'}</td><td class="px-3 py-2 align-top">${p.name||'-'}</td>
-            <td class="px-3 py-2 align-top">${kindBadge} ${catBadge}</td><td class="px-3 py-2 align-top text-right font-medium ${low?'text-amber-700':''}">${fmt(p.qty||0)}</td>
+            <td class="px-3 py-2 align-top">${kindBadge} ${catBadge}</td>
+            <td class="px-3 py-2 align-top text-right font-medium ${low?'text-amber-700':''}">
+                 <span class="editable-qty" data-id="${p.id}">${fmt(p.qty||0)}${lowIcon}</span>
+            </td>
             <td class="px-3 py-2 align-top text-right">${fmt(p.min||0)}</td><td class="px-3 py-2 align-top text-slate-700">${specs(p)}</td>
             <td class="px-3 py-2 align-top text-slate-600">${p.note||''}</td><td class="px-3 py-2 align-top text-right">
                 <div class="flex justify-end gap-1">
@@ -1643,7 +1713,7 @@ function initializeStokTakipApp() {
             card.innerHTML=`
             <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0"><div class="text-sm text-slate-500">${p.sku||'-'}</div><div class="font-medium truncate">${p.name||'-'}</div><div class="mt-1 text-xs">${kindBadge} ${catBadge}</div><div class="mt-1 text-xs text-slate-600 truncate">${specs(p)}</div></div>
-                <div class="text-right"><div class="text-xs text-slate-500">Stok</div><div class="text-base font-semibold ${low?'text-amber-700':''}">${fmt(p.qty||0)}</div><div class="text-xs text-slate-500">Min ${fmt(p.min||0)}</div></div>
+                <div class="text-right"><div class="text-xs text-slate-500">Stok</div><div class="text-base font-semibold ${low?'text-amber-700':''}">${fmt(p.qty||0)}${lowIcon}</div><div class="text-xs text-slate-500">Min ${fmt(p.min||0)}</div></div>
             </div>
             ${p.note?`<div class="mt-2 text-xs text-slate-600">${p.note}</div>`:''}
             <div class="mt-3 flex flex-wrap gap-1">
@@ -1655,8 +1725,8 @@ function initializeStokTakipApp() {
             listMobile.appendChild(card);
         }
 
-        const logBody=appContainer.querySelector('#stok_logBody'); logBody.innerHTML='';
-        for(const L of state.logs){ const p=findProduct(L.productId)||{name:'(silinmiş ürün)'}; const tr=document.createElement('tr'); const typeTxt=L.type==='in'?'Giriş':(L.type==='out'?'Çıkış':L.type); tr.innerHTML=`
+        const logBody=$('#stok_logBody'); logBody.innerHTML='';
+        for(const L of state.logs){ const p=findProduct(L.productId)||{name:'(silinmiş ürün)'}; const tr=document.createElement('tr'); const typeTxt=L.type==='in'?'Giriş':(L.type==='out'?'Çıkış':(L.type==='adjustment'?'Düzeltme':L.type)); tr.innerHTML=`
             <td class="px-3 py-2">${new Date(L.ts).toLocaleString('tr-TR')}</td><td class="px-3 py-2">${p.name}</td>
             <td class="px-3 py-2">${typeTxt}</td><td class="px-3 py-2 text-right">${fmt(L.amount)}</td>
             <td class="px-3 py-2 text-right">${fmt(L.fromQty)}</td><td class="px-3 py-2 text-right">${fmt(L.toQty)}</td>
@@ -1682,6 +1752,17 @@ function initializeStokTakipApp() {
     
     function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let max=0; for(const p of state.products){ if(p.category!==cat) continue; const m=String(p.sku||'').match(new RegExp('^'+prefix+'-(\\d+)$')); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } } const next=String(max+1).padStart(4,'0'); return `${prefix}-${next}`; }
     function suggestSku(force=false){ const form=$('#stok_productForm'); const cat=form.category.value; const suggestion=nextSkuForCategory(cat); const prefix=(CATEGORY_PREFIX[cat]||'PRD')+'-'; if(force || !form.sku.value || !form.sku.value.startsWith(prefix)){ form.sku.value=suggestion; } else { if(state.products.some(p=>(p.sku||'').toLowerCase()===form.sku.value.toLowerCase())) form.sku.value=suggestion; } }
+    
+    function populateFilters() {
+        const catSelect = $('#stok_filterCategory');
+        catSelect.innerHTML = '<option value="">Tüm Çeşitler</option>'; // Reset
+        Object.entries(CATEGORY_LABEL).forEach(([key, label]) => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = label;
+            catSelect.appendChild(option);
+        });
+    }
 
     $('#stok_btnAdd').addEventListener('click',()=>openProductDialog());
     $('#stok_btnAdd_mobile').addEventListener('click',()=>openProductDialog());
@@ -1704,7 +1785,7 @@ function initializeStokTakipApp() {
     fileInput.addEventListener('change', e => { 
         const f=e.target.files?.[0]; 
         if(f) importJSONFile(f); 
-        e.target.value=''; // Reset file input
+        e.target.value='';
     });
 
     const clearAction = () => {
@@ -1719,28 +1800,72 @@ function initializeStokTakipApp() {
     $('#stok_btnClear').onclick = clearAction;
     $('#stok_btnClear_mobile').onclick = clearAction;
 
+    $$('#stok_search, #stok_onlyLow, #stok_filterKind, #stok_filterCategory').forEach(el => el.addEventListener('input', render));
+    $('#stok_btnClearFilters').addEventListener('click', () => {
+        $('#stok_search').value = '';
+        $('#stok_onlyLow').checked = false;
+        $('#stok_filterKind').value = '';
+        $('#stok_filterCategory').value = '';
+        render();
+    });
 
-    appContainer.querySelector('#stok_search').addEventListener('input',render);
-    appContainer.querySelector('#stok_onlyLow').addEventListener('change',render);
-    appContainer.querySelector('#stok_thead').addEventListener('click',e=>{ const th=e.target.closest('th[data-sort]'); if(!th) return; const key=th.dataset.sort; if(sortBy===key) sortDir=(sortDir==='asc'?'desc':'asc'); else { sortBy=key; sortDir='asc'; } render(); });
+    $('#stok_thead').addEventListener('click',e=>{ const th=e.target.closest('th[data-sort]'); if(!th) return; const key=th.dataset.sort; if(sortBy===key) sortDir=(sortDir==='asc'?'desc':'asc'); else { sortBy=key; sortDir='asc'; } render(); });
     
     function delegate(container, selector, event, handler) {
         container.addEventListener(event, e => {
-            const btn = e.target.closest(selector);
-            if (!btn) return;
-            const id = btn.dataset.id;
-            const p = findProduct(id);
-            if (!p) return;
-            const act = btn.dataset.act;
-            handler(act, p);
+            const el = e.target.closest(selector);
+            if (!el) return;
+            handler(el, e);
         });
     }
 
-    delegate(appContainer, 'button[data-id]', 'click', (act, p) => {
+    delegate(appContainer, 'button[data-id]', 'click', (btn) => {
+        const id = btn.dataset.id;
+        const p = findProduct(id);
+        if (!p) return;
+        const act = btn.dataset.act;
         if(act==='edit'){ openProductDialog(p); } 
         else if(act==='del'){ if(confirm('Silinsin mi?')){ state.products=state.products.filter(x=>x.id!==p.id); addLog({productId:p.id,type:'delete',amount:0,fromQty:p.qty||0,toQty:0,note:'Ürün silindi'}); save(); } } 
         else if(act==='move-in'){ openMoveDialog(p,'in'); } 
         else if(act==='move-out'){ openMoveDialog(p,'out'); }
+    });
+
+    delegate($('#stok_tbodyDesktop'), '.editable-qty', 'dblclick', (td) => {
+        const pId = td.dataset.id;
+        const p = findProduct(pId);
+        if (!p || td.querySelector('input')) return;
+
+        const originalValue = Number(p.qty || 0);
+        td.innerHTML = `<input type="number" step="any" value="${originalValue}" class="w-24 text-right px-1 py-0.5 border rounded-md bg-white">`;
+        const input = td.querySelector('input');
+        input.focus();
+        input.select();
+
+        const commitChange = () => {
+            const newValue = Number(input.value);
+            if (!Number.isFinite(newValue) || newValue === originalValue) {
+                render(); return;
+            }
+            
+            const diff = newValue - originalValue;
+            p.qty = newValue;
+            
+            addLog({
+                productId: p.id,
+                type: 'adjustment',
+                amount: diff,
+                fromQty: originalValue,
+                toQty: newValue,
+                note: 'Manuel düzeltme'
+            });
+            save(); 
+        };
+
+        input.addEventListener('blur', commitChange);
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); commitChange(); } 
+            else if (e.key === 'Escape') { e.preventDefault(); render(); }
+        });
     });
 
     $('#stok_productForm').addEventListener('submit',e=>{ e.preventDefault(); const form=e.target; const data=Object.fromEntries(new FormData(form).entries()); const isEdit=!!data.id; const min=Number(data.min||0); if(isNaN(min)||min<0){ alert('Minimum stok 0 veya daha büyük olmalı'); return; } if(!data.name||!data.sku){ alert('Ad ve stok kodu zorunlu'); return; } if(data.category==='sargiliPaket'){ if(!(data.kw && data.rpm && data.volt)){ alert('Sargılı paket için kW, rpm ve Volt zorunludur.'); return; } } if(['mil','rotorluMil','taslanmisMil'].includes(data.category)){ if(!data.milCode){ alert('Mil türlerinde Mil Kodu zorunludur.'); return; } }
@@ -1777,6 +1902,7 @@ function initializeStokTakipApp() {
     document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); appContainer.querySelector('#stok_search').focus(); } });
     
     load();
+    populateFilters();
     render();
 
     window.setStokTakipRefresher(() => {
