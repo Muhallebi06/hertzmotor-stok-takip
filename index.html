@@ -2036,7 +2036,8 @@ function initializeStokTakipApp() {
             form.id.value=''; 
             suggestSku(true); 
             toggleConditionalSections(); 
-        } 
+        }
+        applyUserRoles(); 
         dlg.showModal(); 
     }
     
@@ -2221,13 +2222,52 @@ function initializeStokTakipApp() {
         save();
     });
 
-    $('#stok_productForm').addEventListener('submit',e=>{ e.preventDefault(); const form=e.target; const data=Object.fromEntries(new FormData(form).entries()); const isEdit=!!data.id; const min=Number(data.min||0); if(isNaN(min)||min<0){ alert('Minimum stok 0 veya daha büyük olmalı'); return; } if(!data.name||!data.sku){ alert('Ad ve stok kodu zorunlu'); return; } if(data.category==='sargiliPaket'){ if(!(data.kw && data.rpm && data.volt)){ alert('Sargılı paket için kW, rpm ve Volt zorunludur.'); return; } } if(['mil','rotorluMil','taslanmisMil'].includes(data.category)){ if(!data.milCode){ alert('Mil türlerinde Mil Kodu zorunludur.'); return; } }
-      const clash=state.products.some(x=>x.id!==data.id && (x.sku||'').toLowerCase()===data.sku.toLowerCase()); if(clash){ alert('Bu stok kodu başka bir üründe kullanılıyor. Otomatik yeni kod önerilecek.'); form.sku.value=nextSkuForCategory(data.category); data.sku=form.sku.value; }
-      const toNumOrNull = v => {const n=Number(v); return Number.isFinite(n)?n:null;};
-      const pData = { kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, min, cost: toNumOrNull(data.cost), supplierId: data.supplierId, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_cover:data.m_cover||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||'' };
-      if(isEdit){ const p=findProduct(data.id); if(!p) return; Object.assign(p, pData); addLog({productId:p.id,type:'edit',amount:0,fromQty:p.qty||0,toQty:p.qty||0,note:'Ürün bilgisi güncellendi'}); } 
-      else { const p={ id:uuid(), qty:0, ...pData }; state.products.unshift(p); addLog({productId:p.id,type:'new',amount:0,fromQty:0,toQty:0,note:'Yeni ürün eklendi'}); }
-      $('#stok_productDialog').close(); save(); });
+    $('#stok_productForm').addEventListener('submit',e=>{
+        e.preventDefault();
+        const form=e.target;
+        const data=Object.fromEntries(new FormData(form).entries());
+        const isEdit=!!data.id;
+        const min=Number(data.min||0);
+        if(isNaN(min)||min<0){ alert('Minimum stok 0 veya daha büyük olmalı'); return; }
+        if(!data.name||!data.sku){ alert('Ad ve stok kodu zorunlu'); return; }
+        if(data.category==='sargiliPaket' && !(data.kw && data.rpm && data.volt)){ alert('Sargılı paket için kW, rpm ve Volt zorunludur.'); return; }
+        if(['mil','rotorluMil','taslanmisMil'].includes(data.category) && !data.milCode){ alert('Mil türlerinde Mil Kodu zorunludur.'); return; }
+        const clash=state.products.some(x=>x.id!==data.id && (x.sku||'').toLowerCase()===data.sku.toLowerCase());
+        if(clash){ alert('Bu stok kodu başka bir üründe kullanılıyor. Otomatik yeni kod önerilecek.'); form.sku.value=nextSkuForCategory(data.category); data.sku=form.sku.value; }
+        
+        const toNumOrNull = v => {const n=Number(v); return Number.isFinite(n)?n:null;};
+        
+        const pData = {
+            kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, min, 
+            supplierId: data.supplierId, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), 
+            volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', 
+            m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), 
+            m_conn:data.m_conn||'', m_cover:data.m_cover||'', milType:data.milType||'', 
+            pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), 
+            pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||''
+        };
+
+        if(isEdit){
+            const p=findProduct(data.id);
+            if(!p) return;
+            
+            // Preserve the existing cost if the cost field is not present in the form data (due to permissions)
+            if (data.cost !== undefined) {
+                pData.cost = toNumOrNull(data.cost);
+            } else {
+                pData.cost = p.cost; // This is the fix. Preserve the old value.
+            }
+
+            Object.assign(p, pData);
+            addLog({productId:p.id,type:'edit',note:'Ürün bilgisi güncellendi'});
+        } else {
+            const newProduct = {id:uuid(), qty:0, ...pData, cost: toNumOrNull(data.cost)};
+            state.products.unshift(newProduct);
+            addLog({productId:newProduct.id,type:'new',note:'Yeni ürün eklendi'});
+        }
+        $('#stok_productDialog').close();
+        save();
+    });
 
     $('#stok_productCancelBtn').addEventListener('click',()=> $('#stok_productDialog').close());
     $('#stok_moveCancelBtn').addEventListener('click',()=> $('#stok_moveDialog').close());
