@@ -43,6 +43,7 @@
     .stok-takip-app .stok-tab.active {
         border-color: rgb(var(--brand));
         color: rgb(var(--brand));
+        background-color: white;
     }
 
 
@@ -508,15 +509,18 @@ const SIPARIS_SERVIS_HTML = `
 
 const STOK_TAKIP_HTML = `
 <div class="mx-auto max-w-7xl p-3 md:p-4">
-    <div class="mb-4 border-b border-slate-200">
-        <nav class="-mb-px flex space-x-4" aria-label="Tabs">
-            <button data-tab="liste" class="stok-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">
+    <div class="mb-4 bg-slate-100 p-1 rounded-xl">
+        <nav class="-mb-px flex space-x-1" aria-label="Tabs">
+            <button data-tab="liste" class="stok-tab whitespace-nowrap py-2 px-3 border-b-2 font-medium text-sm rounded-lg border-transparent text-slate-600 hover:text-slate-800">
                 Ürün Listesi
             </button>
-            <button data-tab="analiz" class="stok-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">
+            <button data-tab="tedarikciler" class="stok-tab whitespace-nowrap py-2 px-3 border-b-2 font-medium text-sm rounded-lg border-transparent text-slate-600 hover:text-slate-800 hertz-muhasebe-only">
+                Tedarikçiler
+            </button>
+            <button data-tab="analiz" class="stok-tab whitespace-nowrap py-2 px-3 border-b-2 font-medium text-sm rounded-lg border-transparent text-slate-600 hover:text-slate-800">
                 Analiz Raporları
             </button>
-            <button data-tab="gecmis" class="stok-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">
+            <button data-tab="gecmis" class="stok-tab whitespace-nowrap py-2 px-3 border-b-2 font-medium text-sm rounded-lg border-transparent text-slate-600 hover:text-slate-800">
                 Hareket Geçmişi
             </button>
         </nav>
@@ -528,11 +532,15 @@ const STOK_TAKIP_HTML = `
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                 <div>
                     <div class="text-2xl font-bold text-slate-800" id="stok_totalProducts">0</div>
-                    <div class="text-xs text-slate-500">Toplam Ürün</div>
+                    <div class="text-xs text-slate-500">Toplam Ürün Çeşidi</div>
                 </div>
                 <div>
                     <div class="text-2xl font-bold text-amber-600" id="stok_criticalProducts">0</div>
                     <div class="text-xs text-slate-500">Kritik Seviyedeki Ürün</div>
+                </div>
+                <div class="hertz-only">
+                    <div class="text-2xl font-bold text-emerald-600" id="stok_totalValue">€0</div>
+                    <div class="text-xs text-slate-500">Toplam Stok Değeri</div>
                 </div>
             </div>
         </div>
@@ -577,8 +585,9 @@ const STOK_TAKIP_HTML = `
                         <th class="text-left px-3 py-2">Tür/Çeşit</th>
                         <th data-sort="qty" class="text-right px-3 py-2 cursor-pointer select-none">Stok</th>
                         <th data-sort="min" class="text-right px-3 py-2 cursor-pointer select-none">Minimum</th>
+                        <th data-sort="cost" class="text-right px-3 py-2 cursor-pointer select-none hertz-muhasebe-only">Birim Maliyet</th>
                         <th class="text-left px-3 py-2">Özellikler</th>
-                        <th class="text-left px-3 py-2">Not</th>
+                        <th class="text-left px-3 py-2">Tedarikçi</th>
                         <th class="text-right px-3 py-2">İşlemler</th>
                     </tr>
                 </thead>
@@ -586,6 +595,26 @@ const STOK_TAKIP_HTML = `
             </table>
         </div>
         <div id="stok_listMobile" class="md:hidden space-y-2"></div>
+    </div>
+
+    <div id="stok_tabContent_tedarikciler" class="stok-tab-content hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                 <h3 class="font-semibold text-slate-800 mb-3">Yeni Tedarikçi Ekle</h3>
+                 <form id="stok_supplierForm" class="flex items-end gap-2">
+                     <div class="grow"><label for="stok_supplierName" class="text-xs text-slate-600">Tedarikçi Adı</label><input id="stok_supplierName" type="text" class="w-full px-3 py-2 rounded-xl border-slate-300" required></div>
+                     <button type="submit" class="px-4 py-2 btn-brand rounded-xl">Ekle</button>
+                 </form>
+            </div>
+             <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                 <h3 class="font-semibold text-slate-800 mb-3">Mevcut Tedarikçiler</h3>
+                 <div class="overflow-auto max-h-80">
+                     <table class="w-full text-sm">
+                        <tbody id="stok_supplierList"></tbody>
+                     </table>
+                 </div>
+            </div>
+        </div>
     </div>
 
     <div id="stok_tabContent_analiz" class="stok-tab-content hidden">
@@ -631,6 +660,15 @@ const STOK_TAKIP_HTML = `
                     </table>
                 </div>
             </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 hertz-only">
+                 <h3 class="font-semibold text-slate-800 mb-3">ABC Analizi (Yıllık Tüketim Değerine Göre)</h3>
+                 <div class="overflow-auto max-h-96">
+                     <table class="w-full text-xs">
+                        <thead><tr class="text-left text-slate-600"><th class="p-2">Ürün</th><th class="p-2">Grup</th><th class="p-2 text-right">Yıllık Değer</th><th class="p-2 text-right">Pay</th></tr></thead>
+                        <tbody id="stok_analiz_abc_body"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -658,7 +696,9 @@ const STOK_TAKIP_HTML = `
             <div class="md:col-span-2"><label class="text-sm text-slate-600">Ad</label><input name="name" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
             <div><label class="text-sm text-slate-600">Stok Kodu</label><div class="flex gap-2"><input name="sku" id="stok_sku" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300"><button id="stok_btnAutoSku" type="button" class="px-3 py-2 rounded-xl border border-slate-300">Oluştur</button></div><p class="text-xs text-slate-500 mt-1">Ürün çeşidine göre otomatik kod önerilir. Dilersen düzenleyebilirsin.</p></div>
             <div><label class="text-sm text-slate-600">Birim</label><input name="unit" type="text" placeholder="adet, kg, m…" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div class="hertz-muhasebe-only"><label class="text-sm text-slate-600">Birim Maliyet (€)</label><input name="cost" type="number" step="any" placeholder="0.00" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
             <div><label class="text-sm text-slate-600">Minimum Stok</label><input name="min" type="number" step="any" value="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div class="md:col-span-2"><label class="text-sm text-slate-600">Tedarikçi</label><select name="supplierId" id="stok_supplierSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="">-- Tedarikçi Seç --</option></select></div>
             <div class="md:col-span-2"><label class="text-sm text-slate-600">Not</label><input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
             <div data-section="sargiliPaket" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">kW</label><input name="kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div></div>
             <div data-section="paketliGovde" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="pg_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="pg_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="pg_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div><div class="grid md:grid-cols-2 gap-3 mt-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="pg_customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="pg_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div></div></div>
@@ -739,7 +779,7 @@ function initializeSiparisServisApp() {
     }
 
     function parseDdMmYyyy(str){
-      const m = String(str || "").match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+      const m = String(str || "").match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
       if (!m) return null;
       const d = parseInt(m[1],10), mo = parseInt(m[2],10)-1, y = parseInt(m[3],10);
       const dt = new Date(y, mo, d);
@@ -1659,13 +1699,14 @@ function initializeStokTakipApp() {
     const CATEGORY_PREFIX={stator:'ST',rotor:'RT',mil:'MIL',rotorluMil:'RMIL',taslanmisMil:'TMIL',sargiliPaket:'SP',paketliGovde:'PG',motor:'MOT',kapak:'KAP',islenmisKapak:'IKAP',taslanmisKapak:'TKAP', rulman:'RUL', aluminyum_govde:'ALU', bakir_tel:'CUW',  yardimci_parcalar:'ACC'};
     const CATEGORY_LABEL={'stator':'Stator','rotor':'Rotor','mil':'Mil','rotorluMil':'Rotorlu Mil','taslanmisMil':'Taşlanmış Mil','sargiliPaket':'Sargılı Paket','paketliGovde':'Paketli Gövde','motor':'Motor','kapak':'Kapak','islenmisKapak':'İşlenmiş Kapak','taslanmisKapak':'Taşlanmış Kapak', 'rulman':'Rulman', 'aluminyum_govde':'Alüminyum Gövde', 'bakir_tel':'Bakır Tel',  'yardimci_parcalar':'Yardımcı Parçalar'};
 
-    let state={products:[],logs:[]};
+    let state={products:[],logs:[], suppliers: []};
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
 
     function load(){ 
-        const data = window.dataStore[LS_KEY] || {products:[], logs:[]};
+        const data = window.dataStore[LS_KEY] || {products:[], logs:[], suppliers: []};
         state.products = ensureArray(data.products);
         state.logs = ensureArray(data.logs);
+        state.suppliers = ensureArray(data.suppliers);
     }
     function save(){ 
         window.dataStore[LS_KEY] = state;
@@ -1674,10 +1715,12 @@ function initializeStokTakipApp() {
     }
 
     const fmt=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('tr-TR',{maximumFractionDigits:3}).format(v):n};
+    const fmtCurrency=n=>{const v=Number(n); return Number.isFinite(v)? new Intl.NumberFormat('de-DE',{style:'currency', currency:'EUR'}).format(v):'€0,00'};
     const nowISO=()=>new Date().toISOString();
     const currentUser=()=> (sessionStorage.getItem('auth_user')||'anon');
     const addLog=(entry)=> state.logs.unshift({id:uuid(),ts:nowISO(),user:currentUser(),...entry});
     const findProduct=id=>state.products.find(p=>p.id===id);
+    const findSupplier=id=>state.suppliers.find(s=>s.id===id);
     
     const normalizeTR = (s) => String(s||'').toLowerCase().replace(/ı/g, 'i').replace(/İ/g, 'i').replace(/ğ/g, 'g').replace(/Ğ/g, 'g').replace(/ü/g, 'u').replace(/Ü/g, 'u').replace(/ş/g, 's').replace(/Ş/g, 's').replace(/ö/g, 'o').replace(/Ö/g, 'o').replace(/ç/g, 'c').replace(/Ç/g, 'c');
     
@@ -1710,7 +1753,9 @@ function initializeStokTakipApp() {
     function render(){
         renderProductList();
         renderLogList();
-        renderAnalysisReports(); // Her renderda analizleri de yenile
+        renderAnalysisReports();
+        renderSupplierList();
+        applyUserRoles();
     }
     
     function renderProductList() {
@@ -1748,10 +1793,13 @@ function initializeStokTakipApp() {
         const tbody=$('#stok_tbodyDesktop'); tbody.innerHTML='';
         const listMobile=$('#stok_listMobile'); listMobile.innerHTML='';
 
-        list.sort((a,b)=>{ let va,vb; switch(sortBy){ case 'sku': va=(a.sku||'').toLowerCase(); vb=(b.sku||'').toLowerCase(); break; case 'qty': va=Number(a.qty||0); vb=Number(b.qty||0); break; case 'min': va=Number(a.min||0); vb=Number(b.min||0); break; default: va=(a.name||'').toLowerCase(); vb=(b.name||'').toLowerCase(); } return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1); });
+        list.sort((a,b)=>{ let va,vb; switch(sortBy){ case 'sku': va=(a.sku||'').toLowerCase(); vb=(b.sku||'').toLowerCase(); break; case 'qty': va=Number(a.qty||0); vb=Number(b.qty||0); break; case 'min': va=Number(a.min||0); vb=Number(b.min||0); break; case 'cost': va=Number(a.cost||0); vb=Number(b.cost||0); break; default: va=(a.name||'').toLowerCase(); vb=(b.name||'').toLowerCase(); } return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1); });
 
         $('#stok_totalProducts').textContent = state.products.length;
         $('#stok_criticalProducts').textContent = state.products.filter(p => Number(p.qty||0) < Number(p.min||0)).length;
+        const totalValue = state.products.reduce((sum, p) => sum + (Number(p.qty||0) * Number(p.cost||0)), 0);
+        $('#stok_totalValue').textContent = fmtCurrency(totalValue);
+
         $('#stok_count').textContent=list.length;
 
         for(const p of list){
@@ -1759,6 +1807,7 @@ function initializeStokTakipApp() {
             const lowIcon = low ? ' <span title="Stok kritik seviyede">⚠️</span>' : '';
             const kindBadge=p.kind?`<span class="badge bg-slate-100 border border-slate-200 mr-1">${p.kind==='ham'?'Hammadde':(p.kind==='yari'?'Yarı-mamul':'Mamul')}</span>`:'';
             const catBadge=p.category?`<span class="badge" style="background: rgba(var(--brand), .15); border:1px solid rgba(var(--brand), .4); color: rgb(var(--brand))">${CATEGORY_LABEL[p.category]||p.category}</span>`:'';
+            const supplier = findSupplier(p.supplierId);
             
             const tr=document.createElement('tr');
             tr.className=low? 'bg-amber-50':'';
@@ -1768,13 +1817,16 @@ function initializeStokTakipApp() {
             <td class="px-3 py-2 align-top text-right font-medium ${low?'text-amber-700':''}">
                  <span class="editable-qty" data-id="${p.id}">${fmt(p.qty||0)}${lowIcon}</span>
             </td>
-            <td class="px-3 py-2 align-top text-right">${fmt(p.min||0)}</td><td class="px-3 py-2 align-top text-slate-700">${specs(p)}</td>
-            <td class="px-3 py-2 align-top text-slate-600">${p.note||''}</td><td class="px-3 py-2 align-top text-right">
+            <td class="px-3 py-2 align-top text-right">${fmt(p.min||0)}</td>
+            <td class="px-3 py-2 align-top text-right hertz-muhasebe-only">${fmtCurrency(p.cost)}</td>
+            <td class="px-3 py-2 align-top text-slate-700">${specs(p)}</td>
+            <td class="px-3 py-2 align-top text-slate-600">${supplier ? supplier.name : '-'}</td>
+            <td class="px-3 py-2 align-top text-right">
                 <div class="flex justify-end gap-1">
                 <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-in" data-id="${p.id}">Giriş</button>
                 <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-out" data-id="${p.id}">Çıkış</button>
                 <button class="px-2 py-1 rounded-lg" style="border:1px solid rgba(var(--brand), .5); color: rgb(var(--brand)); background:transparent" data-act="edit" data-id="${p.id}">Düzenle</button>
-                <button class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white" data-act="del" data-id="${p.id}">Sil</button>
+                <button class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white admin-only" data-act="del" data-id="${p.id}">Sil</button>
                 </div></td>`;
             tbody.appendChild(tr);
 
@@ -1790,7 +1842,7 @@ function initializeStokTakipApp() {
                 <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-in" data-id="${p.id}">Giriş</button>
                 <button class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-out" data-id="${p.id}">Çıkış</button>
                 <button class="px-2 py-1 rounded-lg" style="border:1px solid rgba(var(--brand), .5); color: rgb(var(--brand)); background:transparent" data-act="edit" data-id="${p.id}">Düzenle</button>
-                <button class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white" data-act="del" data-id="${p.id}">Sil</button>
+                <button class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white admin-only" data-act="del" data-id="${p.id}">Sil</button>
             </div>`;
             listMobile.appendChild(card);
         }
@@ -1872,17 +1924,129 @@ function initializeStokTakipApp() {
              kullaniciBody.appendChild(tr);
         });
          if(enAktifKullanicilar.length === 0) kullaniciBody.innerHTML = '<tr><td colspan="2" class="p-2 text-slate-500 text-center">Veri bulunamadı.</td></tr>';
+        
+        // ABC Analizi
+        const abcBody = $('#stok_analiz_abc_body');
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+        const consumption = {};
+        state.logs.forEach(log => {
+            if (log.type === 'out' && new Date(log.ts) > oneYearAgo && log.productId) {
+                consumption[log.productId] = (consumption[log.productId] || 0) + Number(log.amount || 0);
+            }
+        });
+        
+        let productsWithValue = state.products
+            .map(p => ({
+                ...p,
+                annualConsumption: consumption[p.id] || 0,
+                annualValue: (consumption[p.id] || 0) * (Number(p.cost) || 0)
+            }))
+            .filter(p => p.annualValue > 0)
+            .sort((a, b) => b.annualValue - a.annualValue);
+
+        const totalAnnualValue = productsWithValue.reduce((sum, p) => sum + p.annualValue, 0);
+        
+        let cumulativeValue = 0;
+        abcBody.innerHTML = '';
+        productsWithValue.forEach(p => {
+            cumulativeValue += p.annualValue;
+            const cumulativePercent = totalAnnualValue > 0 ? (cumulativeValue / totalAnnualValue) * 100 : 0;
+            let group = 'C';
+            if (cumulativePercent <= 80) group = 'A';
+            else if (cumulativePercent <= 95) group = 'B';
+            
+            const groupColor = group === 'A' ? 'bg-red-100 text-red-800' : (group === 'B' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800');
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="p-2 border-t border-slate-100">${p.name} <span class="text-slate-500">(${p.sku})</span></td>
+                <td class="p-2 border-t border-slate-100 text-center"><span class="px-2 py-1 text-xs font-semibold rounded-full ${groupColor}">${group}</span></td>
+                <td class="p-2 border-t border-slate-100 text-right">${fmtCurrency(p.annualValue)}</td>
+                <td class="p-2 border-t border-slate-100 text-right">${cumulativePercent.toFixed(2)}%</td>
+            `;
+            abcBody.appendChild(tr);
+        });
+        if (productsWithValue.length === 0) abcBody.innerHTML = '<tr><td colspan="4" class="p-2 text-slate-500 text-center">Yeterli veri (maliyet ve stok çıkışı) bulunamadı.</td></tr>';
     }
 
-    function openProductDialog(product){ const dlg=$('#stok_productDialog'); const form=$('#stok_productForm'); form.reset(); toggleConditionalSections(); if(product){ $('#stok_productDialogTitle').textContent='Ürünü Düzenle'; form.kind.value=product.kind||'mamul'; form.category.value=product.category||'stator'; form.name.value=product.name||''; form.sku.value=product.sku||''; form.unit.value=product.unit||''; form.min.value=product.min??0; form.note.value=product.note||''; form.kw.value=product.kw??''; form.rpm.value=product.rpm??''; form.volt.value=product.volt??''; form.milCode.value=product.milCode??''; form.customer.value=product.customer??''; form.pg_rpm.value=product.pg_rpm??''; form.pg_kw.value=product.pg_kw??''; form.pg_volt.value=product.pg_volt??''; form.pg_customer.value=product.pg_customer??''; form.pg_conn.value=product.pg_conn??'soketli'; form.m_rpm.value=product.m_rpm??''; form.m_kw.value=product.m_kw??''; form.m_volt.value=product.m_volt??''; form.m_conn.value=product.m_conn??'soketli'; form.milType.value=product.milType??''; form.m_cover.value=product.m_cover??'AK'; form.id.value=product.id; toggleConditionalSections(); } else { $('#stok_productDialogTitle').textContent='Ürün Ekle'; form.kind.value='mamul'; form.category.value='stator'; form.id.value=''; suggestSku(true); toggleConditionalSections(); } dlg.showModal(); }
+    function renderSupplierList() {
+        const listEl = $('#stok_supplierList');
+        listEl.innerHTML = '';
+        if (state.suppliers.length === 0) {
+            listEl.innerHTML = '<tr><td class="p-2 text-slate-500">Kayıtlı tedarikçi yok.</td></tr>';
+            return;
+        }
+        state.suppliers.forEach(s => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="p-2 border-t border-slate-100">${s.name}</td>
+                <td class="p-2 border-t border-slate-100 text-right">
+                    <button data-id="${s.id}" class="text-rose-600 underline text-xs">Sil</button>
+                </td>
+            `;
+            tr.querySelector('button').addEventListener('click', () => {
+                if (confirm(`'${s.name}' silinsin mi? Bu işlem geri alınamaz.`)) {
+                    state.suppliers = state.suppliers.filter(sup => sup.id !== s.id);
+                    // Bu tedarikçiyi kullanan ürünlerden de kaldıralım
+                    state.products.forEach(p => {
+                        if (p.supplierId === s.id) {
+                            p.supplierId = '';
+                        }
+                    });
+                    save();
+                }
+            });
+            listEl.appendChild(tr);
+        });
+    }
+
+    function openProductDialog(product){ 
+        const dlg=$('#stok_productDialog'); const form=$('#stok_productForm'); form.reset(); 
+        
+        const supplierSelect = $('#stok_supplierSelect');
+        supplierSelect.innerHTML = '<option value="">-- Tedarikçi Seç --</option>';
+        state.suppliers.forEach(s => {
+            const option = document.createElement('option');
+            option.value = s.id;
+            option.textContent = s.name;
+            supplierSelect.appendChild(option);
+        });
+        
+        toggleConditionalSections(); 
+        if(product){ 
+            $('#stok_productDialogTitle').textContent='Ürünü Düzenle'; 
+            form.kind.value=product.kind||'mamul'; 
+            form.category.value=product.category||'stator'; 
+            form.name.value=product.name||''; 
+            form.sku.value=product.sku||''; 
+            form.unit.value=product.unit||''; 
+            form.min.value=product.min??0; 
+            form.note.value=product.note||'';
+            form.cost.value=product.cost??'';
+            form.supplierId.value=product.supplierId||'';
+            form.kw.value=product.kw??''; form.rpm.value=product.rpm??''; form.volt.value=product.volt??''; form.milCode.value=product.milCode??''; form.customer.value=product.customer??''; form.pg_rpm.value=product.pg_rpm??''; form.pg_kw.value=product.pg_kw??''; form.pg_volt.value=product.pg_volt??''; form.pg_customer.value=product.pg_customer??''; form.pg_conn.value=product.pg_conn??'soketli'; form.m_rpm.value=product.m_rpm??''; form.m_kw.value=product.m_kw??''; form.m_volt.value=product.m_volt??''; form.m_conn.value=product.m_conn??'soketli'; form.milType.value=product.milType??''; form.m_cover.value=product.m_cover??'AK'; 
+            form.id.value=product.id; 
+            toggleConditionalSections(); 
+        } else { 
+            $('#stok_productDialogTitle').textContent='Ürün Ekle'; 
+            form.kind.value='mamul'; 
+            form.category.value='stator'; 
+            form.id.value=''; 
+            suggestSku(true); 
+            toggleConditionalSections(); 
+        } 
+        dlg.showModal(); 
+    }
     
     function openMoveDialog(product,type){ const dlg=$('#stok_moveDialog'); const form=$('#stok_moveForm'); form.reset(); form.id.value=product.id; $('#stok_moveProductName').textContent=`${product.name} (${product.sku||'kod yok'})`; if(type){ document.querySelectorAll('#stok_moveForm input[name="type"]').forEach(r=>r.checked=(r.value===type)); } dlg.showModal(); }
     
-    function exportJSON(){ const blob=new Blob([JSON.stringify({products:state.products,logs:state.logs},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-data-${new Date().toISOString().replace(/[:.]/g,'-')}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
-    function exportCSV(){ const rows=[[ 'id','sku','name','kind','category','unit','material','qty','min','note','kw','rpm','volt','milCode','customer','pg_kw','pg_rpm','pg_volt','pg_customer','pg_conn','m_kw','m_rpm','m_volt','m_conn','milType' ]].concat( state.products.map(p=>[ p.id, p.sku, p.name, p.kind, p.category, p.unit, p.material,p.qty,p.min,(p.note||'').replaceAll('\n',' '), p.kw??'',p.rpm??'',p.volt??'',p.milCode??'',p.customer??'', p.pg_kw??'',p.pg_rpm??'',p.pg_volt??'',p.pg_customer??'',p.pg_conn??'', p.m_kw??'',p.m_rpm??'',p.m_volt??'',p.m_conn??'',p.milType??'' ]) ); const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-urunler-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+    function exportJSON(){ const blob=new Blob([JSON.stringify({products:state.products,logs:state.logs, suppliers: state.suppliers},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-data-${new Date().toISOString().replace(/[:.]/g,'-')}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+    function exportCSV(){ const rows=[[ 'id','sku','name','kind','category','unit','material','qty','min', 'cost', 'supplier', 'note','kw','rpm','volt','milCode','customer','pg_kw','pg_rpm','pg_volt','pg_customer','pg_conn','m_kw','m_rpm','m_volt','m_conn','milType' ]].concat( state.products.map(p=>[ p.id, p.sku, p.name, p.kind, p.category, p.unit, p.material,p.qty,p.min, p.cost, findSupplier(p.supplierId)?.name || '', (p.note||'').replaceAll('\n',' '), p.kw??'',p.rpm??'',p.volt??'',p.milCode??'',p.customer??'', p.pg_kw??'',p.pg_rpm??'',p.pg_volt??'',p.pg_customer??'',p.pg_conn??'', p.m_kw??'',p.m_rpm??'',p.m_volt??'',p.m_conn??'',p.milType??'' ]) ); const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-urunler-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
     function exportLogCSV(){ const rows=[['ts','product','type','amount','from','to','note','user']]; for(const L of state.logs){ const p=findProduct(L.productId)||{}; rows.push([L.ts,p.name||'',L.type,L.amount,L.fromQty,L.toQty,(L.note||'').replaceAll('\\n',' '), (L.user||'')]);} const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-log-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
     
-    function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=ensureArray(data.products||[]); state.logs=ensureArray(data.logs||[]); save(); alert('İçe aktarıldı'); }catch(e){ alert('Dosya okunamadı: '+e.message); } }; reader.readAsText(file); }
+    function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=ensureArray(data.products||[]); state.logs=ensureArray(data.logs||[]); state.suppliers=ensureArray(data.suppliers||[]); save(); alert('İçe aktarıldı'); }catch(e){ alert('Dosya okunamadı: '+e.message); } }; reader.readAsText(file); }
     
     function toggleConditionalSections(){ 
         const form=$('#stok_productForm'); const cat=form.category.value; 
@@ -1931,6 +2095,17 @@ function initializeStokTakipApp() {
         if (defaultTab) defaultTab.click();
     }
 
+    function applyUserRoles() {
+        const user = sessionStorage.getItem('auth_user');
+        const role = sessionStorage.getItem('role');
+        const isHertz = user === 'hertz';
+        const isMuhasebe = user === 'muhasebe';
+
+        $$('.hertz-only').forEach(el => el.style.display = isHertz ? '' : 'none');
+        $$('.hertz-muhasebe-only').forEach(el => el.style.display = (isHertz || isMuhasebe) ? '' : 'none');
+        $$('.admin-only').forEach(el => el.style.display = isHertz ? '' : 'none');
+    }
+
     $('#stok_btnAdd').addEventListener('click',()=>openProductDialog());
     $('#stok_btnAdd_mobile').addEventListener('click',()=>openProductDialog());
     
@@ -1961,6 +2136,7 @@ function initializeStokTakipApp() {
             exportJSON(); 
             state.products=[]; 
             state.logs=[]; 
+            state.suppliers=[];
             save(); 
         }
     };
@@ -2034,11 +2210,21 @@ function initializeStokTakipApp() {
             else if (e.key === 'Escape') { e.preventDefault(); render(); }
         });
     });
+    
+    $('#stok_supplierForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const input = $('#stok_supplierName');
+        const name = input.value.trim();
+        if (!name) return;
+        state.suppliers.push({ id: uuid(), name });
+        input.value = '';
+        save();
+    });
 
     $('#stok_productForm').addEventListener('submit',e=>{ e.preventDefault(); const form=e.target; const data=Object.fromEntries(new FormData(form).entries()); const isEdit=!!data.id; const min=Number(data.min||0); if(isNaN(min)||min<0){ alert('Minimum stok 0 veya daha büyük olmalı'); return; } if(!data.name||!data.sku){ alert('Ad ve stok kodu zorunlu'); return; } if(data.category==='sargiliPaket'){ if(!(data.kw && data.rpm && data.volt)){ alert('Sargılı paket için kW, rpm ve Volt zorunludur.'); return; } } if(['mil','rotorluMil','taslanmisMil'].includes(data.category)){ if(!data.milCode){ alert('Mil türlerinde Mil Kodu zorunludur.'); return; } }
       const clash=state.products.some(x=>x.id!==data.id && (x.sku||'').toLowerCase()===data.sku.toLowerCase()); if(clash){ alert('Bu stok kodu başka bir üründe kullanılıyor. Otomatik yeni kod önerilecek.'); form.sku.value=nextSkuForCategory(data.category); data.sku=form.sku.value; }
       const toNumOrNull = v => {const n=Number(v); return Number.isFinite(n)?n:null;};
-      const pData = { kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, min, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_cover:data.m_cover||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||'' };
+      const pData = { kind:data.kind, category:data.category, name:data.name, sku:data.sku, unit:data.unit, min, cost: toNumOrNull(data.cost), supplierId: data.supplierId, note:data.note, kw:toNumOrNull(data.kw), rpm:toNumOrNull(data.rpm), volt:toNumOrNull(data.volt), milCode:data.milCode||'', customer:data.customer||'', m_rpm:toNumOrNull(data.m_rpm), m_kw:toNumOrNull(data.m_kw), m_volt:toNumOrNull(data.m_volt), m_conn:data.m_conn||'', m_cover:data.m_cover||'', milType:data.milType||'', pg_rpm:toNumOrNull(data.pg_rpm), pg_kw:toNumOrNull(data.pg_kw), pg_volt:toNumOrNull(data.pg_volt), pg_customer:data.pg_customer||'', pg_conn:data.pg_conn||'' };
       if(isEdit){ const p=findProduct(data.id); if(!p) return; Object.assign(p, pData); addLog({productId:p.id,type:'edit',amount:0,fromQty:p.qty||0,toQty:p.qty||0,note:'Ürün bilgisi güncellendi'}); } 
       else { const p={ id:uuid(), qty:0, ...pData }; state.products.unshift(p); addLog({productId:p.id,type:'new',amount:0,fromQty:0,toQty:0,note:'Yeni ürün eklendi'}); }
       $('#stok_productDialog').close(); save(); });
@@ -2131,16 +2317,16 @@ function initializeStokTakipApp() {
         get(dbRef).then(snap => {
             if (snap.exists()) {
                 const remoteData = snap.val().value;
-                window.dataStore[key] = (key === 'stokTakip-v1') ? (remoteData || {products:[], logs:[]}) : ensureArray(remoteData);
+                window.dataStore[key] = (key === 'stokTakip-v1') ? (remoteData || {products:[], logs:[], suppliers: []}) : ensureArray(remoteData);
             } else {
                 console.log(`Key ${key} Firebase'de bulunamadı, varsayılan değerle oluşturuluyor.`);
-                window.dataStore[key] = key === 'stokTakip-v1' ? { products: [], logs: [] } : [];
+                window.dataStore[key] = key === 'stokTakip-v1' ? { products: [], logs: [], suppliers: [] } : [];
                 pushData(key);
             }
             resolve();
         }).catch(error => {
             console.error(`Firebase'den veri okunurken hata oluştu (${key}):`, error);
-            window.dataStore[key] = key === 'stokTakip-v1' ? { products: [], logs: [] } : [];
+            window.dataStore[key] = key === 'stokTakip-v1' ? { products: [], logs: [], suppliers: [] } : [];
             resolve();
         });
     });
