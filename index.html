@@ -767,7 +767,7 @@ const STOK_TAKIP_HTML = `
             <div class="md:col-span-2"><label class="text-sm text-slate-600">Not</label><input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
             <div data-section="sargiliPaket" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">kW</label><input name="kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div></div>
             <div data-section="paketliGovde" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="pg_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="pg_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="pg_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div><div class="grid md:grid-cols-2 gap-3 mt-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="pg_customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="pg_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div></div></div>
-            <div data-section="mil" class="md:col-span-2 hidden"><label class="text-sm text-slate-600">Mil Kodu</label><input name="milCode" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div data-section="mil" class="md:col-span-2 hidden"><div class="grid md:grid-cols-2 gap-3"><div><label class="text-sm text-slate-600">Mil Kodu</label><input name="milCode" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Müşteri</label><input name="customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div></div>
             <div data-section="motor" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="m_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="m_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="m_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="m_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div><div><label class="text-sm text-slate-600">Mil Tipi</label><input name="milType" type="text" placeholder="Örn: DIN 6885" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Kapak Çeşidi</label><select name="m_cover" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="AK">AK</option><option value="CK">CK</option><option value="CK/CR">CK/CR</option></select></div></div></div>
         </div>
         <div class="mt-5 flex justify-end gap-2"><button type="button" id="stok_productCancelBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_productSaveBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Kaydet</button></div>
@@ -1892,9 +1892,7 @@ function initializeStokTakipApp() {
             tr.innerHTML=`
             <td class="px-3 py-2 align-top">${p.sku||'-'}</td><td class="px-3 py-2 align-top">${p.name||'-'}</td>
             <td class="px-3 py-2 align-top">${kindBadge} ${catBadge}</td>
-            <td class="px-3 py-2 align-top text-right font-medium ${low?'text-amber-700':''}">
-                 <span class="editable-qty" data-id="${p.id}">${fmt(p.qty||0)}${lowIcon}</span>
-            </td>
+            <td class="px-3 py-2 align-top text-right font-medium ${low?'text-amber-700':''}"><span class="editable-qty" data-id="${p.id}">${fmt(p.qty||0)}${lowIcon}</span></td>
             <td class="px-3 py-2 align-top text-right">${fmt(p.min||0)}</td>
             <td class="px-3 py-2 align-top text-right hertz-muhasebe-only">${fmtCurrency(p.cost)}</td>
             <td class="px-3 py-2 align-top text-slate-700">${specs(p)}</td>
@@ -2147,9 +2145,19 @@ function initializeStokTakipApp() {
     
     function toggleConditionalSections(){ 
         const form=$('#stok_productForm'); const cat=form.category.value; 
-        document.querySelectorAll('#stok_productForm [data-section]').forEach(el => el.classList.add('hidden'));
-        const section = document.querySelector(`#stok_productForm [data-section="${cat}"]`);
-        if (section) section.classList.remove('hidden');
+        $$('#stok_productForm [data-section]').forEach(el => el.classList.add('hidden'));
+
+        let sectionName = null;
+        if (['mil', 'rotorluMil', 'taslanmisMil'].includes(cat)) {
+            sectionName = 'mil';
+        } else if (['sargiliPaket', 'paketliGovde', 'motor'].includes(cat)) {
+            sectionName = cat;
+        }
+
+        if (sectionName) {
+            const section = $(`#stok_productForm [data-section="${sectionName}"]`);
+            if (section) section.classList.remove('hidden');
+        }
     }
     
     function nextSkuForCategory(cat){ const prefix=CATEGORY_PREFIX[cat]||'PRD'; let max=0; for(const p of state.products){ if(p.category!==cat) continue; const m=String(p.sku||'').match(new RegExp('^'+prefix+'-(\\d+)$')); if(m){ const n=parseInt(m[1],10); if(n>max) max=n; } } const next=String(max+1).padStart(4,'0'); return `${prefix}-${next}`; }
@@ -2252,17 +2260,14 @@ function initializeStokTakipApp() {
     delegate(appContainer, 'button[data-id][data-act]', 'click', (btn) => {
         const id = btn.dataset.id;
         const act = btn.dataset.act;
-        if (act === 'edit' || act === 'del' || act === 'move-in' || act === 'move-out') {
-            const p = findProduct(id);
-            if (!p) return;
-            if(act === 'edit') openProductDialog(p);
-            else if(act === 'del') { if(confirm('Silinsin mi?')) { state.products = state.products.filter(x => x.id !== p.id); addLog({productId: p.id, type: 'delete', note: 'Ürün silindi'}); save(); }}
-            else if(act === 'move-in') openMoveDialog(p, 'in');
-            else if(act === 'move-out') openMoveDialog(p, 'out');
-        }
+        const p = findProduct(id);
+        if (!p) return;
+        if(act === 'edit') openProductDialog(p);
+        else if(act === 'del') { if(confirm('Silinsin mi?')) { state.products = state.products.filter(x => x.id !== p.id); addLog({productId: p.id, type: 'delete', note: 'Ürün silindi'}); save(); }}
+        else if(act === 'move-in') openMoveDialog(p, 'in');
+        else if(act === 'move-out') openMoveDialog(p, 'out');
     });
     
-
     delegate($('#stok_tbodyDesktop'), '.editable-qty', 'dblclick', (td) => {
         const pId = td.dataset.id;
         const p = findProduct(pId);
@@ -2347,6 +2352,7 @@ function initializeStokTakipApp() {
             }
         }
     });
+
 
     $('#stok_productForm').addEventListener('submit',e=>{
         e.preventDefault();
