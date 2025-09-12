@@ -1585,6 +1585,15 @@ function initializeSiparisServisApp() {
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(form).entries());
+      
+      const fieldsToValidate = ['kw', 'rpm', 'volt'];
+      for (const field of fieldsToValidate) {
+          if (data[field] && (isNaN(Number(data[field])) || Number(data[field]) < 0)) {
+              showToast(`'${field.toUpperCase()}' alanı geçerli bir pozitif sayı olmalıdır.`, "error");
+              return;
+          }
+      }
+
       const newOrder = { 
         ...data, 
         kw: data.kw ? Number(data.kw) : null,
@@ -1874,7 +1883,7 @@ function initializeStokTakipApp() {
     
     const LS_KEY='stokTakip-v1';
     const CATEGORY_PREFIX={stator:'ST',rotor:'RT',mil:'MIL',rotorluMil:'RMIL',taslanmisMil:'TMIL',sargiliPaket:'SP',paketliGovde:'PG',motor:'MOT',kapak:'KAP',islenmisKapak:'IKAP',taslanmisKapak:'TKAP', rulman:'RUL', aluminyum_govde:'ALU', bakir_tel:'CUW',  yardimci_parcalar:'ACC'};
-    const CATEGORY_LABEL={'stator':'Stator','rotor':'Rotor','mil':'Mil','rotorluMil':'Rotorlu Mil','taslanmisMil':'Taşlanmış Mil','sargılıPaket':'Sargılı Paket','paketliGovde':'Paketli Gövde','motor':'Motor','kapak':'Kapak','islenmisKapak':'İşlenmiş Kapak','taslanmisKapak':'Taşlanmış Kapak', 'rulman':'Rulman', 'aluminyum_govde':'Alüminyum Gövde', 'bakir_tel':'Bakır Tel',  'yardimci_parcalar':'Yardımcı Parçalar'};
+    const CATEGORY_LABEL={'stator':'Stator','rotor':'Rotor','mil':'Mil','rotorluMil':'Rotorlu Mil','taslanmisMil':'Taşlanmış Mil','sargiliPaket':'Sargılı Paket','paketliGovde':'Paketli Gövde','motor':'Motor','kapak':'Kapak','islenmisKapak':'İşlenmiş Kapak','taslanmisKapak':'Taşlanmış Kapak', 'rulman':'Rulman', 'aluminyum_govde':'Alüminyum Gövde', 'bakir_tel':'Bakır Tel',  'yardimci_parcalar':'Yardımcı Parçalar'};
 
     let state={products:[],logs:[], suppliers: []};
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
@@ -2521,6 +2530,12 @@ function initializeStokTakipApp() {
       const amt = Number(data.amount);
       if(!(amt>0)){ showToast('Miktar 0\'dan büyük olmalı', 'error'); return; }
       const from = Number(p.qty||0);
+
+      if (data.type === 'out' && amt > from) {
+          showToast(`Yetersiz stok! Mevcut stok (${from}) miktarından fazla çıkış yapılamaz.`, 'error');
+          return;
+      }
+
       const to = data.type==='in' ? from + amt : from - amt;
       p.qty = to;
       addLog({ productId:p.id, type:data.type, amount:amt, fromQty:from, toQty:to, note:data.note });
