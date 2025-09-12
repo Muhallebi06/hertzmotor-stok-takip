@@ -122,10 +122,10 @@
     /* Mobil Görünümü */
     @media (max-width: 639.98px) { /* below sm breakpoint */
         body[data-active-app="siparis"] #siparis-mobile-buttons {
-            display: flex;
+            display: grid;
         }
         body[data-active-app="stok"] #stok-mobile-buttons {
-            display: flex;
+            display: grid;
         }
     }
 
@@ -410,15 +410,15 @@ const SIPARIS_SERVIS_HTML = `
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabSevk">🚚 Sevk Listesi</button>
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabServis">🛠️ Teknik Servis</button>
     </div>
-    <div class="flex flex-wrap gap-2 mb-4" id="siparis-mobile-buttons">
-        <label class="text-sm flex-1">
+    <div class="grid grid-cols-2 gap-2 mb-4" id="siparis-mobile-buttons">
+        <label class="text-sm">
             <input accept="application/json" class="hidden" id="ss_fileInput_mobile" type="file">
             <button class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnImportJSON_mobile">İçe aktar</button>
         </label>
-        <button class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportJSON_mobile">Dışa aktar</button>
-        <button class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportCSV_mobile">CSV</button>
-        <button class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportLogCSV_mobile">Log CSV</button>
-        <button class="flex-1 px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnClearAll_mobile">Tüm Veriyi Sil</button>
+        <button class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportJSON_mobile">Dışa aktar</button>
+        <button class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportCSV_mobile">CSV</button>
+        <button class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportLogCSV_mobile">Log CSV</button>
+        <button class="w-full px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only col-span-2" id="ss_btnClearAll_mobile">Tüm Veriyi Sil</button>
     </div>
     <section id="ss_pageSiparis">
         <form class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4 mb-6 bg-white p-4 rounded-xl shadow" id="ss_orderForm">
@@ -632,13 +632,13 @@ const STOK_TAKIP_HTML = `
         <p class="text-xs text-slate-500 text-center md:text-left mb-2 px-1">
             İpucu: Gelişmiş arama için <strong>kod:</strong>, <strong>ad:</strong>, <strong>not:</strong> veya çeşit adı (<strong>rulman:</strong>) gibi anahtar kelimeler kullanın.
         </p>
-        <div class="flex flex-wrap gap-2 mb-4" id="stok-mobile-buttons">
-            <button id="stok_btnAdd_mobile" class="flex-1 px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
-            <button id="stok_btnImport_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
-            <button id="stok_btnExport_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa Aktar</button>
-            <button id="stok_btnExportCSV_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
-            <button id="stok_btnExportLogCSV_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-            <button id="stok_btnClear_mobile" class="flex-1 px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-4" id="stok-mobile-buttons">
+            <button id="stok_btnAdd_mobile" class="w-full px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
+            <button id="stok_btnImport_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
+            <button id="stok_btnExport_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
+            <button id="stok_btnExportCSV_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
+            <button id="stok_btnExportLogCSV_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
+            <button id="stok_btnClear_mobile" class="w-full px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
         </div>
         <div class="text-sm text-slate-500 mb-2">Toplam <span id="stok_count" class="font-bold">0</span> kayıt listeleniyor.</div>
         <div class="hidden md:block overflow-auto rounded-2xl border border-slate-200 bg-white">
@@ -663,22 +663,22 @@ const STOK_TAKIP_HTML = `
     </div>
 
     <div id="stok_tabContent_tedarikciler" class="stok-tab-content hidden">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                 <h3 class="font-semibold text-slate-800 mb-3">Yeni Tedarikçi Ekle</h3>
-                 <form id="stok_supplierForm" class="flex items-end gap-2">
-                     <div class="grow"><label for="stok_supplierName" class="text-xs text-slate-600">Tedarikçi Adı</label><input id="stok_supplierName" type="text" class="w-full px-3 py-2 rounded-xl border-slate-300" required></div>
-                     <button type="submit" class="px-4 py-2 btn-brand rounded-xl">Ekle</button>
-                 </form>
-            </div>
-             <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                 <h3 class="font-semibold text-slate-800 mb-3">Mevcut Tedarikçiler</h3>
-                 <div class="overflow-auto max-h-80">
-                     <table class="w-full text-sm">
-                        <tbody id="stok_supplierList"></tbody>
-                     </table>
-                 </div>
-            </div>
+        <div class="flex justify-between items-center mb-4">
+             <h2 class="text-xl font-semibold text-slate-800">Tedarikçi Yönetimi</h2>
+             <button id="stok_btnAddSupplier" class="px-3 py-2 rounded-xl btn-brand">Yeni Tedarikçi Ekle</button>
+        </div>
+        <div class="overflow-auto rounded-2xl border border-slate-200 bg-white">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-100 text-slate-700">
+                    <tr>
+                        <th class="text-left px-3 py-2">Firma Ünvanı</th>
+                        <th class="text-left px-3 py-2">İlgili Kişi</th>
+                        <th class="text-left px-3 py-2">İletişim</th>
+                        <th class="text-right px-3 py-2">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody id="stok_supplierList" class="divide-y divide-slate-100"></tbody>
+            </table>
         </div>
     </div>
 
@@ -771,6 +771,19 @@ const STOK_TAKIP_HTML = `
             <div data-section="motor" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="m_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="m_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="m_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="m_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div><div><label class="text-sm text-slate-600">Mil Tipi</label><input name="milType" type="text" placeholder="Örn: DIN 6885" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Kapak Çeşidi</label><select name="m_cover" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="AK">AK</option><option value="CK">CK</option><option value="CK/CR">CK/CR</option></select></div></div></div>
         </div>
         <div class="mt-5 flex justify-end gap-2"><button type="button" id="stok_productCancelBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_productSaveBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Kaydet</button></div>
+        <input type="hidden" name="id">
+        </form>
+    </dialog>
+    <dialog id="stok_supplierDialog" class="rounded-2xl p-0 w-[96vw] max-w-lg">
+        <form id="stok_supplierDialogForm" class="p-4" novalidate>
+        <h3 id="stok_supplierDialogTitle" class="text-lg font-semibold mb-4">Tedarikçi Ekle</h3>
+        <div class="space-y-3">
+             <div><label class="text-sm text-slate-600">Firma Ünvanı</label><input name="name" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+             <div><label class="text-sm text-slate-600">İlgili Kişi</label><input name="contactPerson" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+             <div><label class="text-sm text-slate-600">Telefon</label><input name="phone" type="tel" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+             <div><label class="text-sm text-slate-600">E-posta</label><input name="email" type="email" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+        </div>
+        <div class="mt-5 flex justify-end gap-2"><button type="button" id="stok_supplierCancelBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_supplierSaveBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Kaydet</button></div>
         <input type="hidden" name="id">
         </form>
     </dialog>
@@ -2044,27 +2057,23 @@ function initializeStokTakipApp() {
         const listEl = $('#stok_supplierList');
         listEl.innerHTML = '';
         if (state.suppliers.length === 0) {
-            listEl.innerHTML = '<tr><td class="p-2 text-slate-500">Kayıtlı tedarikçi yok.</td></tr>';
+            listEl.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">Kayıtlı tedarikçi yok.</td></tr>';
             return;
         }
         state.suppliers.forEach(s => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="p-2 border-t border-slate-100">${s.name}</td>
-                <td class="p-2 border-t border-slate-100 text-right">
-                    <button type="button" data-id="${s.id}" class="text-rose-600 underline text-xs">Sil</button>
+                <td class="p-3">${s.name || '-'}</td>
+                <td class="p-3">${s.contactPerson || '-'}</td>
+                <td class="p-3">
+                    ${s.phone ? `<div class="text-xs">${s.phone}</div>` : ''}
+                    ${s.email ? `<div class="text-xs text-blue-600">${s.email}</div>` : ''}
+                </td>
+                <td class="p-3 text-right">
+                    <button type="button" data-id="${s.id}" data-act="edit" class="px-2 py-1 rounded-lg border border-slate-300 text-xs">Düzenle</button>
+                    <button type="button" data-id="${s.id}" data-act="del" class="px-2 py-1 rounded-lg border border-rose-200 text-rose-700 text-xs ml-1">Sil</button>
                 </td>
             `;
-            tr.querySelector('button').addEventListener('click', () => {
-                if (confirm(`'${s.name}' silinsin mi? Bu işlem geri alınamaz.`)) {
-                    state.suppliers = state.suppliers.filter(sup => sup.id !== s.id);
-                    state.products.forEach(p => {
-                        if (p.supplierId === s.id) { p.supplierId = ''; }
-                    });
-                    save();
-                    showToast("Tedarikçi silindi.", "success");
-                }
-            });
             listEl.appendChild(tr);
         });
     }
@@ -2108,6 +2117,24 @@ function initializeStokTakipApp() {
         }
         
         dlg.showModal(); 
+    }
+
+    function openSupplierDialog(supplier) {
+        const dlg = $('#stok_supplierDialog');
+        const form = $('#stok_supplierDialogForm');
+        form.reset();
+        if (supplier) {
+            $('#stok_supplierDialogTitle').textContent = 'Tedarikçiyi Düzenle';
+            form.name.value = supplier.name || '';
+            form.contactPerson.value = supplier.contactPerson || '';
+            form.phone.value = supplier.phone || '';
+            form.email.value = supplier.email || '';
+            form.id.value = supplier.id;
+        } else {
+            $('#stok_supplierDialogTitle').textContent = 'Yeni Tedarikçi Ekle';
+            form.id.value = '';
+        }
+        dlg.showModal();
     }
     
     function openMoveDialog(product,type){ const dlg=$('#stok_moveDialog'); const form=$('#stok_moveForm'); form.reset(); form.id.value=product.id; $('#stok_moveProductName').textContent=`${product.name} (${product.sku||'kod yok'})`; if(type){ document.querySelectorAll('#stok_moveForm input[name="type"]').forEach(r=>r.checked=(r.value===type)); } dlg.showModal(); }
@@ -2270,16 +2297,54 @@ function initializeStokTakipApp() {
         });
     });
     
-    $('#stok_supplierForm').addEventListener('submit', e => {
+    $('#stok_btnAddSupplier').addEventListener('click', () => openSupplierDialog());
+    
+    $('#stok_supplierDialogForm').addEventListener('submit', e => {
         e.preventDefault();
-        const input = $('#stok_supplierName');
-        const name = input.value.trim();
-        if (!name) return;
-        state.suppliers.push({ id: uuid(), name });
-        input.value = '';
+        const form = e.target;
+        const data = Object.fromEntries(new FormData(form).entries());
+        const name = data.name.trim();
+        if (!name) {
+            showToast("Firma ünvanı zorunludur.", "error");
+            return;
+        }
+
+        if (data.id) { // Düzenleme
+            const supplier = findSupplier(data.id);
+            if (supplier) {
+                Object.assign(supplier, data);
+            }
+        } else { // Yeni ekleme
+            state.suppliers.push({ id: uuid(), ...data });
+        }
+        
+        $('#stok_supplierDialog').close();
         save();
-        showToast("Tedarikçi eklendi.", "success");
+        showToast(data.id ? "Tedarikçi güncellendi." : "Tedarikçi eklendi.", "success");
     });
+    
+    $('#stok_supplierCancelBtn').addEventListener('click', () => $('#stok_supplierDialog').close());
+
+    delegate($('#stok_supplierList'), 'button', 'click', (btn) => {
+        const id = btn.dataset.id;
+        const act = btn.dataset.act;
+        const supplier = findSupplier(id);
+        if (!supplier) return;
+
+        if (act === 'edit') {
+            openSupplierDialog(supplier);
+        } else if (act === 'del') {
+             if (confirm(`'${supplier.name}' silinsin mi? Bu işlem geri alınamaz.`)) {
+                state.suppliers = state.suppliers.filter(sup => sup.id !== id);
+                state.products.forEach(p => {
+                    if (p.supplierId === id) { p.supplierId = ''; }
+                });
+                save();
+                showToast("Tedarikçi silindi.", "success");
+            }
+        }
+    });
+
 
     $('#stok_productForm').addEventListener('submit',e=>{
         e.preventDefault();
@@ -2297,14 +2362,12 @@ function initializeStokTakipApp() {
         const toNumOrNull = v => {const n=Number(v); return Number.isFinite(n)?n:null;};
         
         let pData = {};
-        // Formdaki tüm elemanları döngüye al
         for(const element of form.elements) {
-            if(element.name) {
+            if(element.name && element.offsetParent !== null) { // Sadece görünür elemanları al
                  pData[element.name] = ['min', 'cost', 'kw', 'rpm', 'volt', 'pg_rpm', 'pg_kw', 'pg_volt', 'm_rpm', 'm_kw', 'm_volt'].includes(element.name) ? toNumOrNull(element.value) : element.value;
             }
         }
         delete pData.id;
-
 
         if(isEdit){
             const p = findProduct(data.id);
