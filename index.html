@@ -574,7 +574,7 @@ const SIPARIS_SERVIS_HTML = `
 
 const STOK_TAKIP_HTML = `
 <div class="mx-auto max-w-7xl p-3 md:p-4">
-    <div class="mb-4 bg-slate-100 p-1 rounded-xl">
+    <div class="mb-4 bg-slate-100 p-1 rounded-xl overflow-x-auto no-scrollbar">
         <nav class="-mb-px flex space-x-1" aria-label="Tabs">
             <button data-tab="liste" class="stok-tab whitespace-nowrap py-2 px-3 border-b-2 font-medium text-sm rounded-lg border-transparent text-slate-600 hover:text-slate-800">
                 Ürün Listesi
@@ -635,7 +635,7 @@ const STOK_TAKIP_HTML = `
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-4" id="stok-mobile-buttons">
             <button id="stok_btnAdd_mobile" class="w-full px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
             <button id="stok_btnImport_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
-            <button id="stok_btnExport_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
+            <button id="stok_btnExport_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa Aktar</button>
             <button id="stok_btnExportCSV_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
             <button id="stok_btnExportLogCSV_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
             <button id="stok_btnClear_mobile" class="w-full px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
@@ -2249,16 +2249,19 @@ function initializeStokTakipApp() {
         });
     }
 
-    delegate(appContainer, 'button[data-id]', 'click', (btn) => {
+    delegate(appContainer, 'button[data-id][data-act]', 'click', (btn) => {
         const id = btn.dataset.id;
-        const p = findProduct(id);
-        if (!p) return;
         const act = btn.dataset.act;
-        if(act==='edit'){ openProductDialog(p); } 
-        else if(act==='del'){ if(confirm('Silinsin mi?')){ state.products=state.products.filter(x=>x.id!==p.id); addLog({productId:p.id,type:'delete',amount:0,fromQty:p.qty||0,toQty:0,note:'Ürün silindi'}); save(); } } 
-        else if(act==='move-in'){ openMoveDialog(p,'in'); } 
-        else if(act==='move-out'){ openMoveDialog(p,'out'); }
+        if (act === 'edit' || act === 'del' || act === 'move-in' || act === 'move-out') {
+            const p = findProduct(id);
+            if (!p) return;
+            if(act === 'edit') openProductDialog(p);
+            else if(act === 'del') { if(confirm('Silinsin mi?')) { state.products = state.products.filter(x => x.id !== p.id); addLog({productId: p.id, type: 'delete', note: 'Ürün silindi'}); save(); }}
+            else if(act === 'move-in') openMoveDialog(p, 'in');
+            else if(act === 'move-out') openMoveDialog(p, 'out');
+        }
     });
+    
 
     delegate($('#stok_tbodyDesktop'), '.editable-qty', 'dblclick', (td) => {
         const pId = td.dataset.id;
@@ -2345,7 +2348,6 @@ function initializeStokTakipApp() {
         }
     });
 
-
     $('#stok_productForm').addEventListener('submit',e=>{
         e.preventDefault();
         const form=e.target;
@@ -2361,22 +2363,28 @@ function initializeStokTakipApp() {
         
         const toNumOrNull = v => {const n=Number(v); return Number.isFinite(n)?n:null;};
         
-        let pData = {};
-        for(const element of form.elements) {
-            if(element.name && element.offsetParent !== null) { // Sadece görünür elemanları al
-                 pData[element.name] = ['min', 'cost', 'kw', 'rpm', 'volt', 'pg_rpm', 'pg_kw', 'pg_volt', 'm_rpm', 'm_kw', 'm_volt'].includes(element.name) ? toNumOrNull(element.value) : element.value;
-            }
-        }
-        delete pData.id;
-
         if(isEdit){
             const p = findProduct(data.id);
             if(!p) return;
             
-            Object.assign(p, pData);
+            // Sadece formda olan verileri güncelle
+            for(const key in data) {
+                if (Object.prototype.hasOwnProperty.call(data, key) && key !== 'id') {
+                    if (form.elements[key]) { // Formda eleman var mı kontrolü
+                         p[key] = ['min', 'cost', 'kw', 'rpm', 'volt', 'pg_rpm', 'pg_kw', 'pg_volt', 'm_rpm', 'm_kw', 'm_volt'].includes(key) ? toNumOrNull(data[key]) : data[key];
+                    }
+                }
+            }
             
             addLog({productId:p.id,type:'edit',note:'Ürün bilgisi güncellendi'});
         } else {
+             const pData = {};
+             for(const key in data) {
+                if(Object.prototype.hasOwnProperty.call(data, key) && key !== 'id') {
+                     pData[key] = ['min', 'cost', 'kw', 'rpm', 'volt', 'pg_rpm', 'pg_kw', 'pg_volt', 'm_rpm', 'm_kw', 'm_volt'].includes(key) ? toNumOrNull(data[key]) : data[key];
+                }
+            }
+
             const newProduct = {id:uuid(), qty:0, ...pData};
             state.products.unshift(newProduct);
             addLog({productId:newProduct.id,type:'new',note:'Yeni ürün eklendi'});
