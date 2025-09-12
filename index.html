@@ -209,22 +209,19 @@
 
         <div class="flex items-center gap-2 flex-shrink-0 order-2 sm:order-3">
             <div id="siparis-header-buttons" class="items-center gap-2">
-                <label class="text-sm">
-                    <input accept="application/json" class="hidden" id="ss_fileInput" type="file">
-                    <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnImportJSON">İçe aktar</button>
-                </label>
-                <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportJSON">Dışa aktar</button>
-                <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportCSV">CSV</button>
-                <button class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportLogCSV">Log CSV</button>
-                <button class="px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only" id="ss_btnClearAll">Tüm Veriyi Sil</button>
+                <button class="ss_btnImportJSON px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">İçe aktar</button>
+                <button class="ss_btnExportJSON px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">Dışa aktar</button>
+                <button class="ss_btnExportCSV px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">CSV</button>
+                <button class="ss_btnExportLogCSV px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">Log CSV</button>
+                <button class="ss_btnClearAll px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only">Tüm Veriyi Sil</button>
             </div>
              <div id="stok-header-buttons" class="items-center gap-2">
-                <button id="stok_btnAdd" class="px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
-                <button id="stok_btnImport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
-                <button id="stok_btnExport" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa Aktar</button>
-                <button id="stok_btnExportCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
-                <button id="stok_btnExportLogCSV" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-                <button id="stok_btnClear" class="px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
+                <button class="stok_btnAdd px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
+                <button class="stok_btnImport px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
+                <button class="stok_btnExport px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa Aktar</button>
+                <button class="stok_btnExportCSV px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
+                <button class="stok_btnExportLogCSV px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
+                <button class="stok_btnClear px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
             </div>
             <button id="logoutBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">Çıkış</button>
         </div>
@@ -405,29 +402,27 @@ function ensureArray(data) {
 
 const SIPARIS_SERVIS_HTML = `
 <div class="max-w-7xl mx-auto px-4 py-6">
+    <input accept="application/json" class="hidden" id="ss_fileInput" type="file">
     <div class="flex gap-2 mb-5 overflow-x-auto pb-2">
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabSiparis">📦 Siparişler</button>
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabSevk">🚚 Sevk Listesi</button>
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabServis">🛠️ Teknik Servis</button>
     </div>
     <div class="grid grid-cols-2 gap-2 mb-4" id="siparis-mobile-buttons">
-        <label class="text-sm">
-            <input accept="application/json" class="hidden" id="ss_fileInput_mobile" type="file">
-            <button class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnImportJSON_mobile">İçe aktar</button>
-        </label>
-        <button class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportJSON_mobile">Dışa aktar</button>
-        <button class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportCSV_mobile">CSV</button>
-        <button class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm" id="ss_btnExportLogCSV_mobile">Log CSV</button>
-        <button class="w-full px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only col-span-2" id="ss_btnClearAll_mobile">Tüm Veriyi Sil</button>
+        <button class="ss_btnImportJSON w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">İçe aktar</button>
+        <button class="ss_btnExportJSON w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">Dışa aktar</button>
+        <button class="ss_btnExportCSV w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">CSV</button>
+        <button class="ss_btnExportLogCSV w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">Log CSV</button>
+        <button class="ss_btnClearAll w-full px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only col-span-2">Tüm Veriyi Sil</button>
     </div>
     <section id="ss_pageSiparis">
         <form class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4 mb-6 bg-white p-4 rounded-xl shadow" id="ss_orderForm">
             <input class="px-3 py-2 border rounded-xl col-span-1 sm:col-span-2 md:col-span-2" name="musteri" placeholder="Müşteri" required>
             <input class="px-3 py-2 border rounded-xl col-span-1 sm:col-span-2 md:col-span-1" name="urun" placeholder="Ürün" required>
             <input class="px-3 py-2 border rounded-xl col-span-1 sm:col-span-2 md:col-span-1" name="milKod" placeholder="Mil Kodu" required>
-            <input class="px-3 py-2 border rounded-xl" name="kw" placeholder="kW" required step="any" type="number">
-            <input class="px-3 py-2 border rounded-xl" name="rpm" placeholder="RPM" required type="number">
-            <input class="px-3 py-2 border rounded-xl" name="volt" placeholder="Voltaj" required type="number">
+            <input class="px-3 py-2 border rounded-xl" name="kw" placeholder="kW" required step="any" type="number" min="0">
+            <input class="px-3 py-2 border rounded-xl" name="rpm" placeholder="RPM" required type="number" min="0">
+            <input class="px-3 py-2 border rounded-xl" name="volt" placeholder="Voltaj" required type="number" min="0">
             <input class="sevk-picker date-input px-3 py-2 border rounded-xl col-span-1 sm:col-span-2" id="ss_sevkTarihi" name="sevkTarihi" placeholder="gg/aa/yyyy" type="text">
             <button class="btn-brand px-4 py-2 rounded-xl col-span-1 sm:col-span-2 md:col-span-6">Ekle</button>
         </form>
@@ -633,12 +628,12 @@ const STOK_TAKIP_HTML = `
             İpucu: Gelişmiş arama için <strong>kod:</strong>, <strong>ad:</strong>, <strong>not:</strong> veya çeşit adı (<strong>rulman:</strong>) gibi anahtar kelimeler kullanın.
         </p>
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-4" id="stok-mobile-buttons">
-            <button id="stok_btnAdd_mobile" class="w-full px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
-            <button id="stok_btnImport_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
-            <button id="stok_btnExport_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa Aktar</button>
-            <button id="stok_btnExportCSV_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
-            <button id="stok_btnExportLogCSV_mobile" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-            <button id="stok_btnClear_mobile" class="w-full px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
+            <button class="stok_btnAdd w-full px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
+            <button class="stok_btnImport w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
+            <button class="stok_btnExport w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa Aktar</button>
+            <button class="stok_btnExportCSV w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
+            <button class="stok_btnExportLogCSV w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
+            <button class="stok_btnClear w-full px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
         </div>
         <div class="text-sm text-slate-500 mb-2">Toplam <span id="stok_count" class="font-bold">0</span> kayıt listeleniyor.</div>
         <div class="hidden md:block overflow-auto rounded-2xl border border-slate-200 bg-white">
@@ -761,14 +756,14 @@ const STOK_TAKIP_HTML = `
             <div class="md:col-span-2"><label class="text-sm text-slate-600">Ad</label><input name="name" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
             <div><label class="text-sm text-slate-600">Stok Kodu</label><div class="flex gap-2"><input name="sku" id="stok_sku" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300"><button type="button" id="stok_btnAutoSku" class="px-3 py-2 rounded-xl border border-slate-300">Oluştur</button></div><p class="text-xs text-slate-500 mt-1">Ürün çeşidine göre otomatik kod önerilir. Dilersen düzenleyebilirsin.</p></div>
             <div><label class="text-sm text-slate-600">Birim</label><input name="unit" type="text" placeholder="adet, kg, m…" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
-            <div class="hertz-muhasebe-only"><label class="text-sm text-slate-600">Birim Maliyet (€)</label><input name="cost" type="number" step="any" placeholder="0.00" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
-            <div><label class="text-sm text-slate-600">Minimum Stok</label><input name="min" type="number" step="any" value="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
-            <div class="md:col-span-2"><label class="text-sm text-slate-600">Tedarikçi</label><select name="supplierId" id="stok_supplierSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="">-- Tedarikçi Seç --</option></select></div>
+            <div class="hertz-muhasebe-only"><label class="text-sm text-slate-600">Birim Maliyet (€)</label><input name="cost" type="number" step="any" min="0" placeholder="0.00" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div><label class="text-sm text-slate-600">Minimum Stok</label><input name="min" type="number" step="any" min="0" value="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div class="md:col-span-2 hertz-muhasebe-only"><label class="text-sm text-slate-600">Tedarikçi</label><select name="supplierId" id="stok_supplierSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="">-- Tedarikçi Seç --</option></select></div>
             <div class="md:col-span-2"><label class="text-sm text-slate-600">Not</label><input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
-            <div data-section="sargiliPaket" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">kW</label><input name="kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div></div>
-            <div data-section="paketliGovde" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="pg_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="pg_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="pg_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div><div class="grid md:grid-cols-2 gap-3 mt-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="pg_customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="pg_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div></div></div>
+            <div data-section="sargiliPaket" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">kW</label><input name="kw" type="number" step="any" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="rpm" type="number" step="1" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="volt" type="number" step="1" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div></div>
+            <div data-section="paketliGovde" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="pg_rpm" type="number" step="1" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="pg_kw" type="number" step="any" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="pg_volt" type="number" step="1" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div><div class="grid md:grid-cols-2 gap-3 mt-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="pg_customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="pg_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div></div></div>
             <div data-section="mil" class="md:col-span-2 hidden"><div class="grid md:grid-cols-2 gap-3"><div><label class="text-sm text-slate-600">Mil Kodu</label><input name="milCode" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Müşteri</label><input name="customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div></div>
-            <div data-section="motor" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="m_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="m_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="m_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="m_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div><div><label class="text-sm text-slate-600">Mil Tipi</label><input name="milType" type="text" placeholder="Örn: DIN 6885" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Kapak Çeşidi</label><select name="m_cover" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="AK">AK</option><option value="CK">CK</option><option value="CK/CR">CK/CR</option></select></div></div></div>
+            <div data-section="motor" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="m_rpm" type="number" step="1" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="m_kw" type="number" step="any" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="m_volt" type="number" step="1" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="m_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div><div><label class="text-sm text-slate-600">Mil Tipi</label><input name="milType" type="text" placeholder="Örn: DIN 6885" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Kapak Çeşidi</label><select name="m_cover" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="AK">AK</option><option value="CK">CK</option><option value="CK/CR">CK/CR</option></select></div></div></div>
         </div>
         <div class="mt-5 flex justify-end gap-2"><button type="button" id="stok_productCancelBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_productSaveBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Kaydet</button></div>
         <input type="hidden" name="id">
@@ -793,7 +788,7 @@ const STOK_TAKIP_HTML = `
         <div class="space-y-3">
             <div class="text-sm">Ürün: <span id="stok_moveProductName" class="font-medium"></span></div>
             <div class="grid grid-cols-2 gap-3"><label class="flex items-center gap-2"><input type="radio" name="type" value="in" checked> <span>Giriş</span></label><label class="flex items-center gap-2"><input type="radio" name="type" value="out"> <span>Çıkış</span></label></div>
-            <div><label class="text-sm">Miktar</label><input name="amount" type="number" step="any" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div><label class="text-sm">Miktar</label><input name="amount" type="number" step="any" min="0" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
             <div><label class="text-sm">Not (isteğe bağlı)</label><input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
         </div>
         <div class="mt-5 flex justify-end gap-2"><button type="button" id="stok_moveCancelBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_moveApplyBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Uygula</button></div>
@@ -809,7 +804,7 @@ function initializeSiparisServisApp() {
     if (!appContainer.innerHTML.trim()) return; 
 
     const $ = (selector) => document.querySelector(selector);
-    const $$ = (selector) => Array.from(appContainer.querySelectorAll(selector));
+    const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
     
     let currentTab = "siparis";
     let siparisSort = { key: 'no', direction: 'desc' };
@@ -817,13 +812,12 @@ function initializeSiparisServisApp() {
     let servisSort = { key: 'no', direction: 'desc' };
     let teknikServisSevkSort = { key: 'sevkEdildi', direction: 'desc' };
 
-    const allPages = $$("section[id^='ss_page']");
-    const allTabs = $$(".tab-btn");
+    const allPages = $$("section[id^='ss_page']", appContainer);
+    const allTabs = $$(".tab-btn", appContainer);
     const table = appContainer.querySelector('#ss_orderTable');
     const form = appContainer.querySelector('#ss_orderForm');
     const logTable = appContainer.querySelector('#ss_logTable');
-    const fileInput = $('#ss_fileInput');
-    const fileInputMobile = $('#ss_fileInput_mobile');
+    const fileInput = appContainer.querySelector('#ss_fileInput');
     const sevkTable = appContainer.querySelector('#ss_sevkTable');
     const teknikServisSevkTable = appContainer.querySelector('#ss_teknikServisSevkTable');
     const searchInput = appContainer.querySelector('#ss_sevkSearch');
@@ -1335,6 +1329,7 @@ function initializeSiparisServisApp() {
         input = document.createElement('input');
         input.type = type === 'number' ? 'number' : 'text';
         input.className = `px-2 py-1 border rounded-md w-full ${type==='number' ? 'text-right' : ''}`;
+        if (type === 'number') input.min = 0;
         input.value = current ?? '';
       }
       td.innerHTML = '';
@@ -1399,6 +1394,7 @@ function initializeSiparisServisApp() {
         input = document.createElement('input');
         input.type = (type === 'date') ? 'text' : (type === 'number' ? 'number' : 'text');
         input.className = `px-2 py-1 border rounded-md w-full ${type==='number' ? 'text-right' : ''}`;
+        if (type === 'number') input.min = 0;
         input.value = (type === 'date') ? formatDate_TR(s[field]) : (s[field] ?? '');
         
         input.addEventListener('keydown', e => { if (e.key === 'Enter') commitAndRender(); if (e.key === 'Escape') renderServisList(); });
@@ -1594,12 +1590,11 @@ function initializeSiparisServisApp() {
         } catch (err) { showToast("Geçersiz JSON dosyası.", "error"); }
       };
       reader.readAsText(file);
+      e.target.value = '';
     }
     
-    $('#ss_btnImportJSON').onclick = () => fileInput.click();
-    $('#ss_btnImportJSON_mobile').onclick = () => fileInputMobile.click();
+    $$('.ss_btnImportJSON').forEach(btn => btn.onclick = () => fileInput.click());
     fileInput.addEventListener("change", handleImport);
-    fileInputMobile.addEventListener("change", handleImport);
 
     const exportAction = () => {
       const json = JSON.stringify({ orders, logs, sevkEdilenler, servisKayitlari, servisSevkEdilenler }, null, 2);
@@ -1609,41 +1604,34 @@ function initializeSiparisServisApp() {
       a.download = `hertz_motor_yedek_${new Date().toISOString().slice(0,10)}.json`;
       a.click();
     };
-    $('#ss_btnExportJSON').onclick = exportAction;
-    $('#ss_btnExportJSON_mobile').onclick = exportAction;
+    $$('.ss_btnExportJSON').forEach(btn => btn.onclick = exportAction);
     
-
     const exportCSVAction = () => downloadCSV("siparisler.csv", [
       ["No", "Müşteri", "Ürün", "Mil Kodu", "kW", "RPM", "Voltaj", "Sevk Tarihi", "Hazır", "Sevke Hazır", "Kullanıcı"],
       ...orders.map(o => [o.no, o.musteri, o.urun, o.milKod, o.kw, o.rpm, o.volt, formatDate_TR(o.sevkTarihi), o.hazir?"Evet":"Hayır", o.sevkeHazir?"Evet":"Hayır", o.kullanici])
     ]);
-    $('#ss_btnExportCSV').onclick = exportCSVAction;
-    $('#ss_btnExportCSV_mobile').onclick = exportCSVAction;
+    $$('.ss_btnExportCSV').forEach(btn => btn.onclick = exportCSVAction);
 
     const exportLogCSVAction = () => downloadCSV("siparis_log.csv", [
       ["Tarih", "No", "İşlem", "Kullanıcı"],
       ...logs.map(l => [l.tarih, l.no, l.islem, l.user])
     ]);
-    $('#ss_btnExportLogCSV').onclick = exportLogCSVAction;
-    $('#ss_btnExportLogCSV_mobile').onclick = exportLogCSVAction;
+    $$('.ss_btnExportLogCSV').forEach(btn => btn.onclick = exportLogCSVAction);
 
     const clearAllAction = () => {
       if (confirm("TÜM SİPARİŞ/SERVİS VERİLERİ (sipariş, sevk, servis, log) silinecek. Emin misiniz?\n\nİşlemden önce otomatik olarak yedek indirilecektir.")) {
-        $('#ss_btnExportJSON').click();
-        
+        exportAction();
         const keysToClear = ["siparisler", "sevkEdilenler", "servisKayitlari", "siparisLog", "servisSevkEdilenler"];
         keysToClear.forEach(k => {
             window.dataStore[k] = [];
             window.pushData(k);
         });
-
         loadDataFromStorage();
         renderAllTables();
         showToast("Tüm Sipariş/Servis verileri temizlendi.", "success");
       }
     };
-    $('#ss_btnClearAll').onclick = clearAllAction;
-    $('#ss_btnClearAll_mobile').onclick = clearAllAction;
+    $$('.ss_btnClearAll').forEach(btn => btn.onclick = clearAllAction);
 
     
     appContainer.querySelector('#ss_btnSevkFilter').onclick = renderSevkList;
@@ -1771,7 +1759,7 @@ function initializeStokTakipApp() {
     if (!appContainer.innerHTML.trim()) return;
 
     const $=(s,r=document)=>r.querySelector(s);
-    const $$=(s,r=appContainer)=>Array.from(r.querySelectorAll(s));
+    const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
     
     const LS_KEY='stokTakip-v1';
     const CATEGORY_PREFIX={stator:'ST',rotor:'RT',mil:'MIL',rotorluMil:'RMIL',taslanmisMil:'TMIL',sargiliPaket:'SP',paketliGovde:'PG',motor:'MOT',kapak:'KAP',islenmisKapak:'IKAP',taslanmisKapak:'TKAP', rulman:'RUL', aluminyum_govde:'ALU', bakir_tel:'CUW',  yardimci_parcalar:'ACC'};
@@ -1888,17 +1876,19 @@ function initializeStokTakipApp() {
         if(filterKindVal) { list=list.filter(p => p.kind === filterKindVal); }
         if(filterCategoryVal) { list=list.filter(p => p.category === filterCategoryVal); }
 
-        const tbody=$('#stok_tbodyDesktop'); tbody.innerHTML='';
-        const listMobile=$('#stok_listMobile'); listMobile.innerHTML='';
+        const tbody=$('#stok_tbodyDesktop', appContainer); 
+        tbody.innerHTML='';
+        const listMobile=$('#stok_listMobile', appContainer); 
+        listMobile.innerHTML='';
 
         list.sort((a,b)=>{ let va,vb; switch(sortBy){ case 'sku': va=(a.sku||'').toLowerCase(); vb=(b.sku||'').toLowerCase(); break; case 'qty': va=Number(a.qty||0); vb=Number(b.qty||0); break; case 'min': va=Number(a.min||0); vb=Number(b.min||0); break; case 'cost': va=Number(a.cost||0); vb=Number(b.cost||0); break; default: va=(a.name||'').toLowerCase(); vb=(b.name||'').toLowerCase(); } return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1); });
 
-        $('#stok_totalProducts').textContent = state.products.length;
-        $('#stok_criticalProducts').textContent = state.products.filter(p => Number(p.qty||0) < Number(p.min||0)).length;
+        $('#stok_totalProducts', appContainer).textContent = state.products.length;
+        $('#stok_criticalProducts', appContainer).textContent = state.products.filter(p => Number(p.qty||0) < Number(p.min||0)).length;
         const totalValue = state.products.reduce((sum, p) => sum + (Number(p.qty||0) * Number(p.cost||0)), 0);
-        $('#stok_totalValue').textContent = fmtCurrency(totalValue);
+        $('#stok_totalValue', appContainer).textContent = fmtCurrency(totalValue);
 
-        $('#stok_count').textContent=list.length;
+        $('#stok_count', appContainer).textContent=list.length;
 
         for(const p of list){
             const low=Number(p.qty||0) < Number(p.min||0);
@@ -1945,7 +1935,7 @@ function initializeStokTakipApp() {
     }
     
     function renderLogList() {
-        const logBody=$('#stok_logBody'); logBody.innerHTML='';
+        const logBody=$('#stok_logBody', appContainer); logBody.innerHTML='';
         for(const L of state.logs){ const p=findProduct(L.productId)||{name:'(silinmiş ürün)'}; const tr=document.createElement('tr'); const typeTxt=L.type==='in'?'Giriş':(L.type==='out'?'Çıkış':(L.type==='adjustment'?'Düzeltme':L.type)); tr.innerHTML=`
             <td class="px-3 py-2">${new Date(L.ts).toLocaleString('tr-TR')}</td><td class="px-3 py-2">${p.name}</td>
             <td class="px-3 py-2">${typeTxt}</td><td class="px-3 py-2 text-right">${fmt(L.amount)}</td>
@@ -1954,12 +1944,12 @@ function initializeStokTakipApp() {
     }
     
     function renderAnalysisReports() {
-        const aktifBody = $('#stok_analiz_aktif_body');
+        const aktifBody = $('#stok_analiz_aktif_body', appContainer);
         aktifBody.innerHTML = '<tr><td colspan="2" class="p-4 text-center text-slate-500">Rapor oluşturuluyor...</td></tr>';
         
         setTimeout(() => {
             // En Aktif Ürünler
-            const aktifGun = parseInt($('#stok_analiz_aktif_gun').value, 10);
+            const aktifGun = parseInt($('#stok_analiz_aktif_gun', appContainer).value, 10);
             const aktifThreshold = new Date();
             aktifThreshold.setDate(aktifThreshold.getDate() - aktifGun);
             const hareketler = {};
@@ -1983,7 +1973,7 @@ function initializeStokTakipApp() {
             if(enAktif.length === 0) aktifBody.innerHTML = '<tr><td colspan="2" class="p-2 text-slate-500 text-center">Veri bulunamadı.</td></tr>';
 
             // Hareketsiz Ürünler
-            const pasifGun = parseInt($('#stok_analiz_pasif_gun').value, 10);
+            const pasifGun = parseInt($('#stok_analiz_pasif_gun', appContainer).value, 10);
             const pasifThreshold = new Date();
             pasifThreshold.setDate(pasifThreshold.getDate() - pasifGun);
             const sonHareket = {};
@@ -1996,7 +1986,7 @@ function initializeStokTakipApp() {
                 .filter(p => !sonHareket[p.id] || sonHareket[p.id] < pasifThreshold)
                 .sort((a, b) => (sonHareket[a.id] || 0) - (sonHareket[b.id] || 0));
 
-            const pasifBody = $('#stok_analiz_pasif_body');
+            const pasifBody = $('#stok_analiz_pasif_body', appContainer);
             pasifBody.innerHTML = '';
             hareketsiz.forEach(p => {
                 const tr = document.createElement('tr');
@@ -2015,7 +2005,7 @@ function initializeStokTakipApp() {
             });
             const enAktifKullanicilar = Object.entries(kullaniciAktivite).sort((a, b) => b[1] - a[1]);
             
-            const kullaniciBody = $('#stok_analiz_kullanici_body');
+            const kullaniciBody = $('#stok_analiz_kullanici_body', appContainer);
             kullaniciBody.innerHTML = '';
             enAktifKullanicilar.forEach(([user, count]) => {
                 const tr = document.createElement('tr');
@@ -2025,7 +2015,7 @@ function initializeStokTakipApp() {
             if(enAktifKullanicilar.length === 0) kullaniciBody.innerHTML = '<tr><td colspan="2" class="p-2 text-slate-500 text-center">Veri bulunamadı.</td></tr>';
             
             // ABC Analizi
-            const abcBody = $('#stok_analiz_abc_body');
+            const abcBody = $('#stok_analiz_abc_body', appContainer);
             const oneYearAgo = new Date();
             oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
@@ -2072,35 +2062,37 @@ function initializeStokTakipApp() {
     }
 
     function renderSupplierList() {
-        const listEl = $('#stok_supplierList');
+        const listEl = $('#stok_supplierList', appContainer);
         listEl.innerHTML = '';
         if (state.suppliers.length === 0) {
             listEl.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">Kayıtlı tedarikçi yok.</td></tr>';
             return;
         }
-        state.suppliers.forEach(s => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="p-3">${s.name || '-'}</td>
-                <td class="p-3">${s.contactPerson || '-'}</td>
-                <td class="p-3">
-                    ${s.phone ? `<div class="text-xs">${s.phone}</div>` : ''}
-                    ${s.email ? `<div class="text-xs text-blue-600">${s.email}</div>` : ''}
-                </td>
-                <td class="p-3 text-right">
-                    <button type="button" data-id="${s.id}" data-act="edit" class="px-2 py-1 rounded-lg border border-slate-300 text-xs">Düzenle</button>
-                    <button type="button" data-id="${s.id}" data-act="del" class="px-2 py-1 rounded-lg border border-rose-200 text-rose-700 text-xs ml-1">Sil</button>
-                </td>
-            `;
-            listEl.appendChild(tr);
-        });
+        state.suppliers
+            .slice()
+            .sort((a,b) => (a.name || '').localeCompare(b.name || '', 'tr'))
+            .forEach(s => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-3">${s.name || '-'}</td>
+                    <td class="p-3">${s.contactPerson || '-'}</td>
+                    <td class="p-3">
+                        ${s.phone ? `<div class="text-xs">${s.phone}</div>` : ''}
+                        ${s.email ? `<div class="text-xs text-blue-600">${s.email}</div>` : ''}
+                    </td>
+                    <td class="p-3 text-right">
+                        <button type="button" data-id="${s.id}" data-act="edit" class="px-2 py-1 rounded-lg border border-slate-300 text-xs">Düzenle</button>
+                        <button type="button" data-id="${s.id}" data-act="del" class="px-2 py-1 rounded-lg border border-rose-200 text-rose-700 text-xs ml-1">Sil</button>
+                    </td>
+                `;
+                listEl.appendChild(tr);
+            });
     }
 
     function openProductDialog(product){ 
         const dlg=$('#stok_productDialog'); const form=$('#stok_productForm'); form.reset(); 
         
         authManager.updateUIVisibility();
-
         populateSupplierDropdownInForm();
         
         toggleConditionalSections(); 
@@ -2158,7 +2150,7 @@ function initializeStokTakipApp() {
     
     function toggleConditionalSections(){ 
         const form=$('#stok_productForm'); const cat=form.category.value; 
-        $$('#stok_productForm [data-section]').forEach(el => el.classList.add('hidden'));
+        $$('[data-section]', form).forEach(el => el.classList.add('hidden'));
 
         let sectionName = null;
         if (['mil', 'rotorluMil', 'taslanmisMil'].includes(cat)) {
@@ -2168,7 +2160,7 @@ function initializeStokTakipApp() {
         }
 
         if (sectionName) {
-            const section = $(`#stok_productForm [data-section="${sectionName}"]`);
+            const section = $(`[data-section="${sectionName}"]`, form);
             if (section) section.classList.remove('hidden');
         }
     }
@@ -2177,7 +2169,7 @@ function initializeStokTakipApp() {
     function suggestSku(force=false){ const form=$('#stok_productForm'); const cat=form.category.value; const suggestion=nextSkuForCategory(cat); const prefix=(CATEGORY_PREFIX[cat]||'PRD')+'-'; if(force || !form.sku.value || !form.sku.value.startsWith(prefix)){ form.sku.value=suggestion; } else { if(state.products.some(p=>(p.sku||'').toLowerCase()===form.sku.value.toLowerCase())) form.sku.value=suggestion; } }
     
     function populateFilters() {
-        const catSelect = $('#stok_filterCategory');
+        const catSelect = $('#stok_filterCategory', appContainer);
         catSelect.innerHTML = '<option value="">Tüm Çeşitler</option>'; // Reset
         Object.entries(CATEGORY_LABEL).forEach(([key, label]) => {
             const option = document.createElement('option');
@@ -2188,8 +2180,8 @@ function initializeStokTakipApp() {
     }
 
     function setupTabListeners() {
-        const tabs = $$('.stok-tab');
-        const contents = $$('.stok-tab-content');
+        const tabs = $$('.stok-tab', appContainer);
+        const contents = $$('.stok-tab-content', appContainer);
         
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -2199,7 +2191,7 @@ function initializeStokTakipApp() {
                 tab.classList.add('active');
                 
                 contents.forEach(c => c.classList.add('hidden'));
-                const activeContent = $(`#stok_tabContent_${target}`);
+                const activeContent = $(`#stok_tabContent_${target}`, appContainer);
                 if (activeContent) activeContent.classList.remove('hidden');
                 
                 if (target === 'analiz') {
@@ -2208,28 +2200,17 @@ function initializeStokTakipApp() {
             });
         });
         
-        const defaultTab = $('[data-tab="liste"]');
+        const defaultTab = $('[data-tab="liste"]', appContainer);
         if (defaultTab) defaultTab.click();
     }
 
-    $('#stok_btnAdd').addEventListener('click',()=>openProductDialog());
-    $('#stok_btnAdd_mobile').addEventListener('click',()=>openProductDialog());
+    $$('.stok_btnAdd', document).forEach(btn => btn.addEventListener('click', ()=>openProductDialog()));
+    $$('.stok_btnExport', document).forEach(btn => btn.addEventListener('click', exportJSON));
+    $$('.stok_btnExportCSV', document).forEach(btn => btn.addEventListener('click', exportCSV));
+    $$('.stok_btnExportLogCSV', document).forEach(btn => btn.addEventListener('click', exportLogCSV));
     
-    const exportAction = () => exportJSON();
-    $('#stok_btnExport').onclick = exportAction;
-    $('#stok_btnExport_mobile').onclick = exportAction;
-
-    const exportCSVAction = () => exportCSV();
-    $('#stok_btnExportCSV').onclick = exportCSVAction;
-    $('#stok_btnExportCSV_mobile').onclick = exportCSVAction;
-
-    const exportLogCSVAction = () => exportLogCSV();
-    $('#stok_btnExportLogCSV').onclick = exportLogCSVAction;
-    $('#stok_btnExportLogCSV_mobile').onclick = exportLogCSVAction;
-
     const fileInput = $('#stok_fileInput');
-    $('#stok_btnImport').onclick = () => fileInput.click();
-    $('#stok_btnImport_mobile').onclick = () => fileInput.click();
+    $$('.stok_btnImport', document).forEach(btn => btn.addEventListener('click', ()=>fileInput.click()));
     fileInput.addEventListener('change', e => { 
         const f=e.target.files?.[0]; 
         if(f) importJSONFile(f); 
@@ -2247,20 +2228,19 @@ function initializeStokTakipApp() {
             showToast("Tüm stok verileri silindi.", "success");
         }
     };
-    $('#stok_btnClear').onclick = clearAction;
-    $('#stok_btnClear_mobile').onclick = clearAction;
+    $$('.stok_btnClear', document).forEach(btn => btn.addEventListener('click', clearAction));
 
-    $$('#stok_search, #stok_onlyLow, #stok_filterKind, #stok_filterCategory').forEach(el => el.addEventListener('input', renderProductList));
-    $$('#stok_analiz_aktif_gun, #stok_analiz_pasif_gun').forEach(el => el.addEventListener('change', renderAnalysisReports));
-    $('#stok_btnClearFilters').addEventListener('click', () => {
-        $('#stok_search').value = '';
-        $('#stok_onlyLow').checked = false;
-        $('#stok_filterKind').value = '';
-        $('#stok_filterCategory').value = '';
+    $$('#stok_search, #stok_onlyLow, #stok_filterKind, #stok_filterCategory', appContainer).forEach(el => el.addEventListener('input', renderProductList));
+    $$('#stok_analiz_aktif_gun, #stok_analiz_pasif_gun', appContainer).forEach(el => el.addEventListener('change', renderAnalysisReports));
+    $('#stok_btnClearFilters', appContainer).addEventListener('click', () => {
+        $('#stok_search', appContainer).value = '';
+        $('#stok_onlyLow', appContainer).checked = false;
+        $('#stok_filterKind', appContainer).value = '';
+        $('#stok_filterCategory', appContainer).value = '';
         renderProductList();
     });
 
-    $('#stok_thead').addEventListener('click',e=>{ const th=e.target.closest('th[data-sort]'); if(!th) return; const key=th.dataset.sort; if(sortBy===key) sortDir=(sortDir==='asc'?'desc':'asc'); else { sortBy=key; sortDir='asc'; } renderProductList(); });
+    $('#stok_thead', appContainer).addEventListener('click',e=>{ const th=e.target.closest('th[data-sort]'); if(!th) return; const key=th.dataset.sort; if(sortBy===key) sortDir=(sortDir==='asc'?'desc':'asc'); else { sortBy=key; sortDir='asc'; } renderProductList(); });
     
     function delegate(container, selector, event, handler) {
         container.addEventListener(event, e => {
@@ -2281,7 +2261,7 @@ function initializeStokTakipApp() {
         else if(act === 'move-out') openMoveDialog(p, 'out');
     });
     
-    delegate($('#stok_tbodyDesktop'), '.editable-qty', 'dblclick', (td) => {
+    delegate($('#stok_tbodyDesktop', appContainer), '.editable-qty', 'dblclick', (td) => {
         const pId = td.dataset.id;
         const p = findProduct(pId);
         if (!p || td.querySelector('input')) return;
@@ -2318,7 +2298,7 @@ function initializeStokTakipApp() {
         });
     });
     
-    $('#stok_btnAddSupplier').addEventListener('click', () => openSupplierDialog());
+    $('#stok_btnAddSupplier', appContainer).addEventListener('click', () => openSupplierDialog());
     
     $('#stok_supplierDialogForm').addEventListener('submit', e => {
         e.preventDefault();
@@ -2348,7 +2328,7 @@ function initializeStokTakipApp() {
     
     $('#stok_supplierCancelBtn').addEventListener('click', () => $('#stok_supplierDialog').close());
 
-    delegate($('#stok_supplierList'), 'button', 'click', (btn) => {
+    delegate($('#stok_supplierList', appContainer), 'button', 'click', (btn) => {
         const id = btn.dataset.id;
         const act = btn.dataset.act;
         const supplier = findSupplier(id);
@@ -2425,7 +2405,7 @@ function initializeStokTakipApp() {
       const p = findProduct(data.id);
       if(!p){ showToast('Ürün bulunamadı', 'error'); return; }
       const amt = Number(data.amount);
-      if(!(amt>0)){ showToast('Miktar pozitif olmalı', 'error'); return; }
+      if(!(amt>0)){ showToast('Miktar 0\'dan büyük olmalı', 'error'); return; }
       const from = Number(p.qty||0);
       const to = data.type==='in' ? from + amt : from - amt;
       p.qty = to;
@@ -2436,10 +2416,10 @@ function initializeStokTakipApp() {
     });
 
     $('#stok_btnAutoSku').addEventListener('click', () => suggestSku());
-    $('#stok_category').addEventListener('change', () => { if (!$('#stok_productForm').id.value) suggestSku(true); toggleConditionalSections(); });
-    $('#stok_kind').addEventListener('change', toggleConditionalSections);
+    $('#stok_category', appContainer).addEventListener('change', () => { if (!$('#stok_productForm').id.value) suggestSku(true); toggleConditionalSections(); });
+    $('#stok_kind', appContainer).addEventListener('change', toggleConditionalSections);
 
-    document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); appContainer.querySelector('#stok_search').focus(); } });
+    document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); $('#stok_search', appContainer).focus(); } });
     
     load();
     populateFilters();
@@ -2554,3 +2534,4 @@ function initializeStokTakipApp() {
 
 </body>
 </html>
+
