@@ -652,7 +652,7 @@ const STOK_TAKIP_HTML = `
                         <th data-sort="min" class="text-right px-3 py-2 cursor-pointer select-none">Minimum</th>
                         <th data-sort="cost" class="text-right px-3 py-2 cursor-pointer select-none hertz-muhasebe-only">Birim Maliyet</th>
                         <th class="text-left px-3 py-2">Özellikler</th>
-                        <th class="text-left px-3 py-2">Tedarikçi</th>
+                        <th class="text-left px-3 py-2 hertz-muhasebe-only">Tedarikçi</th>
                         <th class="text-right px-3 py-2">İşlemler</th>
                     </tr>
                 </thead>
@@ -1827,6 +1827,26 @@ function initializeStokTakipApp() {
       const extra = [p.pg_rpm,p.pg_kw,p.pg_volt,p.pg_customer,p.pg_conn,p.m_rpm,p.m_kw,p.m_volt,p.m_customer,p.m_conn,p.m_cover,p.material,p.milType,p.milCode,p.rpm,p.kw,p.volt,p.customer].filter(Boolean).join(' ');
       return normalizeTR(base+' '+extra);
     }
+
+    function populateSupplierDropdownInForm() {
+        const supplierSelect = $('#stok_supplierSelect');
+        if (!supplierSelect) return;
+        const currentVal = supplierSelect.value;
+        supplierSelect.innerHTML = '<option value="">-- Tedarikçi Seç --</option>';
+        state.suppliers
+            .slice() 
+            .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'))
+            .forEach(s => {
+                const option = document.createElement('option');
+                option.value = s.id;
+                option.textContent = s.name;
+                supplierSelect.appendChild(option);
+            });
+        
+        if (findSupplier(currentVal)) {
+            supplierSelect.value = currentVal;
+        }
+    }
     
     function render(){
         renderProductList();
@@ -1896,7 +1916,7 @@ function initializeStokTakipApp() {
             <td class="px-3 py-2 align-top text-right">${fmt(p.min||0)}</td>
             <td class="px-3 py-2 align-top text-right hertz-muhasebe-only">${fmtCurrency(p.cost)}</td>
             <td class="px-3 py-2 align-top text-slate-700">${specs(p)}</td>
-            <td class="px-3 py-2 align-top text-slate-600">${supplier ? supplier.name : '-'}</td>
+            <td class="px-3 py-2 align-top text-slate-600 hertz-muhasebe-only">${supplier ? supplier.name : '-'}</td>
             <td class="px-3 py-2 align-top text-right">
                 <div class="flex justify-end gap-1">
                 <button type="button" class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-in" data-id="${p.id}">Giriş</button>
@@ -2081,14 +2101,7 @@ function initializeStokTakipApp() {
         
         authManager.updateUIVisibility();
 
-        const supplierSelect = $('#stok_supplierSelect');
-        supplierSelect.innerHTML = '<option value="">-- Tedarikçi Seç --</option>';
-        state.suppliers.forEach(s => {
-            const option = document.createElement('option');
-            option.value = s.id;
-            option.textContent = s.name;
-            supplierSelect.appendChild(option);
-        });
+        populateSupplierDropdownInForm();
         
         toggleConditionalSections(); 
         if(product){ 
@@ -2323,11 +2336,13 @@ function initializeStokTakipApp() {
                 Object.assign(supplier, data);
             }
         } else { // Yeni ekleme
-            state.suppliers.push({ id: uuid(), ...data });
+            const { id, ...supplierData } = data;
+            state.suppliers.push({ id: uuid(), ...supplierData });
         }
         
         $('#stok_supplierDialog').close();
         save();
+        populateSupplierDropdownInForm();
         showToast(data.id ? "Tedarikçi güncellendi." : "Tedarikçi eklendi.", "success");
     });
     
@@ -2539,4 +2554,3 @@ function initializeStokTakipApp() {
 
 </body>
 </html>
-
