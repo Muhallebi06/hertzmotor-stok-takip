@@ -1700,7 +1700,7 @@ function initializeSiparisServisApp() {
       e.target.value = '';
     }
     
-    $$('.ss_btnImportJSON', appContainer).forEach(btn => btn.onclick = () => fileInput.click());
+    $$('.ss_btnImportJSON', document).forEach(btn => btn.onclick = () => fileInput.click());
     fileInput.addEventListener("change", handleImport);
 
     const exportAction = () => {
@@ -1712,19 +1712,19 @@ function initializeSiparisServisApp() {
       a.click();
       showToast("Sipariş/Servis verileri yedeklendi.", "success");
     };
-    $$('.ss_btnExportJSON', appContainer).forEach(btn => btn.onclick = exportAction);
+    $$('.ss_btnExportJSON', document).forEach(btn => btn.onclick = exportAction);
     
     const exportCSVAction = () => downloadCSV("siparisler.csv", [
       ["No", "Müşteri", "Ürün", "Mil Kodu", "kW", "RPM", "Voltaj", "Sevk Tarihi", "Hazır", "Sevke Hazır", "Kullanıcı"],
       ...orders.map(o => [o.no, o.musteri, o.urun, o.milKod, o.kw, o.rpm, o.volt, formatDate_TR(o.sevkTarihi), o.hazir?"Evet":"Hayır", o.sevkeHazir?"Evet":"Hayır", o.kullanici])
     ]);
-    $$('.ss_btnExportCSV', appContainer).forEach(btn => btn.onclick = exportCSVAction);
+    $$('.ss_btnExportCSV', document).forEach(btn => btn.onclick = exportCSVAction);
 
     const exportLogCSVAction = () => downloadCSV("siparis_log.csv", [
       ["Tarih", "No", "İşlem", "Kullanıcı"],
       ...logs.map(l => [l.tarih, l.no, l.islem, l.user])
     ]);
-    $$('.ss_btnExportLogCSV', appContainer).forEach(btn => btn.onclick = exportLogCSVAction);
+    $$('.ss_btnExportLogCSV', document).forEach(btn => btn.onclick = exportLogCSVAction);
 
     const clearAllAction = () => {
       if (confirm("TÜM SİPARİŞ/SERVİS VERİLERİ (sipariş, sevk, servis, log) silinecek. Emin misiniz?\n\nİşlemden önce otomatik olarak yedek indirilecektir.")) {
@@ -1739,7 +1739,7 @@ function initializeSiparisServisApp() {
         showToast("Tüm Sipariş/Servis verileri temizlendi.", "success");
       }
     };
-    $$('.ss_btnClearAll', appContainer).forEach(btn => btn.onclick = clearAllAction);
+    $$('.ss_btnClearAll', document).forEach(btn => btn.onclick = clearAllAction);
 
     
     appContainer.querySelector('#ss_btnSevkFilter').onclick = renderSevkList;
