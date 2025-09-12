@@ -200,14 +200,14 @@
             </div>
         </div>
         
-        <div class="flex-1 flex justify-center min-w-full sm:min-w-0 order-3 sm:order-2">
+        <div class="flex-1 flex justify-center min-w-full lg:min-w-0 order-3 lg:order-2">
             <div id="main-nav-tabs" class="flex items-center gap-2 bg-slate-200 p-1 rounded-xl">
                 <button id="mainTabSiparis" class="main-tab px-2 md:px-4 py-1.5 rounded-lg text-sm font-semibold">Sipariş & Servis</button>
                 <button id="mainTabStok" class="main-tab px-2 md:px-4 py-1.5 rounded-lg text-sm font-semibold">Stok Yönetimi</button>
             </div>
         </div>
 
-        <div class="flex items-center gap-2 flex-shrink-0 order-2 sm:order-3">
+        <div class="flex items-center gap-2 flex-wrap justify-end flex-shrink-0 order-2 lg:order-3">
             <div id="siparis-header-buttons" class="items-center gap-2">
                 <button class="ss_btnImportJSON px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">İçe aktar</button>
                 <button class="ss_btnExportJSON px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">Dışa aktar</button>
@@ -1088,16 +1088,18 @@ function initializeSiparisServisApp() {
 
     function markServisAsSevk(index){
       const user = sessionStorage.getItem("auth_user") || "(bilinmiyor)";
-      servisSevkEdilenler.push({ ...servisKayitlari[index], sevkEdildi: formatDateTime_TR(new Date()), kullanici: user });
+      const record = servisKayitlari[index];
+      servisSevkEdilenler.push({ ...record, sevkEdildi: formatDateTime_TR(new Date()), kullanici: user });
       window.dataStore['servisSevkEdilenler'] = servisSevkEdilenler;
       window.pushData('servisSevkEdilenler');
       
-      logAction(servisKayitlari[index].no || "(servis)", "Servis kaydı sevk edildi");
+      logAction(record.no || "(servis)", "Servis kaydı sevk edildi");
       servisKayitlari.splice(index, 1);
       window.dataStore['servisKayitlari'] = servisKayitlari;
       window.pushData('servisKayitlari');
 
       renderServisList();
+      showToast(`${record.firma} için servis kaydı sevk edildi.`, "success");
       if (currentTab === "sevk") renderTeknikServisSevkList();
     }
     
@@ -1113,6 +1115,7 @@ function initializeSiparisServisApp() {
       window.dataStore['servisKayitlari'] = servisKayitlari;
       window.pushData('servisKayitlari');
       logAction(rec.no || "(servis)", "Servis sevk geri alındı");
+      showToast(`${rec.no} no'lu servis sevki geri alındı.`, "success");
       renderServisList();
       if (currentTab === "sevk") renderTeknikServisSevkList();
     }
@@ -1325,6 +1328,7 @@ function initializeSiparisServisApp() {
       window.dataStore['servisKayitlari'] = servisKayitlari;
       window.pushData('servisKayitlari');
       if (no) logAction(no, 'Teknik servis kaydı silindi');
+      showToast(`${no} no'lu servis kaydı silindi.`, 'success');
       renderServisList();
     }
     
@@ -1332,7 +1336,7 @@ function initializeSiparisServisApp() {
       const index = orders.findIndex(o => o.no === no);
       if (index === -1) {
           console.error("Silinecek sipariş bulunamadı:", no);
-          alert("Hata: Silinecek sipariş bulunamadı.");
+          showToast("Hata: Silinecek sipariş bulunamadı.", 'error');
           return;
       }
       const o = orders[index];
@@ -1342,6 +1346,7 @@ function initializeSiparisServisApp() {
       window.dataStore['siparisler'] = orders;
       window.pushData('siparisler');
       logAction(o.no, "Sipariş silindi");
+      showToast(`${o.no} numaralı sipariş silindi.`, 'success');
       renderOrders();
     }
     
@@ -1541,7 +1546,7 @@ function initializeSiparisServisApp() {
       const index = orders.findIndex(o => o.no === no);
       if (index === -1) {
           console.error("Sevk edilecek sipariş bulunamadı:", no);
-          alert("Hata: Sevk edilecek sipariş bulunamadı. Lütfen sayfayı yenileyip tekrar deneyin.");
+          showToast("Hata: Sevk edilecek sipariş bulunamadı.", "error");
           return;
       }
       const orderToShip = orders[index];
@@ -1555,6 +1560,7 @@ function initializeSiparisServisApp() {
       window.dataStore['siparisler'] = orders;
       window.pushData('siparisler');
       
+      showToast(`${orderToShip.no} no'lu sipariş sevk edildi.`, "success");
       renderOrders();
       renderSevkList();
     }
@@ -1571,6 +1577,7 @@ function initializeSiparisServisApp() {
       window.dataStore['siparisler'] = orders;
       window.pushData('siparisler');
       logAction(rec.no, "Sevk geri alındı");
+      showToast(`${rec.no} no'lu sevk geri alındı.`, 'success');
       renderSevkList();
       renderOrders();
     }
@@ -1578,7 +1585,7 @@ function initializeSiparisServisApp() {
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(form).entries());
-      orders.push({ 
+      const newOrder = { 
         ...data, 
         kw: data.kw ? Number(data.kw) : null,
         rpm: data.rpm ? Number(data.rpm) : null,
@@ -1588,10 +1595,12 @@ function initializeSiparisServisApp() {
         kullanici: sessionStorage.getItem("auth_user") || "(anonim)", 
         hazir: false, 
         sevkeHazir: false 
-      });
+      };
+      orders.push(newOrder);
       window.dataStore['siparisler'] = orders;
       window.pushData('siparisler');
-      logAction(orders[orders.length-1].no, "Yeni sipariş eklendi");
+      logAction(newOrder.no, "Yeni sipariş eklendi");
+      showToast(`${newOrder.no} no'lu yeni sipariş eklendi.`, "success");
       form.reset();
       form.querySelector(".sevk-picker")?._flatpickr.clear();
       renderOrders();
@@ -1600,7 +1609,12 @@ function initializeSiparisServisApp() {
     servisForm.addEventListener('submit', function(e){
       e.preventDefault();
       const data = Object.fromEntries(new FormData(servisForm).entries());
-      const norm = { ...data, adet: data.adet ? parseInt(data.adet,10) : null };
+      const adet = data.adet ? parseInt(data.adet, 10) : null;
+      if (adet !== null && (isNaN(adet) || adet < 1)) {
+          showToast("Adet geçerli bir pozitif sayı olmalıdır.", "error");
+          return;
+      }
+      const norm = { ...data, adet };
 
       const editIndex = servisForm.dataset.editIndex;
       if (editIndex !== undefined){
@@ -1609,11 +1623,13 @@ function initializeSiparisServisApp() {
         if(existing) {
             servisKayitlari[idx] = Object.assign(existing, norm);
             logAction(existing.no, 'Teknik servis kaydı güncellendi');
+            showToast(`${existing.no} no'lu servis kaydı güncellendi.`, "success");
         }
       } else {
         const no = getNextServisNo();
         servisKayitlari.unshift({ ...norm, no, durum: 'BEKLEMEDE', sevkTarihi: '' });
         logAction(no, 'Teknik servis kaydı eklendi');
+        showToast(`${no} no'lu yeni servis kaydı eklendi.`, "success");
       }
 
       window.dataStore['servisKayitlari'] = servisKayitlari;
@@ -1676,7 +1692,7 @@ function initializeSiparisServisApp() {
 
             loadDataFromStorage();
             renderAllTables();
-            showToast("Veri başarıyla yüklendi.", "success");
+            showToast("Sipariş/Servis verileri başarıyla yüklendi.", "success");
           }
         } catch (err) { showToast("Geçersiz JSON dosyası.", "error"); }
       };
@@ -1692,8 +1708,9 @@ function initializeSiparisServisApp() {
       const blob = new Blob([json], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `hertz_motor_yedek_${new Date().toISOString().slice(0,10)}.json`;
+      a.download = `hertz_motor_siparis_servis_yedek_${new Date().toISOString().slice(0,10)}.json`;
       a.click();
+      showToast("Sipariş/Servis verileri yedeklendi.", "success");
     };
     $$('.ss_btnExportJSON', appContainer).forEach(btn => btn.onclick = exportAction);
     
@@ -1731,6 +1748,7 @@ function initializeSiparisServisApp() {
         sevkEdilenler=[]; 
         window.dataStore['sevkEdilenler'] = sevkEdilenler;
         window.pushData('sevkEdilenler');
+        showToast("Tüm sevk kayıtları silindi.", "success");
         renderSevkList();
     }};
     
@@ -1752,6 +1770,7 @@ function initializeSiparisServisApp() {
             servisSevkEdilenler = [];
             window.dataStore['servisSevkEdilenler'] = servisSevkEdilenler;
             window.pushData('servisSevkEdilenler');
+            showToast("Tüm teknik servis sevk kayıtları silindi.", "success");
             renderTeknikServisSevkList();
         }
     });
@@ -1760,6 +1779,7 @@ function initializeSiparisServisApp() {
         servisKayitlari = []; 
         window.dataStore['servisKayitlari'] = servisKayitlari;
         window.pushData('servisKayitlari');
+        showToast("Tüm servis kayıtları silindi.", "success");
         renderServisList(); 
     }};
     
@@ -1854,7 +1874,7 @@ function initializeStokTakipApp() {
     
     const LS_KEY='stokTakip-v1';
     const CATEGORY_PREFIX={stator:'ST',rotor:'RT',mil:'MIL',rotorluMil:'RMIL',taslanmisMil:'TMIL',sargiliPaket:'SP',paketliGovde:'PG',motor:'MOT',kapak:'KAP',islenmisKapak:'IKAP',taslanmisKapak:'TKAP', rulman:'RUL', aluminyum_govde:'ALU', bakir_tel:'CUW',  yardimci_parcalar:'ACC'};
-    const CATEGORY_LABEL={'stator':'Stator','rotor':'Rotor','mil':'Mil','rotorluMil':'Rotorlu Mil','taslanmisMil':'Taşlanmış Mil','sargiliPaket':'Sargılı Paket','paketliGovde':'Paketli Gövde','motor':'Motor','kapak':'Kapak','islenmisKapak':'İşlenmiş Kapak','taslanmisKapak':'Taşlanmış Kapak', 'rulman':'Rulman', 'aluminyum_govde':'Alüminyum Gövde', 'bakir_tel':'Bakır Tel',  'yardimci_parcalar':'Yardımcı Parçalar'};
+    const CATEGORY_LABEL={'stator':'Stator','rotor':'Rotor','mil':'Mil','rotorluMil':'Rotorlu Mil','taslanmisMil':'Taşlanmış Mil','sargılıPaket':'Sargılı Paket','paketliGovde':'Paketli Gövde','motor':'Motor','kapak':'Kapak','islenmisKapak':'İşlenmiş Kapak','taslanmisKapak':'Taşlanmış Kapak', 'rulman':'Rulman', 'aluminyum_govde':'Alüminyum Gövde', 'bakir_tel':'Bakır Tel',  'yardimci_parcalar':'Yardımcı Parçalar'};
 
     let state={products:[],logs:[], suppliers: []};
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
@@ -2233,11 +2253,11 @@ function initializeStokTakipApp() {
     
     function openMoveDialog(product,type){ const dlg=$('#stok_moveDialog'); const form=$('#stok_moveForm'); form.reset(); form.id.value=product.id; $('#stok_moveProductName').textContent=`${product.name} (${product.sku||'kod yok'})`; if(type){ document.querySelectorAll('#stok_moveForm input[name="type"]').forEach(r=>r.checked=(r.value===type)); } dlg.showModal(); }
     
-    function exportJSON(){ const blob=new Blob([JSON.stringify({products:state.products,logs:state.logs, suppliers: state.suppliers},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-data-${new Date().toISOString().replace(/[:.]/g,'-')}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+    function exportJSON(){ const blob=new Blob([JSON.stringify({products:state.products,logs:state.logs, suppliers: state.suppliers},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-data-${new Date().toISOString().replace(/[:.]/g,'-')}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); showToast("Stok verileri yedeklendi.", "success"); }
     function exportCSV(){ const rows=[[ 'id','sku','name','kind','category','unit','material','qty','min', 'cost', 'supplier', 'note','kw','rpm','volt','milCode','customer','pg_kw','pg_rpm','pg_volt','pg_customer','pg_conn','m_kw','m_rpm','m_volt','m_conn','milType' ]].concat( state.products.map(p=>[ p.id, p.sku, p.name, p.kind, p.category, p.unit, p.material,p.qty,p.min, p.cost, findSupplier(p.supplierId)?.name || '', (p.note||'').replaceAll('\n',' '), p.kw??'',p.rpm??'',p.volt??'',p.milCode??'',p.customer??'', p.pg_kw??'',p.pg_rpm??'',p.pg_volt??'',p.pg_customer??'',p.pg_conn??'', p.m_kw??'',p.m_rpm??'',p.m_volt??'',p.m_conn??'',p.milType??'' ]) ); const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-urunler-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
     function exportLogCSV(){ const rows=[['ts','product','type','amount','from','to','note','user']]; for(const L of state.logs){ const p=findProduct(L.productId)||{}; rows.push([L.ts,p.name||'',L.type,L.amount,L.fromQty,L.toQty,(L.note||'').replaceAll('\\n',' '), (L.user||'')]);} const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-log-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
     
-    function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=ensureArray(data.products||[]); state.logs=ensureArray(data.logs||[]); state.suppliers=ensureArray(data.suppliers||[]); save(); showToast('İçe aktarıldı', 'success'); }catch(e){ showToast('Dosya okunamadı: '+e.message, 'error'); } }; reader.readAsText(file); }
+    function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=ensureArray(data.products||[]); state.logs=ensureArray(data.logs||[]); state.suppliers=ensureArray(data.suppliers||[]); save(); showToast('Stok verileri başarıyla içe aktarıldı.', 'success'); }catch(e){ showToast('Dosya okunamadı: '+e.message, 'error'); } }; reader.readAsText(file); }
     
     function toggleConditionalSections(){ 
         const form=$('#stok_productForm'); const cat=form.category.value; 
@@ -2309,7 +2329,7 @@ function initializeStokTakipApp() {
     });
 
     const clearAction = () => {
-        if(!state.products.length && !state.logs.length && !state.suppliers.length){ showToast('Veri zaten boş.', 'error'); return; } 
+        if(!state.products.length && !state.logs.length && !state.suppliers.length){ showToast('Stok verisi zaten boş.', 'error'); return; } 
         if(confirm('Tüm ürünler, tedarikçiler ve hareket geçmişi silinsin mi? Bu işlem geri alınamaz.\nİşlemden önce otomatik yedek indirilecektir.')){ 
             exportJSON(); 
             state.products=[]; 
@@ -2347,7 +2367,7 @@ function initializeStokTakipApp() {
         const p = findProduct(id);
         if (!p) return;
         if(act === 'edit') openProductDialog(p);
-        else if(act === 'del') { if(confirm('Silinsin mi?')) { state.products = state.products.filter(x => x.id !== p.id); addLog({productId: p.id, type: 'delete', note: 'Ürün silindi'}); save(); }}
+        else if(act === 'del') { if(confirm(`'${p.name}' adlı ürünü silmek istediğinize emin misiniz?`)) { state.products = state.products.filter(x => x.id !== p.id); addLog({productId: p.id, type: 'delete', note: 'Ürün silindi'}); save(); showToast(`'${p.name}' silindi.`, 'success'); }}
         else if(act === 'move-in') openMoveDialog(p, 'in');
         else if(act === 'move-out') openMoveDialog(p, 'out');
     });
@@ -2380,6 +2400,7 @@ function initializeStokTakipApp() {
                 note: 'Manuel düzeltme'
             });
             save(); 
+            showToast(`${p.name} stoğu güncellendi.`, 'success');
         };
 
         input.addEventListener('blur', commitChange);
@@ -2445,45 +2466,47 @@ function initializeStokTakipApp() {
         const form=e.target;
         const data=Object.fromEntries(new FormData(form).entries());
         const isEdit=!!data.id;
+        
+        // Veri Doğrulama
         const min=Number(data.min||0);
         if(isNaN(min)||min<0){ showToast('Minimum stok 0 veya daha büyük olmalı', 'error'); return; }
         if(!data.name||!data.sku){ showToast('Ad ve stok kodu zorunlu', 'error'); return; }
-        if(data.category==='sargiliPaket' && !(data.kw && data.rpm && data.volt)){ showToast('Sargılı paket için kW, rpm ve Volt zorunludur.', 'error'); return; }
-        if(['mil','rotorluMil','taslanmisMil'].includes(data.category) && !data.milCode){ showToast('Mil türlerinde Mil Kodu zorunludur.', 'error'); return; }
         const clash=state.products.some(x=>x.id!==data.id && (x.sku||'').toLowerCase()===data.sku.toLowerCase());
-        if(clash){ showToast('Bu stok kodu başka bir üründe kullanılıyor. Otomatik yeni kod önerilecek.', 'error'); form.sku.value=nextSkuForCategory(data.category); data.sku=form.sku.value; return; }
+        if(clash){ showToast('Bu stok kodu başka bir üründe kullanılıyor.', 'error'); return; }
         
-        const toNumOrNull = v => {const n=Number(v); return Number.isFinite(n)?n:null;};
+        const toNumOrNull = v => {const n=Number(v); return (Number.isFinite(n) && n >= 0) ? n : null;};
         
+        const pData = {};
+        for(const key in data) {
+           if(Object.prototype.hasOwnProperty.call(data, key) && key !== 'id' && form.elements[key]) {
+                const isNumericField = ['min', 'cost', 'kw', 'rpm', 'volt', 'pg_rpm', 'pg_kw', 'pg_volt', 'm_rpm', 'm_kw', 'm_volt'].includes(key);
+                if (isNumericField) {
+                    const numVal = toNumOrNull(data[key]);
+                    if (data[key] && numVal === null) {
+                        showToast(`'${key}' alanı geçerli bir pozitif sayı olmalıdır.`, 'error');
+                        return;
+                    }
+                    pData[key] = numVal;
+                } else {
+                    pData[key] = data[key];
+                }
+           }
+        }
+
         if(isEdit){
             const p = findProduct(data.id);
             if(!p) return;
-            
-            // Sadece formda olan verileri güncelle
-            for(const key in data) {
-                if (Object.prototype.hasOwnProperty.call(data, key) && key !== 'id') {
-                    if (form.elements[key]) { // Formda eleman var mı kontrolü
-                         p[key] = ['min', 'cost', 'kw', 'rpm', 'volt', 'pg_rpm', 'pg_kw', 'pg_volt', 'm_rpm', 'm_kw', 'm_volt'].includes(key) ? toNumOrNull(data[key]) : data[key];
-                    }
-                }
-            }
-            
+            Object.assign(p, pData);
             addLog({productId:p.id,type:'edit',note:'Ürün bilgisi güncellendi'});
+            showToast(`'${p.name}' ürünü güncellendi.`, 'success');
         } else {
-             const pData = {};
-             for(const key in data) {
-                if(Object.prototype.hasOwnProperty.call(data, key) && key !== 'id') {
-                     pData[key] = ['min', 'cost', 'kw', 'rpm', 'volt', 'pg_rpm', 'pg_kw', 'pg_volt', 'm_rpm', 'm_kw', 'm_volt'].includes(key) ? toNumOrNull(data[key]) : data[key];
-                }
-            }
-
             const newProduct = {id:uuid(), qty:0, ...pData};
             state.products.unshift(newProduct);
             addLog({productId:newProduct.id,type:'new',note:'Yeni ürün eklendi'});
+            showToast(`'${newProduct.name}' adlı yeni ürün eklendi.`, 'success');
         }
         $('#stok_productDialog').close();
         save();
-        showToast(isEdit ? "Ürün güncellendi." : "Ürün eklendi.", "success");
     });
 
     $('#stok_productCancelBtn').addEventListener('click',()=> $('#stok_productDialog').close());
@@ -2503,7 +2526,7 @@ function initializeStokTakipApp() {
       addLog({ productId:p.id, type:data.type, amount:amt, fromQty:from, toQty:to, note:data.note });
       $('#stok_moveDialog').close();
       save();
-      showToast("Stok güncellendi.", "success");
+      showToast(`${p.name} stoğu güncellendi: ${to}`, "success");
     });
 
     $('#stok_btnAutoSku', appContainer).addEventListener('click', () => suggestSku());
@@ -2566,7 +2589,7 @@ function initializeStokTakipApp() {
         await set(ref(db, "ls/" + enc(key)), payload);
     } catch (error) {
         console.error(`Firebase set failed for key ${key}:`, error);
-        showToast("Veri kaydedilemedi. Bağlantınızı kontrol edin.", "error");
+        showToast("Bağlantı hatası: Veri kaydedilemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.", "error");
     }
   }
   
@@ -2586,7 +2609,7 @@ function initializeStokTakipApp() {
             resolve();
         }).catch(error => {
             console.error(`Firebase'den veri okunurken hata oluştu (${key}):`, error);
-            showToast(`"${key}" verisi yüklenemedi.`, "error");
+            showToast(`"${key}" verisi yüklenemedi. Çevrimdışı modda çalışılıyor olabilir.`, "error");
             window.dataStore[key] = key === 'stokTakip-v1' ? { products: [], logs: [], suppliers: [] } : [];
             resolve();
         });
@@ -2608,7 +2631,7 @@ function initializeStokTakipApp() {
               }
               
               console.log(`${key} için uzaktan güncelleme geldi, arayüz yenileniyor.`);
-              showToast("Veriler güncellendi.", "success");
+              showToast("Veriler başka bir kullanıcı tarafından güncellendi.", "success");
               window.dataStore[key] = (key === 'stokTakip-v1') ? data.value : ensureArray(data.value);
               
               if (key === 'stokTakip-v1') {
