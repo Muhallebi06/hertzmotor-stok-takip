@@ -223,6 +223,11 @@
                 <button class="stok_btnExportLogCSV px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
                 <button class="stok_btnClear px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
             </div>
+            <div class="h-6 border-l border-slate-300 mx-1 admin-only"></div>
+            <div class="items-center gap-2 flex admin-only">
+                <button class="btnExportAll px-3 py-2 rounded-xl border border-blue-300 bg-blue-50 hover:bg-blue-100 text-sm text-blue-800 whitespace-nowrap">Tüm Veri Yedekle</button>
+                <button class="btnImportAll px-3 py-2 rounded-xl border border-blue-300 bg-blue-50 hover:bg-blue-100 text-sm text-blue-800 whitespace-nowrap">Yedekten Yükle</button>
+            </div>
             <button id="logoutBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">Çıkış</button>
         </div>
     </div>
@@ -232,6 +237,7 @@
     <section id="app-siparis-servis" class="app-container siparis-servis-app"></section>
     <section id="app-stok-takip" class="app-container stok-takip-app hidden"></section>
 </main>
+<input type="file" id="masterFileInput" class="hidden" accept="application/json">
 
 <script>
 // ===================================================================================
@@ -369,11 +375,96 @@ mainTabStok.addEventListener('click', () => setActiveMainTab('stok'));
   window.addEventListener("load", authManager.updateUIVisibility.bind(authManager));
 })();
 
+// --- Genel Yedekleme Fonksiyonları ---
+function setupMasterBackupControls() {
+    const masterFileInput = document.getElementById('masterFileInput');
+
+    document.querySelectorAll('.btnImportAll').forEach(btn => {
+        btn.addEventListener('click', () => {
+            masterFileInput.click();
+        });
+    });
+
+    masterFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const data = JSON.parse(reader.result);
+                if (!data.siparisServisData || !data.stokTakipData) {
+                    throw new Error("Bu dosya geçerli bir tam yedek dosyası değil.");
+                }
+
+                if (confirm("TÜM VERİLERİN üzerine bu yedek yüklenecek. Bu işlem geri alınamaz. Emin misiniz?")) {
+                    showLoadingOverlay();
+                    
+                    const siparisData = data.siparisServisData;
+                    window.dataStore['siparisler'] = ensureArray(siparisData.orders || []);
+                    window.dataStore['siparisLog'] = ensureArray(siparisData.logs || []);
+                    window.dataStore['sevkEdilenler'] = ensureArray(siparisData.sevkEdilenler || []);
+                    window.dataStore['servisKayitlari'] = ensureArray(siparisData.servisKayitlari || []);
+                    window.dataStore['servisSevkEdilenler'] = ensureArray(siparisData.servisSevkEdilenler || []);
+                    
+                    const stokData = data.stokTakipData;
+                    window.dataStore['stokTakip-v1'] = stokData || { products: [], logs: [], suppliers: [] };
+
+                    const allKeys = ["siparisler", "siparisLog", "sevkEdilenler", "servisKayitlari", "servisSevkEdilenler", "stokTakip-v1"];
+                    
+                    const pushPromises = allKeys.map(key => window.pushData(key));
+
+                    Promise.all(pushPromises).then(() => {
+                        // Veri yüklendikten sonra UI'ları yenilemek için sayfayı yenilemek en güvenli yöntem
+                        showToast("Tüm veriler başarıyla yüklendi. Sayfa yenileniyor...", "success");
+                        setTimeout(() => location.reload(), 1500);
+                    }).catch(err => {
+                        hideLoadingOverlay();
+                        showToast("Veriler Firebase'e yazılırken bir hata oluştu.", "error");
+                        console.error("Yedekten yükleme hatası:", err);
+                    });
+                }
+            } catch (err) {
+                showToast("Yedek dosyası okunamadı veya geçersiz: " + err.message, "error");
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = ''; // Aynı dosyayı tekrar seçebilmek için
+    });
+
+    document.querySelectorAll('.btnExportAll').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const allData = {
+                backupDate: new Date().toISOString(),
+                siparisServisData: {
+                    orders: window.dataStore['siparisler'] || [],
+                    logs: window.dataStore['siparisLog'] || [],
+                    sevkEdilenler: window.dataStore['sevkEdilenler'] || [],
+                    servisKayitlari: window.dataStore['servisKayitlari'] || [],
+                    servisSevkEdilenler: window.dataStore['servisSevkEdilenler'] || []
+                },
+                stokTakipData: window.dataStore['stokTakip-v1'] || { products: [], logs: [], suppliers: [] }
+            };
+
+            const json = JSON.stringify(allData, null, 2);
+            const blob = new Blob([json], { type: "application/json" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `hertz_motor_tam_yedek_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showToast("Tüm veriler başarıyla yedeklendi.", "success");
+        });
+    });
+}
+
+
 let platformAppsInitialized = false;
 function initializePlatformApps() {
     if (platformAppsInitialized) return;
     initializeSiparisServisApp();
     initializeStokTakipApp();
+    setupMasterBackupControls();
     platformAppsInitialized = true;
 }
 
@@ -803,7 +894,7 @@ function initializeSiparisServisApp() {
     const appContainer = document.getElementById('app-siparis-servis');
     if (!appContainer.innerHTML.trim()) return; 
 
-    const $ = (selector) => document.querySelector(selector);
+    const $ = (selector, root = document) => root.querySelector(selector);
     const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
     
     let currentTab = "siparis";
@@ -814,21 +905,21 @@ function initializeSiparisServisApp() {
 
     const allPages = $$("section[id^='ss_page']", appContainer);
     const allTabs = $$(".tab-btn", appContainer);
-    const table = appContainer.querySelector('#ss_orderTable');
-    const form = appContainer.querySelector('#ss_orderForm');
-    const logTable = appContainer.querySelector('#ss_logTable');
-    const fileInput = appContainer.querySelector('#ss_fileInput');
-    const sevkTable = appContainer.querySelector('#ss_sevkTable');
-    const teknikServisSevkTable = appContainer.querySelector('#ss_teknikServisSevkTable');
-    const searchInput = appContainer.querySelector('#ss_sevkSearch');
-    const dateFromInput = appContainer.querySelector('#ss_sevkDateFrom');
-    const dateToInput = appContainer.querySelector('#ss_sevkDateTo');
-    const servisForm = appContainer.querySelector('#ss_servisForm');
-    const servisSearch = appContainer.querySelector('#ss_servisSearch');
-    const servisTable = appContainer.querySelector('#ss_servisTable');
-    const teknikSevkSearch = appContainer.querySelector('#ss_teknikSevkSearch');
-    const teknikSevkDateFrom = appContainer.querySelector('#ss_teknikSevkDateFrom');
-    const teknikSevkDateTo = appContainer.querySelector('#ss_teknikSevkDateTo');
+    const table = $('#ss_orderTable', appContainer);
+    const form = $('#ss_orderForm', appContainer);
+    const logTable = $('#ss_logTable', appContainer);
+    const fileInput = $('#ss_fileInput', appContainer);
+    const sevkTable = $('#ss_sevkTable', appContainer);
+    const teknikServisSevkTable = $('#ss_teknikServisSevkTable', appContainer);
+    const searchInput = $('#ss_sevkSearch', appContainer);
+    const dateFromInput = $('#ss_sevkDateFrom', appContainer);
+    const dateToInput = $('#ss_sevkDateTo', appContainer);
+    const servisForm = $('#ss_servisForm', appContainer);
+    const servisSearch = $('#ss_servisSearch', appContainer);
+    const servisTable = $('#ss_servisTable', appContainer);
+    const teknikSevkSearch = $('#ss_teknikSevkSearch', appContainer);
+    const teknikSevkDateFrom = $('#ss_teknikSevkDateFrom', appContainer);
+    const teknikSevkDateTo = $('#ss_teknikSevkDateTo', appContainer);
     
     let orders, logs, sevkEdilenler, servisKayitlari, servisSevkEdilenler;
 
@@ -1593,7 +1684,7 @@ function initializeSiparisServisApp() {
       e.target.value = '';
     }
     
-    $$('.ss_btnImportJSON').forEach(btn => btn.onclick = () => fileInput.click());
+    $$('.ss_btnImportJSON', appContainer).forEach(btn => btn.onclick = () => fileInput.click());
     fileInput.addEventListener("change", handleImport);
 
     const exportAction = () => {
@@ -1604,19 +1695,19 @@ function initializeSiparisServisApp() {
       a.download = `hertz_motor_yedek_${new Date().toISOString().slice(0,10)}.json`;
       a.click();
     };
-    $$('.ss_btnExportJSON').forEach(btn => btn.onclick = exportAction);
+    $$('.ss_btnExportJSON', appContainer).forEach(btn => btn.onclick = exportAction);
     
     const exportCSVAction = () => downloadCSV("siparisler.csv", [
       ["No", "Müşteri", "Ürün", "Mil Kodu", "kW", "RPM", "Voltaj", "Sevk Tarihi", "Hazır", "Sevke Hazır", "Kullanıcı"],
       ...orders.map(o => [o.no, o.musteri, o.urun, o.milKod, o.kw, o.rpm, o.volt, formatDate_TR(o.sevkTarihi), o.hazir?"Evet":"Hayır", o.sevkeHazir?"Evet":"Hayır", o.kullanici])
     ]);
-    $$('.ss_btnExportCSV').forEach(btn => btn.onclick = exportCSVAction);
+    $$('.ss_btnExportCSV', appContainer).forEach(btn => btn.onclick = exportCSVAction);
 
     const exportLogCSVAction = () => downloadCSV("siparis_log.csv", [
       ["Tarih", "No", "İşlem", "Kullanıcı"],
       ...logs.map(l => [l.tarih, l.no, l.islem, l.user])
     ]);
-    $$('.ss_btnExportLogCSV').forEach(btn => btn.onclick = exportLogCSVAction);
+    $$('.ss_btnExportLogCSV', appContainer).forEach(btn => btn.onclick = exportLogCSVAction);
 
     const clearAllAction = () => {
       if (confirm("TÜM SİPARİŞ/SERVİS VERİLERİ (sipariş, sevk, servis, log) silinecek. Emin misiniz?\n\nİşlemden önce otomatik olarak yedek indirilecektir.")) {
@@ -1631,7 +1722,7 @@ function initializeSiparisServisApp() {
         showToast("Tüm Sipariş/Servis verileri temizlendi.", "success");
       }
     };
-    $$('.ss_btnClearAll').forEach(btn => btn.onclick = clearAllAction);
+    $$('.ss_btnClearAll', appContainer).forEach(btn => btn.onclick = clearAllAction);
 
     
     appContainer.querySelector('#ss_btnSevkFilter').onclick = renderSevkList;
@@ -1731,7 +1822,7 @@ function initializeSiparisServisApp() {
     }
     
     loadDataFromStorage();
-    flatpickr(appContainer.querySelector('#ss_sevkTarihi'), getFPBaseOptions());
+    flatpickr($('#ss_sevkTarihi', appContainer), getFPBaseOptions());
     flatpickr(dateFromInput, getFPBaseOptions());
     flatpickr(dateToInput, getFPBaseOptions());
     flatpickr(teknikSevkDateFrom, getFPBaseOptions());
@@ -1846,10 +1937,10 @@ function initializeStokTakipApp() {
     
     function renderProductList() {
         let list=ensureArray(state.products);
-        const qRaw=$('#stok_search').value.trim();
-        const onlyLow=$('#stok_onlyLow').checked;
-        const filterKindVal = $('#stok_filterKind').value;
-        const filterCategoryVal = $('#stok_filterCategory').value;
+        const qRaw=$('#stok_search', appContainer).value.trim();
+        const onlyLow=$('#stok_onlyLow', appContainer).checked;
+        const filterKindVal = $('#stok_filterKind', appContainer).value;
+        const filterCategoryVal = $('#stok_filterCategory', appContainer).value;
         
         if (qRaw.includes(':')) {
             const parts = qRaw.split(':');
@@ -2415,7 +2506,7 @@ function initializeStokTakipApp() {
       showToast("Stok güncellendi.", "success");
     });
 
-    $('#stok_btnAutoSku').addEventListener('click', () => suggestSku());
+    $('#stok_btnAutoSku', appContainer).addEventListener('click', () => suggestSku());
     $('#stok_category', appContainer).addEventListener('change', () => { if (!$('#stok_productForm').id.value) suggestSku(true); toggleConditionalSections(); });
     $('#stok_kind', appContainer).addEventListener('change', toggleConditionalSections);
 
@@ -2458,10 +2549,10 @@ function initializeStokTakipApp() {
   const enc = (s)=>encodeURIComponent(s);
 
   window.dataStore = {};
-  let siparisServisRefresher = () => console.warn("Sipariş yenileme fonksiyonu henüz ayarlanmadı.");
-  let stokTakipRefresher = () => console.warn("Stok yenileme fonksiyonu henüz ayarlanmadı.");
-  window.setSiparisServisRefresher = (fn) => { siparisServisRefresher = fn; };
-  window.setStokTakipRefresher = (fn) => { stokTakipRefresher = fn; };
+  window.siparisServisRefresher = () => console.warn("Sipariş yenileme fonksiyonu henüz ayarlanmadı.");
+  window.stokTakipRefresher = () => console.warn("Stok yenileme fonksiyonu henüz ayarlanmadı.");
+  window.setSiparisServisRefresher = (fn) => { window.siparisServisRefresher = fn; };
+  window.setStokTakipRefresher = (fn) => { window.stokTakipRefresher = fn; };
   
   window.pushData = async function(key) {
     if (!KEYS.includes(key)) return;
