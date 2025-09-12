@@ -250,7 +250,7 @@ const appStokTakip = document.getElementById('app-stok-takip');
 const allMainTabs = document.querySelectorAll('.main-tab');
 const allAppContainers = document.querySelectorAll('.app-container');
 
-// --- UI Bildirim ve Yükleme Fonksiyonları ---
+// --- Global Yardımcı Fonksiyonlar ---
 function showToast(message, type = 'success', duration = 3000) {
     const toast = document.getElementById('toast-notification');
     toast.textContent = message;
@@ -268,7 +268,6 @@ function showLoadingOverlay() {
 function hideLoadingOverlay() {
     document.getElementById('loading-overlay').style.display = 'none';
 }
-
 
 // --- Merkezi Yetki Kontrol Yöneticisi ---
 const authManager = {
@@ -288,33 +287,23 @@ const authManager = {
         hertzMuhasebe: ['hertz', 'muhasebe']
     },
     
-    // Yetki kontrolü için merkezi fonksiyon
     checkPermission(permissionKey) {
         const user = sessionStorage.getItem("auth_user");
         if (!user || !this.PERMISSIONS[permissionKey]) return false;
         return this.PERMISSIONS[permissionKey].includes(user);
     },
     
-    // Tüm UI elemanlarını role göre güncelleyen merkezi fonksiyon
     updateUIVisibility() {
-        const user = sessionStorage.getItem("auth_user");
-        
-        // CSS sınıflarına göre genel gizleme/gösterme
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = this.checkPermission('hertz') ? '' : 'none');
         document.querySelectorAll('.hertz-only').forEach(el => el.style.display = this.checkPermission('hertz') ? '' : 'none');
         document.querySelectorAll('.hertz-muhasebe-only').forEach(el => el.style.display = this.checkPermission('hertzMuhasebe') ? '' : 'none');
-
-        // Sekme görünürlüğü
+        
         const canSeeSiparis = this.checkPermission('siparisServis');
         mainTabSiparis.style.display = canSeeSiparis ? 'block' : 'none';
         mainTabStok.style.display = 'block';
 
         if (!document.body.dataset.activeApp) {
-            if (canSeeSiparis) {
-                setActiveMainTab('siparis');
-            } else {
-                setActiveMainTab('stok');
-            }
+            setActiveMainTab(canSeeSiparis ? 'siparis' : 'stok');
         }
     }
 };
@@ -322,7 +311,6 @@ const authManager = {
 function setActiveMainTab(tabName) {
     allAppContainers.forEach(app => app.classList.add('hidden'));
     allMainTabs.forEach(tab => tab.classList.remove('bg-white', 'shadow-md'));
-
     document.body.dataset.activeApp = tabName;
 
     if (tabName === 'siparis') {
@@ -333,11 +321,12 @@ function setActiveMainTab(tabName) {
         mainTabStok.classList.add('bg-white', 'shadow-md');
     }
 }
+
 mainTabSiparis.addEventListener('click', () => setActiveMainTab('siparis'));
 mainTabStok.addEventListener('click', () => setActiveMainTab('stok'));
 
-(function(){
-  const KEY  = "auth_ok", UN = "auth_user", RL = "role";
+(function initAuth() {
+  const KEY = "auth_ok", UN = "auth_user", RL = "role";
   const gate = document.getElementById("authGate"), form = document.getElementById("authForm"), err  = document.getElementById("authErr");
   
   function closeGate(){ 
@@ -351,7 +340,7 @@ mainTabStok.addEventListener('click', () => setActiveMainTab('stok'));
     gate.style.display = "grid"; 
   }
   
-  form.addEventListener("submit", (e)=>{
+  form.addEventListener("submit", (e) => {
     e.preventDefault();
     const u = (form.u.value || "").trim(), p = form.p.value || "", rec = authManager.USERS[u];
     if (rec && p === rec.pass){ 
@@ -359,11 +348,13 @@ mainTabStok.addEventListener('click', () => setActiveMainTab('stok'));
       sessionStorage.setItem(UN, u); 
       sessionStorage.setItem(RL, rec.role); 
       closeGate(); 
-    } 
-    else { err.textContent = "Hatalı kullanıcı adı/şifre"; form.p.value = ""; }
+    } else { 
+        err.textContent = "Hatalı kullanıcı adı/şifre"; 
+        form.p.value = ""; 
+    }
   });
   
-  document.getElementById("logoutBtn").addEventListener("click", ()=>{ 
+  document.getElementById("logoutBtn").addEventListener("click", () => { 
     showToast("Çıkış yapıldı.", "success");
     setTimeout(() => {
         sessionStorage.clear(); 
@@ -380,9 +371,7 @@ function setupMasterBackupControls() {
     const masterFileInput = document.getElementById('masterFileInput');
 
     document.querySelectorAll('.btnImportAll').forEach(btn => {
-        btn.addEventListener('click', () => {
-            masterFileInput.click();
-        });
+        btn.addEventListener('click', () => masterFileInput.click());
     });
 
     masterFileInput.addEventListener('change', (e) => {
@@ -401,21 +390,19 @@ function setupMasterBackupControls() {
                     showLoadingOverlay();
                     
                     const siparisData = data.siparisServisData;
-                    window.dataStore['siparisler'] = ensureArray(siparisData.orders || []);
-                    window.dataStore['siparisLog'] = ensureArray(siparisData.logs || []);
-                    window.dataStore['sevkEdilenler'] = ensureArray(siparisData.sevkEdilenler || []);
-                    window.dataStore['servisKayitlari'] = ensureArray(siparisData.servisKayitlari || []);
-                    window.dataStore['servisSevkEdilenler'] = ensureArray(siparisData.servisSevkEdilenler || []);
+                    window.dataStore['siparisler'] = window.ensureArray(siparisData.orders || []);
+                    window.dataStore['siparisLog'] = window.ensureArray(siparisData.logs || []);
+                    window.dataStore['sevkEdilenler'] = window.ensureArray(siparisData.sevkEdilenler || []);
+                    window.dataStore['servisKayitlari'] = window.ensureArray(siparisData.servisKayitlari || []);
+                    window.dataStore['servisSevkEdilenler'] = window.ensureArray(siparisData.servisSevkEdilenler || []);
                     
-                    const stokData = data.stokTakipData;
-                    window.dataStore['stokTakip-v1'] = stokData || { products: [], logs: [], suppliers: [] };
+                    window.dataStore['stokTakip-v1'] = data.stokTakipData || { products: [], logs: [], suppliers: [] };
 
                     const allKeys = ["siparisler", "siparisLog", "sevkEdilenler", "servisKayitlari", "servisSevkEdilenler", "stokTakip-v1"];
                     
                     const pushPromises = allKeys.map(key => window.pushData(key));
 
                     Promise.all(pushPromises).then(() => {
-                        // Veri yüklendikten sonra UI'ları yenilemek için sayfayı yenilemek en güvenli yöntem
                         showToast("Tüm veriler başarıyla yüklendi. Sayfa yenileniyor...", "success");
                         setTimeout(() => location.reload(), 1500);
                     }).catch(err => {
@@ -429,7 +416,7 @@ function setupMasterBackupControls() {
             }
         };
         reader.readAsText(file);
-        e.target.value = ''; // Aynı dosyayı tekrar seçebilmek için
+        e.target.value = '';
     });
 
     document.querySelectorAll('.btnExportAll').forEach(btn => {
@@ -458,7 +445,6 @@ function setupMasterBackupControls() {
     });
 }
 
-
 let platformAppsInitialized = false;
 function initializePlatformApps() {
     if (platformAppsInitialized) return;
@@ -478,18 +464,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===================================================================================
 // ===                     UYGULAMA HTML İÇERİKLERİ VE SCRIPTLERİ                    ===
 // ===================================================================================
-
-function ensureArray(data) {
-    let arr;
-    if (Array.isArray(data)) {
-        arr = data;
-    } else if (data && typeof data === 'object') {
-        arr = Object.values(data);
-    } else {
-        return [];
-    }
-    return arr.filter(item => item && typeof item === 'object' && Object.keys(item).length > 0);
-}
 
 const SIPARIS_SERVIS_HTML = `
 <div class="max-w-7xl mx-auto px-4 py-6">
@@ -882,7 +856,7 @@ const STOK_TAKIP_HTML = `
             <div><label class="text-sm">Miktar</label><input name="amount" type="number" step="any" min="0" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
             <div><label class="text-sm">Not (isteğe bağlı)</label><input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
         </div>
-        <div class="mt-5 flex justify-end gap-2"><button type="button" id="stok_moveCancelBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_moveApplyBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Uygula</button></div>
+        <div class="mt-5 flex justify-end gap-2"><button type="button" id="stok_moveCancelBtn" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_moveApplyBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Kaydet</button></div>
         <input type="hidden" name="id">
         </form>
     </dialog>
@@ -1687,11 +1661,11 @@ function initializeSiparisServisApp() {
         try {
           const data = JSON.parse(reader.result);
           if (confirm("Mevcut verilerin üzerine içe aktarılan veriler yazılsın mı? Bu işlem geri alınamaz.")){
-            window.dataStore['siparisler'] = ensureArray(data.orders || []);
-            window.dataStore['siparisLog'] = ensureArray(data.logs || []);
-            window.dataStore['sevkEdilenler'] = ensureArray(data.sevkEdilenler || []);
-            window.dataStore['servisKayitlari'] = ensureArray(data.servisKayitlari || []);
-            window.dataStore['servisSevkEdilenler'] = ensureArray(data.servisSevkEdilenler || []);
+            window.dataStore['siparisler'] = window.ensureArray(data.orders || []);
+            window.dataStore['siparisLog'] = window.ensureArray(data.logs || []);
+            window.dataStore['sevkEdilenler'] = window.ensureArray(data.sevkEdilenler || []);
+            window.dataStore['servisKayitlari'] = window.ensureArray(data.servisKayitlari || []);
+            window.dataStore['servisSevkEdilenler'] = window.ensureArray(data.servisSevkEdilenler || []);
             
             window.pushData('siparisler');
             window.pushData('siparisLog');
@@ -1890,9 +1864,9 @@ function initializeStokTakipApp() {
 
     function load(){ 
         const data = window.dataStore[LS_KEY] || {products:[], logs:[], suppliers: []};
-        state.products = ensureArray(data.products);
-        state.logs = ensureArray(data.logs);
-        state.suppliers = ensureArray(data.suppliers);
+        state.products = window.ensureArray(data.products);
+        state.logs = window.ensureArray(data.logs);
+        state.suppliers = window.ensureArray(data.suppliers);
     }
     function save(){ 
         window.dataStore[LS_KEY] = state;
@@ -1965,7 +1939,7 @@ function initializeStokTakipApp() {
     }
     
     function renderProductList() {
-        let list=ensureArray(state.products);
+        let list=window.ensureArray(state.products);
         const qRaw=$('#stok_search', appContainer).value.trim();
         const onlyLow=$('#stok_onlyLow', appContainer).checked;
         const filterKindVal = $('#stok_filterKind', appContainer).value;
@@ -2266,7 +2240,7 @@ function initializeStokTakipApp() {
     function exportCSV(){ const rows=[[ 'id','sku','name','kind','category','unit','material','qty','min', 'cost', 'supplier', 'note','kw','rpm','volt','milCode','customer','pg_kw','pg_rpm','pg_volt','pg_customer','pg_conn','m_kw','m_rpm','m_volt','m_conn','milType' ]].concat( state.products.map(p=>[ p.id, p.sku, p.name, p.kind, p.category, p.unit, p.material,p.qty,p.min, p.cost, findSupplier(p.supplierId)?.name || '', (p.note||'').replaceAll('\n',' '), p.kw??'',p.rpm??'',p.volt??'',p.milCode??'',p.customer??'', p.pg_kw??'',p.pg_rpm??'',p.pg_volt??'',p.pg_customer??'',p.pg_conn??'', p.m_kw??'',p.m_rpm??'',p.m_volt??'',p.m_conn??'',p.milType??'' ]) ); const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-urunler-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
     function exportLogCSV(){ const rows=[['ts','product','type','amount','from','to','note','user']]; for(const L of state.logs){ const p=findProduct(L.productId)||{}; rows.push([L.ts,p.name||'',L.type,L.amount,L.fromQty,L.toQty,(L.note||'').replaceAll('\\n',' '), (L.user||'')]);} const csv=rows.map(r=>r.map(x=>'"'+(String(x??'').replaceAll('"','""'))+'"').join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`stok-log-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
     
-    function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=ensureArray(data.products||[]); state.logs=ensureArray(data.logs||[]); state.suppliers=ensureArray(data.suppliers||[]); save(); showToast('Stok verileri başarıyla içe aktarıldı.', 'success'); }catch(e){ showToast('Dosya okunamadı: '+e.message, 'error'); } }; reader.readAsText(file); }
+    function importJSONFile(file){ const reader=new FileReader(); reader.onload=()=>{ try{ const data=JSON.parse(reader.result); if(!data||typeof data!=='object') throw new Error('Geçersiz dosya'); state.products=window.ensureArray(data.products||[]); state.logs=window.ensureArray(data.logs||[]); state.suppliers=window.ensureArray(data.suppliers||[]); save(); showToast('Stok verileri başarıyla içe aktarıldı.', 'success'); }catch(e){ showToast('Dosya okunamadı: '+e.message, 'error'); } }; reader.readAsText(file); }
     
     function toggleConditionalSections(){ 
         const form=$('#stok_productForm'); const cat=form.category.value; 
@@ -2585,6 +2559,18 @@ function initializeStokTakipApp() {
   const CLIENT_ID = 'client-' + Math.random().toString(36).slice(2);
 
   const enc = (s)=>encodeURIComponent(s);
+  
+  window.ensureArray = function(data) {
+    let arr;
+    if (Array.isArray(data)) {
+        arr = data;
+    } else if (data && typeof data === 'object') {
+        arr = Object.values(data);
+    } else {
+        return [];
+    }
+    return arr.filter(item => item && typeof item === 'object' && Object.keys(item).length > 0);
+  }
 
   window.dataStore = {};
   window.siparisServisRefresher = () => console.warn("Sipariş yenileme fonksiyonu henüz ayarlanmadı.");
@@ -2615,7 +2601,7 @@ function initializeStokTakipApp() {
         get(dbRef).then(snap => {
             if (snap.exists()) {
                 const remoteData = snap.val().value;
-                window.dataStore[key] = (key === 'stokTakip-v1') ? (remoteData || {products:[], logs:[], suppliers: []}) : ensureArray(remoteData);
+                window.dataStore[key] = (key === 'stokTakip-v1') ? (remoteData || {products:[], logs:[], suppliers: []}) : window.ensureArray(remoteData);
             } else {
                 console.log(`Key ${key} Firebase'de bulunamadı, varsayılan değerle oluşturuluyor.`);
                 window.dataStore[key] = key === 'stokTakip-v1' ? { products: [], logs: [], suppliers: [] } : [];
@@ -2647,7 +2633,7 @@ function initializeStokTakipApp() {
               
               console.log(`${key} için uzaktan güncelleme geldi, arayüz yenileniyor.`);
               showToast("Veriler başka bir kullanıcı tarafından güncellendi.", "success");
-              window.dataStore[key] = (key === 'stokTakip-v1') ? data.value : ensureArray(data.value);
+              window.dataStore[key] = (key === 'stokTakip-v1') ? data.value : window.ensureArray(data.value);
               
               if (key === 'stokTakip-v1') {
                   stokTakipRefresher();
