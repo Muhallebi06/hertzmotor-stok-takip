@@ -40,6 +40,11 @@
     .stok-takip-app .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
     .stok-takip-app .editable-qty { cursor: pointer; border-radius: 4px; padding: 2px 4px; transition: background-color 0.2s; }
     .stok-takip-app .editable-qty:hover { background-color: #fef9c3; } /* yellow-100 */
+    .stok-takip-app .stok-tab.active {
+        border-color: rgb(var(--brand));
+        color: rgb(var(--brand));
+    }
+
 
     /* === MOBİL UYUMLULUK İÇİN RESPONSIVE TABLO STİLLERİ === */
     @media screen and (max-width: 768px) {
@@ -503,122 +508,182 @@ const SIPARIS_SERVIS_HTML = `
 
 const STOK_TAKIP_HTML = `
 <div class="mx-auto max-w-7xl p-3 md:p-4">
-     <div class="p-4 mb-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
-        <h3 class="text-base font-semibold text-slate-700 mb-3">Gösterge Paneli</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-            <div>
-                <div class="text-2xl font-bold text-slate-800" id="stok_totalProducts">0</div>
-                <div class="text-xs text-slate-500">Toplam Ürün</div>
+    <div class="mb-4 border-b border-slate-200">
+        <nav class="-mb-px flex space-x-4" aria-label="Tabs">
+            <button data-tab="liste" class="stok-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">
+                Ürün Listesi
+            </button>
+            <button data-tab="analiz" class="stok-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">
+                Analiz Raporları
+            </button>
+            <button data-tab="gecmis" class="stok-tab whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">
+                Hareket Geçmişi
+            </button>
+        </nav>
+    </div>
+
+    <div id="stok_tabContent_liste" class="stok-tab-content">
+        <div class="p-4 mb-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
+            <h3 class="text-base font-semibold text-slate-700 mb-3">Gösterge Paneli</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div>
+                    <div class="text-2xl font-bold text-slate-800" id="stok_totalProducts">0</div>
+                    <div class="text-xs text-slate-500">Toplam Ürün</div>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-amber-600" id="stok_criticalProducts">0</div>
+                    <div class="text-xs text-slate-500">Kritik Seviyedeki Ürün</div>
+                </div>
             </div>
-            <div>
-                <div class="text-2xl font-bold text-amber-600" id="stok_criticalProducts">0</div>
-                <div class="text-xs text-slate-500">Kritik Seviyedeki Ürün</div>
+        </div>
+        <header class="grid grid-cols-1 md:grid-cols-2 gap-3 items-center mb-2 p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input id="stok_search" type="search" placeholder="Ara: ad, kod, not..." class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white" />
+                <label class="flex items-center gap-2 text-sm text-slate-600">
+                    <input id="stok_onlyLow" type="checkbox" class="w-4 h-4 rounded"> Sadece kritik stok
+                </label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <select id="stok_filterKind" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm">
+                    <option value="">Tüm Türler</option>
+                    <option value="mamul">Mamul</option>
+                    <option value="yari">Yarı-mamul</option>
+                    <option value="ham">Hammadde</option>
+                </select>
+                <select id="stok_filterCategory" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm">
+                    <option value="">Tüm Çeşitler</option>
+                </select>
+                <button id="stok_btnClearFilters" class="px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-sm">Filtreleri Temizle</button>
+            </div>
+        </header>
+        <p class="text-xs text-slate-500 text-center md:text-left mb-2 px-1">
+            İpucu: Gelişmiş arama için <strong>kod:</strong>, <strong>ad:</strong>, <strong>not:</strong> veya çeşit adı (<strong>rulman:</strong>) gibi anahtar kelimeler kullanın.
+        </p>
+        <div class="flex flex-wrap gap-2 mb-4" id="stok-mobile-buttons">
+            <button id="stok_btnAdd_mobile" class="flex-1 px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
+            <button id="stok_btnImport_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
+            <button id="stok_btnExport_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa Aktar</button>
+            <button id="stok_btnExportCSV_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
+            <button id="stok_btnExportLogCSV_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
+            <button id="stok_btnClear_mobile" class="flex-1 px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
+        </div>
+        <div class="text-sm text-slate-500 mb-2">Toplam <span id="stok_count" class="font-bold">0</span> kayıt listeleniyor.</div>
+        <div class="hidden md:block overflow-auto rounded-2xl border border-slate-200 bg-white">
+            <table class="min-w-full text-sm">
+                <thead id="stok_thead" class="bg-slate-100 text-slate-700">
+                    <tr>
+                        <th data-sort="sku" class="text-left px-3 py-2 cursor-pointer select-none">Stok Kodu</th>
+                        <th data-sort="name" class="text-left px-3 py-2 cursor-pointer select-none">Ad</th>
+                        <th class="text-left px-3 py-2">Tür/Çeşit</th>
+                        <th data-sort="qty" class="text-right px-3 py-2 cursor-pointer select-none">Stok</th>
+                        <th data-sort="min" class="text-right px-3 py-2 cursor-pointer select-none">Minimum</th>
+                        <th class="text-left px-3 py-2">Özellikler</th>
+                        <th class="text-left px-3 py-2">Not</th>
+                        <th class="text-right px-3 py-2">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody id="stok_tbodyDesktop" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+        <div id="stok_listMobile" class="md:hidden space-y-2"></div>
+    </div>
+
+    <div id="stok_tabContent_analiz" class="stok-tab-content hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 class="font-semibold text-slate-800 mb-3">En Aktif Ürünler</h3>
+                <div class="mb-3">
+                    <select id="stok_analiz_aktif_gun" class="text-sm rounded-lg border-slate-300">
+                        <option value="30">Son 30 Gün</option>
+                        <option value="7">Son 7 Gün</option>
+                        <option value="90">Son 90 Gün</option>
+                    </select>
+                </div>
+                <div class="overflow-auto max-h-80">
+                    <table class="w-full text-xs">
+                        <thead><tr class="text-left text-slate-600"><th class="p-2">Ürün</th><th class="p-2 text-right">İşlem Sayısı</th></tr></thead>
+                        <tbody id="stok_analiz_aktif_body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 class="font-semibold text-slate-800 mb-3">Hareketsiz Ürünler (Ölü Stok)</h3>
+                 <div class="mb-3">
+                    <select id="stok_analiz_pasif_gun" class="text-sm rounded-lg border-slate-300">
+                        <option value="90">90+ gündür hareketsiz</option>
+                        <option value="180">180+ gündür hareketsiz</option>
+                        <option value="365">365+ gündür hareketsiz</option>
+                    </select>
+                </div>
+                <div class="overflow-auto max-h-80">
+                     <table class="w-full text-xs">
+                        <thead><tr class="text-left text-slate-600"><th class="p-2">Ürün</th><th class="p-2">Son Hareket</th><th class="p-2 text-right">Stok</th></tr></thead>
+                        <tbody id="stok_analiz_pasif_body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
+                 <h3 class="font-semibold text-slate-800 mb-3">Kullanıcı Aktivitesi (Tüm Zamanlar)</h3>
+                 <div class="overflow-auto max-h-80">
+                     <table class="w-full text-xs">
+                        <thead><tr class="text-left text-slate-600"><th class="p-2">Kullanıcı</th><th class="p-2 text-right">Toplam İşlem Sayısı</th></tr></thead>
+                        <tbody id="stok_analiz_kullanici_body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
-     <header class="grid grid-cols-1 md:grid-cols-2 gap-3 items-center mb-2 p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input id="stok_search" type="search" placeholder="Ara: ad, kod, not..." class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white" />
-            <label class="flex items-center gap-2 text-sm text-slate-600">
-                <input id="stok_onlyLow" type="checkbox" class="w-4 h-4 rounded"> Sadece kritik stok
-            </label>
+    
+    <div id="stok_tabContent_gecmis" class="stok-tab-content hidden">
+        <div class="overflow-auto rounded-2xl border border-slate-200 bg-white max-h-[70vh] no-scrollbar">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-100 text-slate-700 sticky top-0">
+                    <tr>
+                    <th class="text-left px-3 py-2">Tarih</th><th class="text-left px-3 py-2">Ürün</th><th class="text-left px-3 py-2">Tür</th>
+                    <th class="text-right px-3 py-2">Miktar</th><th class="text-right px-3 py-2">Önce</th><th class="text-right px-3 py-2">Sonra</th>
+                    <th class="text-left px-3 py-2">Not</th><th class="text-left px-3 py-2">Kullanıcı</th>
+                    </tr>
+                </thead>
+                <tbody id="stok_logBody" class="divide-y divide-slate-100"></tbody>
+            </table>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-             <select id="stok_filterKind" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm">
-                <option value="">Tüm Türler</option>
-                <option value="mamul">Mamul</option>
-                <option value="yari">Yarı-mamul</option>
-                <option value="ham">Hammadde</option>
-            </select>
-            <select id="stok_filterCategory" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm">
-                <option value="">Tüm Çeşitler</option>
-            </select>
-            <button id="stok_btnClearFilters" class="px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-sm">Filtreleri Temizle</button>
+    </div>
+    
+    <dialog id="stok_productDialog" class="rounded-2xl p-0 w-[96vw] max-w-xl">
+        <form id="stok_productForm" class="p-4" novalidate>
+        <h3 id="stok_productDialogTitle" class="text-lg font-semibold mb-4">Ürün Ekle</h3>
+        <div class="grid md:grid-cols-2 gap-3">
+            <div><label class="text-sm text-slate-600">Ürün Türü</label><select name="kind" id="stok_kind" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="mamul">Mamul</option><option value="yari">Yarı-mamul</option><option value="ham">Hammadde</option></select></div>
+            <div><label class="text-sm text-slate-600">Ürün Çeşidi</label><select name="category" id="stok_category" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="stator">Stator</option><option value="rotor">Rotor</option><option value="mil">Mil</option><option value="rotorluMil">Rotorlu Mil</option><option value="taslanmisMil">Taşlanmış Mil</option><option value="sargiliPaket">Sargılı Paket</option><option value="paketliGovde">Paketli Gövde</option><option value="motor">Motor</option><option value="bakir_tel">Bakır Tel</option><option value="yardimci_parcalar">Yardımcı Parçalar</option><option value="aluminyum_govde">Alüminyum Gövde</option><option value="rulman">Rulman</option><option value="kapak">Kapak</option><option value="islenmisKapak">İşlenmiş Kapak</option><option value="taslanmisKapak">Taşlanmış Kapak</option></select></div>
+            <div class="md:col-span-2"><label class="text-sm text-slate-600">Ad</label><input name="name" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div><label class="text-sm text-slate-600">Stok Kodu</label><div class="flex gap-2"><input name="sku" id="stok_sku" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300"><button id="stok_btnAutoSku" type="button" class="px-3 py-2 rounded-xl border border-slate-300">Oluştur</button></div><p class="text-xs text-slate-500 mt-1">Ürün çeşidine göre otomatik kod önerilir. Dilersen düzenleyebilirsin.</p></div>
+            <div><label class="text-sm text-slate-600">Birim</label><input name="unit" type="text" placeholder="adet, kg, m…" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div><label class="text-sm text-slate-600">Minimum Stok</label><input name="min" type="number" step="any" value="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div class="md:col-span-2"><label class="text-sm text-slate-600">Not</label><input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div data-section="sargiliPaket" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">kW</label><input name="kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div></div>
+            <div data-section="paketliGovde" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="pg_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="pg_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="pg_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div><div class="grid md:grid-cols-2 gap-3 mt-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="pg_customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="pg_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div></div></div>
+            <div data-section="mil" class="md:col-span-2 hidden"><label class="text-sm text-slate-600">Mil Kodu</label><input name="milCode" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div data-section="motor" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="m_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="m_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="m_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="m_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div><div><label class="text-sm text-slate-600">Mil Tipi</label><input name="milType" type="text" placeholder="Örn: DIN 6885" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Kapak Çeşidi</label><select name="m_cover" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="AK">AK</option><option value="CK">CK</option><option value="CK/CR">CK/CR</option></select></div></div></div>
         </div>
-    </header>
-    <p class="text-xs text-slate-500 text-center md:text-left mb-2 px-1">
-        İpucu: Gelişmiş arama için <strong>kod:</strong>, <strong>ad:</strong>, <strong>not:</strong> veya çeşit adı (<strong>rulman:</strong>) gibi anahtar kelimeler kullanın.
-    </p>
-     <div class="flex flex-wrap gap-2 mb-4" id="stok-mobile-buttons">
-        <button id="stok_btnAdd_mobile" class="flex-1 px-3 py-2 rounded-xl btn-brand">Ürün Ekle</button>
-        <button id="stok_btnImport_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">İçe Aktar</button>
-        <button id="stok_btnExport_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">Dışa aktar</button>
-        <button id="stok_btnExportCSV_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">CSV</button>
-        <button id="stok_btnExportLogCSV_mobile" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">Log CSV</button>
-        <button id="stok_btnClear_mobile" class="flex-1 px-3 py-2 rounded-xl text-white bg-rose-600 admin-only">Tüm Veriyi Sil</button>
-    </div>
-    <div class="text-sm text-slate-500 mb-2">Toplam <span id="stok_count" class="font-bold">0</span> kayıt listeleniyor.</div>
-    <div class="hidden md:block overflow-auto rounded-2xl border border-slate-200 bg-white">
-      <table class="min-w-full text-sm">
-        <thead id="stok_thead" class="bg-slate-100 text-slate-700">
-          <tr>
-            <th data-sort="sku" class="text-left px-3 py-2 cursor-pointer select-none">Stok Kodu</th>
-            <th data-sort="name" class="text-left px-3 py-2 cursor-pointer select-none">Ad</th>
-            <th class="text-left px-3 py-2">Tür/Çeşit</th>
-            <th data-sort="qty" class="text-right px-3 py-2 cursor-pointer select-none">Stok</th>
-            <th data-sort="min" class="text-right px-3 py-2 cursor-pointer select-none">Minimum</th>
-            <th class="text-left px-3 py-2">Özellikler</th>
-            <th class="text-left px-3 py-2">Not</th>
-            <th class="text-right px-3 py-2">İşlemler</th>
-          </tr>
-        </thead>
-        <tbody id="stok_tbodyDesktop" class="divide-y divide-slate-100"></tbody>
-      </table>
-    </div>
-    <div id="stok_listMobile" class="md:hidden space-y-2"></div>
-    <details class="mt-5 group">
-      <summary class="cursor-pointer select-none text-sm text-slate-600 flex items-center gap-2">
-        <span class="inline-block w-2 h-2 rounded-full" style="background: rgb(var(--brand))"></span>
-        Hareket Geçmişi
-      </summary>
-      <div class="mt-3 overflow-auto rounded-2xl border border-slate-200 bg-white max-h-[50vh] no-scrollbar">
-        <table class="min-w-full text-sm">
-          <thead class="bg-slate-100 text-slate-700">
-            <tr>
-              <th class="text-left px-3 py-2">Tarih</th><th class="text-left px-3 py-2">Ürün</th><th class="text-left px-3 py-2">Tür</th>
-              <th class="text-right px-3 py-2">Miktar</th><th class="text-right px-3 py-2">Önce</th><th class="text-right px-3 py-2">Sonra</th>
-              <th class="text-left px-3 py-2">Not</th><th class="text-left px-3 py-2">Kullanıcı</th>
-            </tr>
-          </thead>
-          <tbody id="stok_logBody" class="divide-y divide-slate-100"></tbody>
-        </table>
-      </div>
-    </details>
-  </div>
-  <dialog id="stok_productDialog" class="rounded-2xl p-0 w-[96vw] max-w-xl">
-    <form id="stok_productForm" class="p-4" novalidate>
-      <h3 id="stok_productDialogTitle" class="text-lg font-semibold mb-4">Ürün Ekle</h3>
-      <div class="grid md:grid-cols-2 gap-3">
-        <div><label class="text-sm text-slate-600">Ürün Türü</label><select name="kind" id="stok_kind" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="mamul">Mamul</option><option value="yari">Yarı-mamul</option><option value="ham">Hammadde</option></select></div>
-        <div><label class="text-sm text-slate-600">Ürün Çeşidi</label><select name="category" id="stok_category" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="stator">Stator</option><option value="rotor">Rotor</option><option value="mil">Mil</option><option value="rotorluMil">Rotorlu Mil</option><option value="taslanmisMil">Taşlanmış Mil</option><option value="sargiliPaket">Sargılı Paket</option><option value="paketliGovde">Paketli Gövde</option><option value="motor">Motor</option><option value="bakir_tel">Bakır Tel</option><option value="yardimci_parcalar">Yardımcı Parçalar</option><option value="aluminyum_govde">Alüminyum Gövde</option><option value="rulman">Rulman</option><option value="kapak">Kapak</option><option value="islenmisKapak">İşlenmiş Kapak</option><option value="taslanmisKapak">Taşlanmış Kapak</option></select></div>
-        <div class="md:col-span-2"><label class="text-sm text-slate-600">Ad</label><input name="name" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
-        <div><label class="text-sm text-slate-600">Stok Kodu</label><div class="flex gap-2"><input name="sku" id="stok_sku" type="text" required class="w-full px-3 py-2 rounded-xl border border-slate-300"><button id="stok_btnAutoSku" type="button" class="px-3 py-2 rounded-xl border border-slate-300">Oluştur</button></div><p class="text-xs text-slate-500 mt-1">Ürün çeşidine göre otomatik kod önerilir. Dilersen düzenleyebilirsin.</p></div>
-        <div><label class="text-sm text-slate-600">Birim</label><input name="unit" type="text" placeholder="adet, kg, m…" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
-        <div><label class="text-sm text-slate-600">Minimum Stok</label><input name="min" type="number" step="any" value="0" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
-        <div class="md:col-span-2"><label class="text-sm text-slate-600">Not</label><input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
-        <div data-section="sargiliPaket" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">kW</label><input name="kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div></div>
-        <div data-section="paketliGovde" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="pg_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="pg_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="pg_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div></div><div class="grid md:grid-cols-2 gap-3 mt-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="pg_customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="pg_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div></div></div>
-        <div data-section="mil" class="md:col-span-2 hidden"><label class="text-sm text-slate-600">Mil Kodu</label><input name="milCode" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
-        <div data-section="motor" class="md:col-span-2 hidden"><div class="grid md:grid-cols-3 gap-3"><div><label class="text-sm text-slate-600">Müşteri</label><input name="customer" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Devir (rpm)</label><input name="m_rpm" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">kW</label><input name="m_kw" type="number" step="any" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Voltaj (V)</label><input name="m_volt" type="number" step="1" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Bağlantı Tipi</label><select name="m_conn" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="soketli">Soketli</option><option value="duz">Düz klemensli</option><option value="ters">Ters klemensli</option><option value="ykr">YKR</option><option value="ykl">YKL</option></select></div><div><label class="text-sm text-slate-600">Mil Tipi</label><input name="milType" type="text" placeholder="Örn: DIN 6885" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div><div><label class="text-sm text-slate-600">Kapak Çeşidi</label><select name="m_cover" class="w-full px-3 py-2 rounded-xl border border-slate-300"><option value="AK">AK</option><option value="CK">CK</option><option value="CK/CR">CK/CR</option></select></div></div></div>
-      </div>
-      <div class="mt-5 flex justify-end gap-2"><button id="stok_productCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_productSaveBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Kaydet</button></div>
-      <input type="hidden" name="id">
-    </form>
-  </dialog>
-  <dialog id="stok_moveDialog" class="rounded-2xl p-0 w-[96vw] max-w-md">
-    <form id="stok_moveForm" class="p-4" novalidate>
-      <h3 class="text-lg font-semibold mb-4">Stok Hareketi</h3>
-      <div class="space-y-3">
-        <div class="text-sm">Ürün: <span id="stok_moveProductName" class="font-medium"></span></div>
-        <div class="grid grid-cols-2 gap-3"><label class="flex items-center gap-2"><input type="radio" name="type" value="in" checked> <span>Giriş</span></label><label class="flex items-center gap-2"><input type="radio" name="type" value="out"> <span>Çıkış</span></label></div>
-        <div><label class="text-sm">Miktar</label><input name="amount" type="number" step="any" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
-        <div><label class="text-sm">Not (isteğe bağlı)</label><input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
-      </div>
-      <div class="mt-5 flex justify-end gap-2"><button id="stok_moveCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_moveApplyBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Uygula</button></div>
-      <input type="hidden" name="id">
-    </form>
-  </dialog>
+        <div class="mt-5 flex justify-end gap-2"><button id="stok_productCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_productSaveBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Kaydet</button></div>
+        <input type="hidden" name="id">
+        </form>
+    </dialog>
+    <dialog id="stok_moveDialog" class="rounded-2xl p-0 w-[96vw] max-w-md">
+        <form id="stok_moveForm" class="p-4" novalidate>
+        <h3 class="text-lg font-semibold mb-4">Stok Hareketi</h3>
+        <div class="space-y-3">
+            <div class="text-sm">Ürün: <span id="stok_moveProductName" class="font-medium"></span></div>
+            <div class="grid grid-cols-2 gap-3"><label class="flex items-center gap-2"><input type="radio" name="type" value="in" checked> <span>Giriş</span></label><label class="flex items-center gap-2"><input type="radio" name="type" value="out"> <span>Çıkış</span></label></div>
+            <div><label class="text-sm">Miktar</label><input name="amount" type="number" step="any" required class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+            <div><label class="text-sm">Not (isteğe bağlı)</label><input name="note" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300"></div>
+        </div>
+        <div class="mt-5 flex justify-end gap-2"><button id="stok_moveCancelBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-300 bg-white">Vazgeç</button><button id="stok_moveApplyBtn" type="submit" class="px-3 py-2 rounded-xl btn-brand">Uygula</button></div>
+        <input type="hidden" name="id">
+        </form>
+    </dialog>
   <input id="stok_fileInput" type="file" accept="application/json" class="hidden">
+</div>
 `;
 
 function initializeSiparisServisApp() {
@@ -1643,13 +1708,18 @@ function initializeStokTakipApp() {
     }
     
     function render(){
+        renderProductList();
+        renderLogList();
+        renderAnalysisReports(); // Her renderda analizleri de yenile
+    }
+    
+    function renderProductList() {
         let list=ensureArray(state.products);
         const qRaw=$('#stok_search').value.trim();
         const onlyLow=$('#stok_onlyLow').checked;
         const filterKindVal = $('#stok_filterKind').value;
         const filterCategoryVal = $('#stok_filterCategory').value;
         
-        // Gelişmiş arama mantığı
         if (qRaw.includes(':')) {
             const parts = qRaw.split(':');
             const keyRaw = normalizeTR(parts[0]);
@@ -1724,13 +1794,84 @@ function initializeStokTakipApp() {
             </div>`;
             listMobile.appendChild(card);
         }
-
+    }
+    
+    function renderLogList() {
         const logBody=$('#stok_logBody'); logBody.innerHTML='';
         for(const L of state.logs){ const p=findProduct(L.productId)||{name:'(silinmiş ürün)'}; const tr=document.createElement('tr'); const typeTxt=L.type==='in'?'Giriş':(L.type==='out'?'Çıkış':(L.type==='adjustment'?'Düzeltme':L.type)); tr.innerHTML=`
             <td class="px-3 py-2">${new Date(L.ts).toLocaleString('tr-TR')}</td><td class="px-3 py-2">${p.name}</td>
             <td class="px-3 py-2">${typeTxt}</td><td class="px-3 py-2 text-right">${fmt(L.amount)}</td>
             <td class="px-3 py-2 text-right">${fmt(L.fromQty)}</td><td class="px-3 py-2 text-right">${fmt(L.toQty)}</td>
             <td class="px-3 py-2">${L.note||''}</td><td class="px-3 py-2">${L.user||"(bilinmiyor)"}</td>`; logBody.appendChild(tr); }
+    }
+    
+    function renderAnalysisReports() {
+        // En Aktif Ürünler
+        const aktifGun = parseInt($('#stok_analiz_aktif_gun').value, 10);
+        const aktifThreshold = new Date();
+        aktifThreshold.setDate(aktifThreshold.getDate() - aktifGun);
+        const hareketler = {};
+        state.logs.forEach(log => {
+            if (new Date(log.ts) > aktifThreshold && log.productId) {
+                hareketler[log.productId] = (hareketler[log.productId] || 0) + 1;
+            }
+        });
+        const enAktif = Object.entries(hareketler)
+            .map(([productId, count]) => ({ product: findProduct(productId), count }))
+            .filter(item => item.product)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 20);
+
+        const aktifBody = $('#stok_analiz_aktif_body');
+        aktifBody.innerHTML = '';
+        enAktif.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td class="p-2 border-t border-slate-100">${item.product.name}</td><td class="p-2 border-t border-slate-100 text-right">${item.count}</td>`;
+            aktifBody.appendChild(tr);
+        });
+        if(enAktif.length === 0) aktifBody.innerHTML = '<tr><td colspan="2" class="p-2 text-slate-500 text-center">Veri bulunamadı.</td></tr>';
+
+        // Hareketsiz Ürünler
+        const pasifGun = parseInt($('#stok_analiz_pasif_gun').value, 10);
+        const pasifThreshold = new Date();
+        pasifThreshold.setDate(pasifThreshold.getDate() - pasifGun);
+        const sonHareket = {};
+        state.logs.forEach(log => {
+            if (log.productId && (!sonHareket[log.productId] || new Date(log.ts) > sonHareket[log.productId])) {
+                sonHareket[log.productId] = new Date(log.ts);
+            }
+        });
+        const hareketsiz = state.products
+            .filter(p => !sonHareket[p.id] || sonHareket[p.id] < pasifThreshold)
+            .sort((a, b) => (sonHareket[a.id] || 0) - (sonHareket[b.id] || 0));
+
+        const pasifBody = $('#stok_analiz_pasif_body');
+        pasifBody.innerHTML = '';
+        hareketsiz.forEach(p => {
+            const tr = document.createElement('tr');
+            const sonTarih = sonHareket[p.id] ? sonHareket[p.id].toLocaleDateString('tr-TR') : 'Hiç';
+            tr.innerHTML = `<td class="p-2 border-t border-slate-100">${p.name}</td><td class="p-2 border-t border-slate-100">${sonTarih}</td><td class="p-2 border-t border-slate-100 text-right">${fmt(p.qty || 0)}</td>`;
+            pasifBody.appendChild(tr);
+        });
+        if(hareketsiz.length === 0) pasifBody.innerHTML = '<tr><td colspan="3" class="p-2 text-slate-500 text-center">Veri bulunamadı.</td></tr>';
+
+        // Kullanıcı Aktivitesi
+        const kullaniciAktivite = {};
+        state.logs.forEach(log => {
+            if (log.user) {
+                kullaniciAktivite[log.user] = (kullaniciAktivite[log.user] || 0) + 1;
+            }
+        });
+        const enAktifKullanicilar = Object.entries(kullaniciAktivite).sort((a, b) => b[1] - a[1]);
+        
+        const kullaniciBody = $('#stok_analiz_kullanici_body');
+        kullaniciBody.innerHTML = '';
+        enAktifKullanicilar.forEach(([user, count]) => {
+             const tr = document.createElement('tr');
+             tr.innerHTML = `<td class="p-2 border-t border-slate-100">${user}</td><td class="p-2 border-t border-slate-100 text-right">${count}</td>`;
+             kullaniciBody.appendChild(tr);
+        });
+         if(enAktifKullanicilar.length === 0) kullaniciBody.innerHTML = '<tr><td colspan="2" class="p-2 text-slate-500 text-center">Veri bulunamadı.</td></tr>';
     }
 
     function openProductDialog(product){ const dlg=$('#stok_productDialog'); const form=$('#stok_productForm'); form.reset(); toggleConditionalSections(); if(product){ $('#stok_productDialogTitle').textContent='Ürünü Düzenle'; form.kind.value=product.kind||'mamul'; form.category.value=product.category||'stator'; form.name.value=product.name||''; form.sku.value=product.sku||''; form.unit.value=product.unit||''; form.min.value=product.min??0; form.note.value=product.note||''; form.kw.value=product.kw??''; form.rpm.value=product.rpm??''; form.volt.value=product.volt??''; form.milCode.value=product.milCode??''; form.customer.value=product.customer??''; form.pg_rpm.value=product.pg_rpm??''; form.pg_kw.value=product.pg_kw??''; form.pg_volt.value=product.pg_volt??''; form.pg_customer.value=product.pg_customer??''; form.pg_conn.value=product.pg_conn??'soketli'; form.m_rpm.value=product.m_rpm??''; form.m_kw.value=product.m_kw??''; form.m_volt.value=product.m_volt??''; form.m_conn.value=product.m_conn??'soketli'; form.milType.value=product.milType??''; form.m_cover.value=product.m_cover??'AK'; form.id.value=product.id; toggleConditionalSections(); } else { $('#stok_productDialogTitle').textContent='Ürün Ekle'; form.kind.value='mamul'; form.category.value='stator'; form.id.value=''; suggestSku(true); toggleConditionalSections(); } dlg.showModal(); }
@@ -1762,6 +1903,32 @@ function initializeStokTakipApp() {
             option.textContent = label;
             catSelect.appendChild(option);
         });
+    }
+
+    function setupTabListeners() {
+        const tabs = $$('.stok-tab');
+        const contents = $$('.stok-tab-content');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const target = tab.dataset.tab;
+                
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                contents.forEach(c => c.classList.add('hidden'));
+                const activeContent = $(`#stok_tabContent_${target}`);
+                if (activeContent) activeContent.classList.remove('hidden');
+                
+                if (target === 'analiz') {
+                    renderAnalysisReports();
+                }
+            });
+        });
+        
+        // Set default tab
+        const defaultTab = $('[data-tab="liste"]');
+        if (defaultTab) defaultTab.click();
     }
 
     $('#stok_btnAdd').addEventListener('click',()=>openProductDialog());
@@ -1800,16 +1967,17 @@ function initializeStokTakipApp() {
     $('#stok_btnClear').onclick = clearAction;
     $('#stok_btnClear_mobile').onclick = clearAction;
 
-    $$('#stok_search, #stok_onlyLow, #stok_filterKind, #stok_filterCategory').forEach(el => el.addEventListener('input', render));
+    $$('#stok_search, #stok_onlyLow, #stok_filterKind, #stok_filterCategory').forEach(el => el.addEventListener('input', renderProductList));
+    $$('#stok_analiz_aktif_gun, #stok_analiz_pasif_gun').forEach(el => el.addEventListener('change', renderAnalysisReports));
     $('#stok_btnClearFilters').addEventListener('click', () => {
         $('#stok_search').value = '';
         $('#stok_onlyLow').checked = false;
         $('#stok_filterKind').value = '';
         $('#stok_filterCategory').value = '';
-        render();
+        renderProductList();
     });
 
-    $('#stok_thead').addEventListener('click',e=>{ const th=e.target.closest('th[data-sort]'); if(!th) return; const key=th.dataset.sort; if(sortBy===key) sortDir=(sortDir==='asc'?'desc':'asc'); else { sortBy=key; sortDir='asc'; } render(); });
+    $('#stok_thead').addEventListener('click',e=>{ const th=e.target.closest('th[data-sort]'); if(!th) return; const key=th.dataset.sort; if(sortBy===key) sortDir=(sortDir==='asc'?'desc':'asc'); else { sortBy=key; sortDir='asc'; } renderProductList(); });
     
     function delegate(container, selector, event, handler) {
         container.addEventListener(event, e => {
@@ -1847,13 +2015,12 @@ function initializeStokTakipApp() {
                 render(); return;
             }
             
-            const diff = newValue - originalValue;
             p.qty = newValue;
             
             addLog({
                 productId: p.id,
                 type: 'adjustment',
-                amount: diff,
+                amount: newValue - originalValue,
                 fromQty: originalValue,
                 toQty: newValue,
                 note: 'Manuel düzeltme'
@@ -1903,6 +2070,7 @@ function initializeStokTakipApp() {
     
     load();
     populateFilters();
+    setupTabListeners();
     render();
 
     window.setStokTakipRefresher(() => {
