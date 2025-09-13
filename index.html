@@ -269,6 +269,21 @@ function hideLoadingOverlay() {
     document.getElementById('loading-overlay').style.display = 'none';
 }
 
+// OPTIMIZASYON: Debounce fonksiyonu eklendi.
+// Bu fonksiyon, bir olayın (örneğin klavyeden yazı yazma) çok sık tetiklenmesini engelleyerek
+// sadece kullanıcı duraksadığında işlem yapılmasını sağlar. Bu, arama ve filtreleme
+// işlemlerinde performansı ciddi şekilde artırır.
+function debounce(func, delay = 300) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            func.apply(this, args);
+        }, delay);
+    };
+}
+
+
 // --- Merkezi Yetki Kontrol Yöneticisi ---
 const authManager = {
     USERS: {
@@ -1059,23 +1074,6 @@ function initializeSiparisServisApp() {
         const tabId = tab.id.replace('ss_tab', '').toLowerCase();
         tab.addEventListener("click", () => setTab(tabId));
     });
-
-    function markServisAsSevk(index){
-      const user = sessionStorage.getItem("auth_user") || "(bilinmiyor)";
-      const record = servisKayitlari[index];
-      servisSevkEdilenler.push({ ...record, sevkEdildi: formatDateTime_TR(new Date()), kullanici: user });
-      window.dataStore['servisSevkEdilenler'] = servisSevkEdilenler;
-      window.pushData('servisSevkEdilenler');
-      
-      logAction(record.no || "(servis)", "Servis kaydı sevk edildi");
-      servisKayitlari.splice(index, 1);
-      window.dataStore['servisKayitlari'] = servisKayitlari;
-      window.pushData('servisKayitlari');
-
-      renderServisList();
-      showToast(`${record.firma} için servis kaydı sevk edildi.`, "success");
-      if (currentTab === "sevk") renderTeknikServisSevkList();
-    }
     
     function geriAlServisSevk(no){
       const idx = servisSevkEdilenler.findIndex(x => x.no === no);
@@ -1108,11 +1106,10 @@ function initializeSiparisServisApp() {
       });
     }
 
-    function renderOrders() {
-      sortData(orders, siparisSort.key, siparisSort.direction, appContainer.querySelector(`#ss_pageSiparis th[data-sort-key="${siparisSort.key}"]`)?.dataset.sortType);
-      table.innerHTML = "";
-      orders.forEach((o, i) => {
+    function createOrderRow(o) {
         const tr = document.createElement("tr");
+        tr.dataset.no = o.no; 
+
         if (o.sevkeHazir) {
           tr.style.backgroundColor = B_ROW;
         } else if (!o.sevkTarihi) {
@@ -1123,7 +1120,7 @@ function initializeSiparisServisApp() {
         }
 
         const showVal = (v) => (v === undefined || v === null || v === '' ? '<span class="text-slate-400 italic">—</span>' : String(v));
-        const span = (text, field, type, extraCls='') => `<span class="editable block min-h-[28px] w-full px-1 rounded ${extraCls}" data-field="${field}" data-type="${type}" ondblclick="window.ssApp.makeEditable(this, ${i}, '${field}', '${type}')">${showVal(text)}</span>`;
+        const span = (text, field, type, extraCls='') => `<span class="editable block min-h-[28px] w-full px-1 rounded ${extraCls}" data-field="${field}" data-type="${type}">${showVal(text)}</span>`;
 
         tr.innerHTML = `
           <td data-label="No"><span class="font-semibold">${o.no}</span></td>
@@ -1134,14 +1131,24 @@ function initializeSiparisServisApp() {
           <td data-label="RPM">${span(o.rpm, 'rpm', 'number','text-right')}</td>
           <td data-label="Voltaj">${span(o.volt, 'volt', 'number','text-right')}</td>
           <td data-label="Sevk Tarihi">${span(formatDate_TR(o.sevkTarihi), 'sevkTarihi', 'date')}</td>
-          <td data-label="Açıklama"><button class="px-2 py-1 rounded-md border bg-white hover:bg-slate-50 text-xs underline" onclick="window.ssApp.openDescEditor('siparis', ${i})">${(o.aciklama || '').trim() ? 'Açıklamayı Gör' : 'Açıklama Ekle'}</button></td>
-          <td data-label="Hazır" class="${o.hazir ? 'bg-green-100' : ''}"><input type="checkbox" ${o.hazir?'checked':''} onchange="window.ssApp.toggleHazir(${i}, this.checked)" /></td>
-          <td data-label="Sevke Hazır" class="${o.sevkeHazir ? 'bg-blue-100' : ''}"><input type="checkbox" ${o.sevkeHazir?'checked':''} ${o.hazir?'':'disabled'} onchange="window.ssApp.toggleSevkeHazir(${i}, this.checked)" /></td>
-          <td data-label="Durum">${o.sevkeHazir ? (o.sevkTarihi ? `<button onclick="window.ssApp.markAsSevk('${o.no}')" class="text-blue-600 underline">Sevk Et</button>` : '<span class="text-slate-400 italic">Tarih belirtilmemiş</span>') : '<span class="text-slate-400 italic">Sevke hazır değil</span>'}</td>
-          <td data-label="İşlemler"><button class="text-rose-600 underline" onclick="window.ssApp.deleteOrder('${o.no}')">Sil</button></td>
+          <td data-label="Açıklama"><button class="px-2 py-1 rounded-md border bg-white hover:bg-slate-50 text-xs underline" data-action="edit-desc">${(o.aciklama || '').trim() ? 'Açıklamayı Gör' : 'Açıklama Ekle'}</button></td>
+          <td data-label="Hazır" class="${o.hazir ? 'bg-green-100' : ''}"><input type="checkbox" ${o.hazir?'checked':''} data-action="toggle-hazir" /></td>
+          <td data-label="Sevke Hazır" class="${o.sevkeHazir ? 'bg-blue-100' : ''}"><input type="checkbox" ${o.sevkeHazir?'checked':''} ${o.hazir?'':'disabled'} data-action="toggle-sevke-hazir" /></td>
+          <td data-label="Durum">${o.sevkeHazir ? (o.sevkTarihi ? `<button data-action="sevk-et" class="text-blue-600 underline">Sevk Et</button>` : '<span class="text-slate-400 italic">Tarih belirtilmemiş</span>') : '<span class="text-slate-400 italic">Sevke hazır değil</span>'}</td>
+          <td data-label="İşlemler"><button class="text-rose-600 underline" data-action="delete">Sil</button></td>
         `;
-        table.appendChild(tr);
-      });
+        return tr;
+    }
+
+    function renderOrders() {
+      sortData(orders, siparisSort.key, siparisSort.direction, appContainer.querySelector(`#ss_pageSiparis th[data-sort-key="${siparisSort.key}"]`)?.dataset.sortType);
+      
+      const fragment = document.createDocumentFragment();
+      orders.forEach(o => fragment.appendChild(createOrderRow(o)));
+      
+      table.innerHTML = "";
+      table.appendChild(fragment);
+
       lastPaintDay = todayLocal().toDateString();
       updateSortIndicators(table.id, siparisSort);
     }
@@ -1162,9 +1169,10 @@ function initializeSiparisServisApp() {
             return okTxt && okFrom && okTo;
         });
 
-        teknikServisSevkTable.innerHTML = "";
+        const fragment = document.createDocumentFragment();
         filtered.forEach((o) => {
             const tr = document.createElement("tr");
+            tr.dataset.no = o.no;
             tr.innerHTML = `
                 <td data-label="No"><span class="font-semibold">${o.no}</span></td>
                 <td data-label="Firma">${o.firma || ""}</td>
@@ -1173,10 +1181,12 @@ function initializeSiparisServisApp() {
                 <td data-label="Arıza">${o.ariza || ""}</td>
                 <td data-label="Sevk Edildi">${o.sevkEdildi || ""}</td>
                 <td data-label="Kullanıcı">${o.kullanici || ""}</td>
-                <td data-label="İşlem"><button class="text-slate-600 underline" onclick="window.ssApp.geriAlServisSevk('${o.no}')">Geri Al</button></td>
+                <td data-label="İşlem"><button class="text-slate-600 underline" data-action="geri-al-servis-sevk">Geri Al</button></td>
             `;
-            teknikServisSevkTable.appendChild(tr);
+            fragment.appendChild(tr);
         });
+        teknikServisSevkTable.innerHTML = "";
+        teknikServisSevkTable.appendChild(fragment);
         updateSortIndicators(teknikServisSevkTable.id, teknikServisSevkSort);
     }
 
@@ -1194,10 +1204,11 @@ function initializeSiparisServisApp() {
         const okTo   = !dt || (sevkDate && atLocalMidnight(sevkDate) <= dt);
         return okTxt && okFrom && okTo;
       });
-
-      sevkTable.innerHTML = "";
+      
+      const fragment = document.createDocumentFragment();
       filtered.forEach((o) => {
         const tr = document.createElement("tr");
+        tr.dataset.no = o.no;
         tr.innerHTML = `
           <td data-label="No"><span class="font-semibold">${o.no}</span></td>
           <td data-label="Müşteri">${o.musteri || ""}</td>
@@ -1209,10 +1220,12 @@ function initializeSiparisServisApp() {
           <td data-label="Sevk Tarihi">${formatDate_TR(o.sevkTarihi) || ""}</td>
           <td data-label="Sevk Edildi">${o.sevkEdildi || ""}</td>
           <td data-label="Kullanıcı">${o.kullanici || ""}</td>
-          <td data-label="İşlem"><button class="text-slate-600 underline" onclick="window.ssApp.geriAlSevk('${o.no}')">Geri Al</button></td>
+          <td data-label="İşlem"><button class="text-slate-600 underline" data-action="geri-al-sevk">Geri Al</button></td>
         `;
-        sevkTable.appendChild(tr);
+        fragment.appendChild(tr);
       });
+      sevkTable.innerHTML = "";
+      sevkTable.appendChild(fragment);
       updateSortIndicators(sevkTable.id, sevkSort);
     }
 
@@ -1235,10 +1248,10 @@ function initializeSiparisServisApp() {
         return !q || txt.includes(q);
       });
 
-      servisTable.innerHTML = "";
+      const fragment = document.createDocumentFragment();
       filtered.forEach((s) => {
-        const originalIndex = servisKayitlari.indexOf(s);
         const tr = document.createElement("tr");
+        tr.dataset.no = s.no;
         
         let bg = null;
         const isServisHazir = (s.durum || '').toUpperCase() === 'HAZIR';
@@ -1256,7 +1269,7 @@ function initializeSiparisServisApp() {
         }
         
         const showVal = (v) => (v === undefined || v === null || v === '' ? '<span class="text-slate-400 italic">—</span>' : String(v));
-        const span = (text, field, type, extraCls='') => `<span class="editable block min-h-[28px] w-full px-1 rounded ${extraCls}" ondblclick="window.ssApp.makeEditableServis(this, ${originalIndex}, '${field}', '${type}')">${showVal(text)}</span>`;
+        const span = (text, field, type, extraCls='') => `<span class="editable block min-h-[28px] w-full px-1 rounded ${extraCls}" data-field="${field}" data-type="${type}">${showVal(text)}</span>`;
 
         tr.innerHTML = `
           <td data-label="No"><span class="font-semibold">${s.no || ''}</span></td>
@@ -1270,17 +1283,19 @@ function initializeSiparisServisApp() {
           <td data-label="İletişim">${span(s.iletisim, 'iletisim', 'text')}</td>
           <td data-label="Kargo Tipi">${span(s.kargoTipi, 'kargoTipi', 'text')}</td>
           <td data-label="Sevk Tarihi">${span(formatDate_TR(s.sevkTarihi), 'sevkTarihi', 'date')}</td>
-          <td data-label="Açıklama"><button class="px-2 py-1 rounded-md border bg-white hover:bg-slate-50 text-xs underline" onclick="window.ssApp.openDescEditor('servis', ${originalIndex})">${(s.aciklama || '').trim() ? 'Açıklamayı Gör' : 'Açıklama Ekle'}</button></td>
+          <td data-label="Açıklama"><button class="px-2 py-1 rounded-md border bg-white hover:bg-slate-50 text-xs underline" data-action="edit-desc-servis">${(s.aciklama || '').trim() ? 'Açıklamayı Gör' : 'Açıklama Ekle'}</button></td>
           <td data-label="İşlem">
             <div class="flex flex-wrap gap-x-2 gap-y-1">
-            ${(s.durum || '').toUpperCase() === 'HAZIR' ? `<button class="text-blue-600 underline" onclick="window.ssApp.markServisAsSevk(${originalIndex})">Sevk Et</button>` : '<span class="text-slate-400 italic">Sevk edilemez</span>'}
-            <button class="text-blue-600 underline" onclick="window.ssApp.editServis(${originalIndex})">Düzenle</button>
-            <button class="text-rose-600 underline" onclick="window.ssApp.deleteServis(${originalIndex})">Sil</button>
+            ${(s.durum || '').toUpperCase() === 'HAZIR' ? `<button class="text-blue-600 underline" data-action="sevk-et-servis">Sevk Et</button>` : '<span class="text-slate-400 italic">Sevk edilemez</span>'}
+            <button class="text-blue-600 underline" data-action="edit-servis">Düzenle</button>
+            <button class="text-rose-600 underline" data-action="delete-servis">Sil</button>
             </div>
           </td>
         `;
-        servisTable.appendChild(tr);
+        fragment.appendChild(tr);
       });
+      servisTable.innerHTML = "";
+      servisTable.appendChild(fragment);
       updateSortIndicators(servisTable.id, servisSort);
     }
     
@@ -1295,15 +1310,19 @@ function initializeSiparisServisApp() {
       renderServisList();
     }
     
-    function deleteServis(i){
+    function deleteServis(no){
+      const index = servisKayitlari.findIndex(s => s.no === no);
+      if (index === -1) return;
       if (!confirm('Kayıt silinsin mi?')) return;
-      const no = servisKayitlari[i]?.no;
-      servisKayitlari.splice(i,1);
+      
+      servisKayitlari.splice(index,1);
       window.dataStore['servisKayitlari'] = servisKayitlari;
       window.pushData('servisKayitlari');
       if (no) logAction(no, 'Teknik servis kaydı silindi');
       showToast(`${no} no'lu servis kaydı silindi.`, 'success');
-      renderServisList();
+      
+      const rowToDelete = servisTable.querySelector(`tr[data-no="${no}"]`);
+      if (rowToDelete) rowToDelete.remove();
     }
     
     function deleteOrder(no){
@@ -1320,8 +1339,11 @@ function initializeSiparisServisApp() {
       window.dataStore['siparisler'] = orders;
       window.pushData('siparisler');
       logAction(o.no, "Sipariş silindi");
+
+      const rowToDelete = table.querySelector(`tr[data-no="${no}"]`);
+      if (rowToDelete) rowToDelete.remove();
+
       showToast(`${o.no} numaralı sipariş silindi.`, 'success');
-      renderOrders();
     }
     
     function inlineUpdate(index, field, value){
@@ -1535,7 +1557,8 @@ function initializeSiparisServisApp() {
       window.pushData('siparisler');
       
       showToast(`${orderToShip.no} no'lu sipariş sevk edildi.`, "success");
-      renderOrders();
+      const rowToDelete = table.querySelector(`tr[data-no="${no}"]`);
+      if(rowToDelete) rowToDelete.remove();
       renderSevkList();
     }
     function geriAlSevk(no){
@@ -1584,9 +1607,11 @@ function initializeSiparisServisApp() {
       window.pushData('siparisler');
       logAction(newOrder.no, "Yeni sipariş eklendi");
       showToast(`${newOrder.no} no'lu yeni sipariş eklendi.`, "success");
+      
+      table.prepend(createOrderRow(newOrder));
+
       form.reset();
       form.querySelector(".sevk-picker")?._flatpickr.clear();
-      renderOrders();
     });
 
     servisForm.addEventListener('submit', function(e){
@@ -1724,6 +1749,10 @@ function initializeSiparisServisApp() {
     };
     $$('.ss_btnClearAll', document).forEach(btn => btn.onclick = clearAllAction);
 
+    const debouncedRenderSevkList = debounce(renderSevkList);
+    searchInput.addEventListener('input', debouncedRenderSevkList);
+    dateFromInput.addEventListener('change', debouncedRenderSevkList);
+    dateToInput.addEventListener('change', debouncedRenderSevkList);
     
     appContainer.querySelector('#ss_btnSevkFilter').onclick = renderSevkList;
     appContainer.querySelector('#ss_btnSevkClearFilter').onclick = () => { searchInput.value = ""; dateFromInput.value = ""; dateToInput.value = ""; renderSevkList(); };
@@ -1735,6 +1764,11 @@ function initializeSiparisServisApp() {
         renderSevkList();
     }};
     
+    const debouncedRenderTeknikSevkList = debounce(renderTeknikServisSevkList);
+    teknikSevkSearch.addEventListener('input', debouncedRenderTeknikSevkList);
+    teknikSevkDateFrom.addEventListener('change', debouncedRenderTeknikSevkList);
+    teknikSevkDateTo.addEventListener('change', debouncedRenderTeknikSevkList);
+
     appContainer.querySelector('#ss_btnTeknikSevkFilter').addEventListener('click', renderTeknikServisSevkList);
     appContainer.querySelector('#ss_btnTeknikSevkClearFilter').addEventListener('click', () => {
         teknikSevkSearch.value = "";
@@ -1758,6 +1792,7 @@ function initializeSiparisServisApp() {
         }
     });
 
+    servisSearch.addEventListener('input', debounce(renderServisList));
     appContainer.querySelector('#ss_btnServisClearAll').onclick = () => { if(confirm('Tüm teknik servis kayıtları silinecek?')){ 
         servisKayitlari = []; 
         window.dataStore['servisKayitlari'] = servisKayitlari;
@@ -1824,6 +1859,75 @@ function initializeSiparisServisApp() {
         renderTeknikServisSevkList();
     }
     
+    function setupEventListeners() {
+        table.addEventListener('click', e => {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
+            const action = target.dataset.action;
+            const no = target.closest('tr').dataset.no;
+            const index = orders.findIndex(o => o.no === no);
+
+            if (action === 'delete') deleteOrder(no);
+            else if (action === 'sevk-et') markAsSevk(no);
+            else if (action === 'edit-desc') openDescEditor('siparis', index);
+        });
+        table.addEventListener('change', e => {
+            const target = e.target.closest('input[type="checkbox"][data-action]');
+            if (!target) return;
+            const action = target.dataset.action;
+            const no = target.closest('tr').dataset.no;
+            const index = orders.findIndex(o => o.no === no);
+
+            if (action === 'toggle-hazir') toggleHazir(index, target.checked);
+            else if (action === 'toggle-sevke-hazir') toggleSevkeHazir(index, target.checked);
+        });
+        table.addEventListener('dblclick', e => {
+            const target = e.target.closest('.editable');
+            if (!target) return;
+            const no = target.closest('tr').dataset.no;
+            const index = orders.findIndex(o => o.no === no);
+            makeEditable(target, index, target.dataset.field, target.dataset.type);
+        });
+        
+        sevkTable.addEventListener('click', e => {
+             const target = e.target.closest('[data-action="geri-al-sevk"]');
+             if(!target) return;
+             const no = target.closest('tr').dataset.no;
+             geriAlSevk(no);
+        });
+        teknikServisSevkTable.addEventListener('click', e => {
+            const target = e.target.closest('[data-action="geri-al-servis-sevk"]');
+             if(!target) return;
+             const no = target.closest('tr').dataset.no;
+             geriAlServisSevk(no);
+        });
+
+        servisTable.addEventListener('click', e => {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
+            const action = target.dataset.action;
+            const no = target.closest('tr').dataset.no;
+            const index = servisKayitlari.findIndex(s => s.no === no);
+
+            if(index === -1) return;
+
+            if (action === 'delete-servis') deleteServis(no);
+            else if (action === 'edit-servis') editServis(index);
+            else if (action === 'sevk-et-servis') markServisAsSevk(index);
+            else if (action === 'edit-desc-servis') openDescEditor('servis', index);
+        });
+
+        servisTable.addEventListener('dblclick', e => {
+            const target = e.target.closest('.editable');
+            if (!target) return;
+            const no = target.closest('tr').dataset.no;
+            const index = servisKayitlari.findIndex(s => s.no === no);
+            if(index > -1) {
+                makeEditableServis(target, index, target.dataset.field, target.dataset.type);
+            }
+        });
+    }
+
     loadDataFromStorage();
     flatpickr($('#ss_sevkTarihi', appContainer), getFPBaseOptions());
     flatpickr(dateFromInput, getFPBaseOptions());
@@ -1836,11 +1940,10 @@ function initializeSiparisServisApp() {
     window.addEventListener("focus", checkDayAndRefresh);
     
     setupTableSorting();
+    setupEventListeners(); 
     renderAllTables();
     setTab("siparis");
-    scheduleMidnightRefresh(); // Gece yarısı yenilemesini etkinleştir.
-
-    window.ssApp = { makeEditable, makeEditableServis, openDescEditor, toggleHazir, toggleSevkeHazir, markAsSevk, deleteOrder, geriAlSevk, editServis, deleteServis, markServisAsSevk, geriAlServisSevk, setServisDurum, resetServisForm, setSevkDate, setServisSevkDate };
+    scheduleMidnightRefresh();
 
     window.setSiparisServisRefresher(() => {
         loadDataFromStorage();
@@ -1971,9 +2074,7 @@ function initializeStokTakipApp() {
         if(filterCategoryVal) { list=list.filter(p => p.category === filterCategoryVal); }
 
         const tbody=$('#stok_tbodyDesktop', appContainer); 
-        tbody.innerHTML='';
         const listMobile=$('#stok_listMobile', appContainer); 
-        listMobile.innerHTML='';
 
         list.sort((a,b)=>{ let va,vb; switch(sortBy){ case 'sku': va=(a.sku||'').toLowerCase(); vb=(b.sku||'').toLowerCase(); break; case 'qty': va=Number(a.qty||0); vb=Number(b.qty||0); break; case 'min': va=Number(a.min||0); vb=Number(b.min||0); break; case 'cost': va=Number(a.cost||0); vb=Number(b.cost||0); break; default: va=(a.name||'').toLowerCase(); vb=(b.name||'').toLowerCase(); } return (va<vb?-1:va>vb?1:0) * (sortDir==='asc'?1:-1); });
 
@@ -1984,6 +2085,9 @@ function initializeStokTakipApp() {
 
         $('#stok_count', appContainer).textContent=list.length;
 
+        const desktopFragment = document.createDocumentFragment();
+        const mobileFragment = document.createDocumentFragment();
+
         for(const p of list){
             const low=Number(p.qty||0) < Number(p.min||0);
             const lowIcon = low ? ' <span title="Stok kritik seviyede">⚠️</span>' : '';
@@ -1993,6 +2097,7 @@ function initializeStokTakipApp() {
             
             const tr=document.createElement('tr');
             tr.className=low? 'bg-amber-50':'';
+            tr.dataset.id = p.id;
             tr.innerHTML=`
             <td class="px-3 py-2 align-top">${p.sku||'-'}</td><td class="px-3 py-2 align-top">${p.name||'-'}</td>
             <td class="px-3 py-2 align-top">${kindBadge} ${catBadge}</td>
@@ -2008,10 +2113,11 @@ function initializeStokTakipApp() {
                 <button type="button" class="px-2 py-1 rounded-lg" style="border:1px solid rgba(var(--brand), .5); color: rgb(var(--brand)); background:transparent" data-act="edit" data-id="${p.id}">Düzenle</button>
                 <button type="button" class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white admin-only" data-act="del" data-id="${p.id}">Sil</button>
                 </div></td>`;
-            tbody.appendChild(tr);
+            desktopFragment.appendChild(tr);
 
             const card=document.createElement('div');
             card.className='rounded-2xl border border-slate-200 bg-white p-3';
+            card.dataset.id = p.id;
             card.innerHTML=`
             <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0"><div class="text-sm text-slate-500">${p.sku||'-'}</div><div class="font-medium truncate">${p.name||'-'}</div><div class="mt-1 text-xs">${kindBadge} ${catBadge}</div><div class="mt-1 text-xs text-slate-600 truncate">${specs(p)}</div></div>
@@ -2024,8 +2130,12 @@ function initializeStokTakipApp() {
                 <button type="button" class="px-2 py-1 rounded-lg" style="border:1px solid rgba(var(--brand), .5); color: rgb(var(--brand)); background:transparent" data-act="edit" data-id="${p.id}">Düzenle</button>
                 <button type="button" class="px-2 py-1 rounded-lg border border-rose-300 text-rose-700 bg-white admin-only" data-act="del" data-id="${p.id}">Sil</button>
             </div>`;
-            listMobile.appendChild(card);
+            mobileFragment.appendChild(card);
         }
+        tbody.innerHTML = '';
+        listMobile.innerHTML = '';
+        tbody.appendChild(desktopFragment);
+        listMobile.appendChild(mobileFragment);
     }
     
     function renderLogList() {
@@ -2324,7 +2434,10 @@ function initializeStokTakipApp() {
     };
     $$('.stok_btnClear', document).forEach(btn => btn.addEventListener('click', clearAction));
 
-    $$('#stok_search, #stok_onlyLow, #stok_filterKind, #stok_filterCategory', appContainer).forEach(el => el.addEventListener('input', renderProductList));
+    const debouncedRenderProductList = debounce(renderProductList);
+    $$('#stok_search, #stok_onlyLow, #stok_filterKind, #stok_filterCategory', appContainer)
+        .forEach(el => el.addEventListener('input', debouncedRenderProductList));
+
     $$('#stok_analiz_aktif_gun, #stok_analiz_pasif_gun', appContainer).forEach(el => el.addEventListener('change', renderAnalysisReports));
     $('#stok_btnClearFilters', appContainer).addEventListener('click', () => {
         $('#stok_search', appContainer).value = '';
@@ -2450,7 +2563,6 @@ function initializeStokTakipApp() {
         const data=Object.fromEntries(new FormData(form).entries());
         const isEdit=!!data.id;
         
-        // Veri Doğrulama
         const min=Number(data.min||0);
         if(isNaN(min)||min<0){ showToast('Minimum stok 0 veya daha büyük olmalı', 'error'); return; }
         if(!data.name||!data.sku){ showToast('Ad ve stok kodu zorunlu', 'error'); return; }
