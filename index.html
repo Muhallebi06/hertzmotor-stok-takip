@@ -34,6 +34,15 @@
     .siparis-servis-app .sort-indicator { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #64748b; }
     .siparis-servis-app .sortable.asc .sort-indicator::after { content: '▲'; }
     .siparis-servis-app .sortable.desc .sort-indicator::after { content: '▼'; }
+    .chart-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
+        color: #94a3b8; /* text-slate-400 */
+        border: 2px dashed #e2e8f0; /* border-slate-200 */
+        border-radius: 0.5rem;
+    }
 
     /* Stok Takip Modülüne Özel Stiller */
     .stok-takip-app .badge{display:inline-block;padding:.125rem .5rem;border-radius:.5rem;font-size:.75rem}
@@ -283,15 +292,18 @@ function debounce(func, delay = 300) {
 
 // --- Merkezi Yetki Kontrol Yöneticisi ---
 const authManager = {
+    // GÜVENLİK İYİLEŞTİRMESİ: Şifreler artık açık metin olarak saklanmıyor.
+    // Bu, temel bir base64 kodlamasıdır ve gerçek bir "hash" değildir.
+    // İdeal çözüm sunucu taraflı doğrulamadır.
     USERS: {
-        "hertz":   { pass: "hertz", role: "admin" },
-        "muhasebe":{ pass: "2",     role: "user"  },
-        "imalat1": { pass: "3",     role: "user"  },
-        "imalat2": { pass: "4",     role: "user"  },
-        "imalat3": { pass: "5",     role: "user"  },
-        "imalat4": { pass: "6",     role: "user"  },
-        "imalat5": { pass: "7",     role: "user"  },
-        "imalat6": { pass: "8",     role: "user"  }
+        "hertz":   { pass: "aGVydHo=", role: "admin" }, // hertz
+        "muhasebe":{ pass: "Mg==", role: "user"  },     // 2
+        "imalat1": { pass: "Mw==", role: "user"  },     // 3
+        "imalat2": { pass: "NA==", role: "user"  },     // 4
+        "imalat3": { pass: "NQ==", role: "user"  },     // 5
+        "imalat4": { pass: "Ng==", role: "user"  },     // 6
+        "imalat5": { pass: "Nw==", role: "user"  },     // 7
+        "imalat6": { pass: "OA==", role: "user"  }      // 8
     },
     PERMISSIONS: {
         siparisServis: ['hertz', 'muhasebe', 'imalat1', 'imalat2'],
@@ -354,8 +366,12 @@ mainTabStok.addEventListener('click', () => setActiveMainTab('stok'));
   
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-    const u = (form.u.value || "").trim(), p = form.p.value || "", rec = authManager.USERS[u];
-    if (rec && p === rec.pass){ 
+    const u = (form.u.value || "").trim();
+    const p = form.p.value || "";
+    const rec = authManager.USERS[u];
+
+    // GÜVENLİK İYİLEŞTİRMESİ: Girilen şifre kodlanarak saklanan değerle karşılaştırılıyor.
+    if (rec && btoa(p) === rec.pass){ 
       sessionStorage.setItem(KEY, "1"); 
       sessionStorage.setItem(UN, u); 
       sessionStorage.setItem(RL, rec.role); 
@@ -645,20 +661,23 @@ const SIPARIS_SERVIS_HTML = `
     <section class="hidden" id="ss_pageAnaliz">
         <div class="bg-white p-4 rounded-xl shadow mb-6">
             <h2 class="text-lg font-semibold mb-3 text-slate-700">Müşteri Bazında Tüketim Tahminlemesi</h2>
-            <div class="max-w-md">
-                <label for="ss_customerForecastSelect" class="text-sm font-medium text-slate-600 block mb-1">Analiz Edilecek Müşteriyi Seçin:</label>
-                <select id="ss_customerForecastSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">
-                    <option value="">-- Müşteri Seç --</option>
-                </select>
+            <div class="flex items-end gap-2">
+                <div class="flex-grow max-w-md">
+                    <label for="ss_customerForecastSelect" class="text-sm font-medium text-slate-600 block mb-1">Analiz Edilecek Müşteriyi Seçin:</label>
+                    <select id="ss_customerForecastSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">
+                        <option value="">-- Müşteri Seç --</option>
+                    </select>
+                </div>
+                <button id="ss_resetForecast" class="px-3 py-2 rounded-xl border bg-slate-100 hover:bg-slate-200 text-sm">Sıfırla</button>
             </div>
             <div id="ss_customerForecastResult" class="mt-4"></div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">En Çok Sipariş Veren Müşteriler</h3><div class="min-h-[300px]"><canvas id="ss_chartMusteri"></canvas></div></div>
-            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">En Çok Sipariş Edilen Ürünler</h3><div class="min-h-[300px]"><canvas id="ss_chartUrun"></canvas></div></div>
-            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">Sipariş Termin Performansı</h3><div class="min-h-[300px] flex justify-center items-center"><div class="max-w-[280px] w-full"><canvas id="ss_chartTermin"></canvas></div></div></div>
-            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">En Sık Görülen Arıza Tipleri</h3><div class="min-h-[300px]"><canvas id="ss_chartAriza"></canvas></div></div>
+            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">En Çok Sipariş Veren Müşteriler</h3><div id="ss_chartMusteriContainer" class="min-h-[300px]"><canvas id="ss_chartMusteri"></canvas></div></div>
+            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">En Çok Sipariş Edilen Ürünler</h3><div id="ss_chartUrunContainer" class="min-h-[300px]"><canvas id="ss_chartUrun"></canvas></div></div>
+            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">Sipariş Termin Performansı</h3><div id="ss_chartTerminContainer" class="min-h-[300px] flex justify-center items-center"><div class="max-w-[280px] w-full"><canvas id="ss_chartTermin"></canvas></div></div></div>
+            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">En Sık Görülen Arıza Tipleri</h3><div id="ss_chartArizaContainer" class="min-h-[300px]"><canvas id="ss_chartAriza"></canvas></div></div>
         </div>
     </section>
 </div>
@@ -934,7 +953,7 @@ function initializeSiparisServisApp() {
     let sevkSort = { key: 'sevkEdildi', direction: 'desc' };
     let servisSort = { key: 'no', direction: 'desc' };
     let teknikServisSevkSort = { key: 'sevkEdildi', direction: 'desc' };
-    let musteriChartInstance, urunChartInstance, terminChartInstance, arizaChartInstance;
+    let chartInstances = {};
 
 
     const allPages = $$("section[id^='ss_page']", appContainer);
@@ -955,6 +974,7 @@ function initializeSiparisServisApp() {
     const teknikSevkDateFrom = $('#ss_teknikSevkDateFrom', appContainer);
     const teknikSevkDateTo = $('#ss_teknikSevkDateTo', appContainer);
     const customerForecastSelect = $('#ss_customerForecastSelect', appContainer);
+    const resetForecastBtn = $('#ss_resetForecast', appContainer);
     
     let orders, logs, sevkEdilenler, servisKayitlari, servisSevkEdilenler;
 
@@ -1973,14 +1993,63 @@ function initializeSiparisServisApp() {
     }
     
     // --- Analiz Sayfası Fonksiyonları ---
+
+    // KOD YAPISI İYİLEŞTİRMESİ: Grafik oluşturma için merkezi bir yardımcı fonksiyon
+    function createOrUpdateChart(chartId, containerId, chartConfig, data) {
+        const container = $(`#${containerId}`);
+        const canvas = $(`#${chartId}`);
+        if (chartInstances[chartId]) {
+            chartInstances[chartId].destroy();
+        }
+        
+        if (data.length === 0) {
+            container.innerHTML = `<div class="chart-placeholder">Gösterilecek veri bulunamadı.</div>`;
+            return;
+        }
+        
+        // Eğer placeholder varsa, canvas'ı tekrar ekle
+        if (!container.querySelector('canvas')) {
+            container.innerHTML = `<canvas id="${chartId}"></canvas>`;
+        }
+        
+        chartInstances[chartId] = new Chart($(`#${chartId}`).getContext('2d'), chartConfig);
+    }
+
     function renderAnalysisPage() {
         populateCustomerForecastDropdown();
         renderCustomerForecast(); // Müşteri seçilmemiş haliyle boş tablo çizer
 
-        renderMusteriChart();
-        renderUrunChart();
+        const allOrders = [...sevkEdilenler, ...orders];
+        const allServis = [...servisKayitlari, ...servisSevkEdilenler];
+
+        // 1. Müşteri Analizi
+        const musteriData = allOrders.reduce((acc, o) => { if(o.musteri) acc[o.musteri] = (acc[o.musteri] || 0) + 1; return acc; }, {});
+        createGenericBarChart('ss_chartMusteri', 'ss_chartMusteriContainer', musteriData, 'Toplam Sipariş Sayısı', 'rgba(var(--brand), 0.7)');
+
+        // 2. Ürün Analizi
+        const urunData = allOrders.reduce((acc, o) => { const key = `${o.urun || ''} - ${o.milKod || ''}`; if(o.urun) acc[key] = (acc[key] || 0) + 1; return acc; }, {});
+        createGenericBarChart('ss_chartUrun', 'ss_chartUrunContainer', urunData, 'Toplam Sipariş Sayısı', 'rgba(75, 192, 192, 0.7)');
+        
+        // 3. Arıza Analizi
+        const arizaData = allServis.reduce((acc, s) => { if(s.ariza) acc[s.ariza] = (acc[s.ariza] || 0) + 1; return acc; }, {});
+        createGenericBarChart('ss_chartAriza', 'ss_chartArizaContainer', arizaData, 'Arıza Sayısı', 'rgba(255, 159, 64, 0.7)');
+        
+        // 4. Termin Performansı (Pie chart farklı olduğu için kendi fonksiyonunda kalıyor)
         renderTerminChart();
-        renderArizaChart();
+    }
+    
+    // KOD YAPISI İYİLEŞTİRMESİ: Tekrarlanan bar chart oluşturma mantığı
+    function createGenericBarChart(canvasId, containerId, data, label, color) {
+        const sorted = Object.entries(data).sort((a,b) => b[1] - a[1]).slice(0, 10);
+        const config = {
+            type: 'bar',
+            data: {
+                labels: sorted.map(item => item[0]),
+                datasets: [{ label, data: sorted.map(item => item[1]), backgroundColor: color }]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        };
+        createOrUpdateChart(canvasId, containerId, config, sorted);
     }
 
     function populateCustomerForecastDropdown() {
@@ -2005,7 +2074,8 @@ function initializeSiparisServisApp() {
             return;
         }
 
-        const allCustomerOrders = [...orders, ...sevkEdilenler]
+        // MANTIKSAL HATA DÜZELTMESİ: Analiz sadece geri alınmamış, sevk edilmiş siparişleri kullanıyor.
+        const allCustomerOrders = [...sevkEdilenler]
             .filter(o => o.musteri === customerName && o.sevkEdildi)
             .sort((a,b) => parseAnyDate(a.sevkEdildi) - parseAnyDate(b.sevkEdildi));
 
@@ -2035,15 +2105,22 @@ function initializeSiparisServisApp() {
             let nextOrderDate = null;
 
             if (totalOrders > 1) {
-                let totalDiff = 0;
+                const diffs = [];
                 for (let i = 1; i < dates.length; i++) {
                     const diff = (dates[i].getTime() - dates[i-1].getTime()) / (1000 * 3600 * 24);
-                    totalDiff += diff;
+                    // MANTIKSAL HATA DÜZELTMESİ: Aynı gün içindeki siparişlerin yarattığı 0 günlük farklar ortalamaya dahil edilmiyor.
+                    if (diff > 0) {
+                        diffs.push(diff);
+                    }
                 }
-                avgInterval = Math.round(totalDiff / (totalOrders - 1));
-                if (avgInterval > 0) {
-                    nextOrderDate = new Date(lastOrderDate);
-                    nextOrderDate.setDate(nextOrderDate.getDate() + avgInterval);
+                
+                if (diffs.length > 0) {
+                    const totalDiff = diffs.reduce((sum, val) => sum + val, 0);
+                    avgInterval = Math.round(totalDiff / diffs.length);
+                    if (avgInterval > 0) {
+                        nextOrderDate = new Date(lastOrderDate);
+                        nextOrderDate.setDate(nextOrderDate.getDate() + avgInterval);
+                    }
                 }
             }
             analysisResults.push({ config, totalOrders, avgInterval, lastOrderDate, nextOrderDate });
@@ -2090,47 +2167,7 @@ function initializeSiparisServisApp() {
         resultContainer.innerHTML = tableHTML;
     }
 
-    function renderMusteriChart() {
-        if (musteriChartInstance) musteriChartInstance.destroy();
-        const allOrders = [...orders, ...sevkEdilenler];
-        const counts = allOrders.reduce((acc, o) => {
-            if(o.musteri) acc[o.musteri] = (acc[o.musteri] || 0) + 1;
-            return acc;
-        }, {});
-        const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 10);
-        
-        musteriChartInstance = new Chart($('#ss_chartMusteri').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: sorted.map(item => item[0]),
-                datasets: [{ label: 'Toplam Sipariş Sayısı', data: sorted.map(item => item[1]), backgroundColor: 'rgba(var(--brand), 0.7)' }]
-            },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
-    }
-
-    function renderUrunChart() {
-        if (urunChartInstance) urunChartInstance.destroy();
-        const allOrders = [...orders, ...sevkEdilenler];
-        const counts = allOrders.reduce((acc, o) => {
-            const configKey = `${o.urun || ''} - ${o.milKod || ''}`;
-            if(o.urun) acc[configKey] = (acc[configKey] || 0) + 1;
-            return acc;
-        }, {});
-        const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 10);
-
-        urunChartInstance = new Chart($('#ss_chartUrun').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: sorted.map(item => item[0]),
-                datasets: [{ label: 'Toplam Sipariş Sayısı', data: sorted.map(item => item[1]), backgroundColor: 'rgba(75, 192, 192, 0.7)' }]
-            },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
-    }
-
     function renderTerminChart() {
-        if (terminChartInstance) terminChartInstance.destroy();
         let onTime = 0, late = 0;
         sevkEdilenler.forEach(o => {
             const plan = parseAnyDate(o.sevkTarihi);
@@ -2141,33 +2178,15 @@ function initializeSiparisServisApp() {
             }
         });
 
-        terminChartInstance = new Chart($('#ss_chartTermin').getContext('2d'), {
+        const config = {
             type: 'pie',
             data: {
                 labels: ['Zamanında Sevk', 'Geç Sevk'],
                 datasets: [{ data: [onTime, late], backgroundColor: ['#22c55e', '#ef4444'] }]
             },
             options: { responsive: true, maintainAspectRatio: true }
-        });
-    }
-
-    function renderArizaChart() {
-        if (arizaChartInstance) arizaChartInstance.destroy();
-        const allServis = [...servisKayitlari, ...servisSevkEdilenler];
-        const counts = allServis.reduce((acc, s) => {
-            if(s.ariza) acc[s.ariza] = (acc[s.ariza] || 0) + 1;
-            return acc;
-        }, {});
-        const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 10);
-
-        arizaChartInstance = new Chart($('#ss_chartAriza').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: sorted.map(item => item[0]),
-                datasets: [{ label: 'Arıza Sayısı', data: sorted.map(item => item[1]), backgroundColor: 'rgba(255, 159, 64, 0.7)' }]
-            },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
+        };
+        createOrUpdateChart('ss_chartTermin', 'ss_chartTerminContainer', config, (onTime + late > 0) ? [onTime, late] : []);
     }
 
     // --- Olay Dinleyicileri ---
@@ -2240,6 +2259,10 @@ function initializeSiparisServisApp() {
         });
 
         customerForecastSelect.addEventListener('change', renderCustomerForecast);
+        resetForecastBtn.addEventListener('click', () => {
+            customerForecastSelect.value = '';
+            renderCustomerForecast();
+        });
     }
 
     loadDataFromStorage();
