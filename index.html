@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/tr.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     /* Global Stiller */
@@ -726,6 +727,7 @@ const STOK_TAKIP_HTML = `
                         <th data-sort="qty" class="text-right px-3 py-2 cursor-pointer select-none">Stok</th>
                         <th data-sort="min" class="text-right px-3 py-2 cursor-pointer select-none">Minimum</th>
                         <th data-sort="cost" class="text-right px-3 py-2 cursor-pointer select-none hertz-muhasebe-only">Birim Maliyet</th>
+                        <th class="text-left px-3 py-2 hertz-only">Tahmini Tükenme</th>
                         <th class="text-left px-3 py-2">Özellikler</th>
                         <th class="text-left px-3 py-2 hertz-muhasebe-only">Tedarikçi</th>
                         <th class="text-right px-3 py-2">İşlemler</th>
@@ -791,8 +793,21 @@ const STOK_TAKIP_HTML = `
                     </table>
                 </div>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
-                 <h3 class="font-semibold text-slate-800 mb-3">Kullanıcı Aktivitesi (Tüm Zamanlar)</h3>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hertz-only">
+                <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
+                    <h3 class="font-semibold text-slate-800">Stok Devir Hızı</h3>
+                    <select id="stok_analiz_devir_hizi_gun" class="text-sm rounded-lg border-slate-300">
+                        <option value="365">Son 1 Yıl</option>
+                        <option value="90" selected>Son 90 Gün</option>
+                        <option value="30">Son 30 Gün</option>
+                    </select>
+                </div>
+                <div id="stok_analiz_devir_hizi_body" class="grid grid-cols-2 gap-4 text-center">
+                    <!-- Data will be injected by JS -->
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hertz-only">
+                 <h3 class="font-semibold text-slate-800 mb-3">Kullanıcı Aktivitesi</h3>
                  <div class="overflow-auto max-h-80">
                      <table class="w-full text-xs">
                         <thead><tr class="text-left text-slate-600"><th class="p-2">Kullanıcı</th><th class="p-2 text-right">Toplam İşlem Sayısı</th></tr></thead>
@@ -800,11 +815,24 @@ const STOK_TAKIP_HTML = `
                     </table>
                 </div>
             </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hertz-only lg:col-span-2">
+                <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
+                    <h3 class="font-semibold text-slate-800">Tüketim Trendleri (Son 12 Ay)</h3>
+                    <select id="stok_analiz_tuketim_urun" class="text-sm rounded-lg border border-slate-300 w-full md:w-auto max-w-xs">
+                        <option value="">-- Ürün Seç --</option>
+                    </select>
+                </div>
+                <div class="min-h-[250px] relative">
+                    <canvas id="stok_analiz_tuketim_chart"></canvas>
+                </div>
+            </div>
             <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 hertz-only">
                  <h3 class="font-semibold text-slate-800 mb-3">ABC Analizi (Yıllık Tüketim Değerine Göre)</h3>
+                 <!-- İYİLEŞTİRME: ABC Analizi için bilgilendirme notu eklendi -->
+                 <p class="text-xs text-slate-500 mb-2 px-2">Not: Bu analiz, yalnızca birim maliyeti girilmiş olan ürünlerin tüketim verilerine dayanmaktadır.</p>
                  <div class="overflow-auto max-h-96">
                      <table class="w-full text-xs">
-                        <thead><tr class="text-left text-slate-600"><th class="p-2">Ürün</th><th class="p-2">Grup</th><th class="p-2 text-right">Yıllık Değer</th><th class="p-2 text-right">Pay</th></tr></thead>
+                        <thead><tr class="text-left text-slate-600"><th class="p-2">Ürün</th><th class="p-2">Grup</th><th class="p-2 text-right">Yıllık Değer</th><th class="p-2 text-right">Kümülatif Pay</th></tr></thead>
                         <tbody id="stok_analiz_abc_body"></tbody>
                     </table>
                 </div>
@@ -1092,6 +1120,33 @@ function initializeSiparisServisApp() {
       if (currentTab === "sevk") renderTeknikServisSevkList();
     }
 
+    // YENİ EKLENDİ: Çalışmayan sevk etme özelliğini düzelten fonksiyon.
+    function markServisAsSevk(index) {
+        if (index < 0 || index >= servisKayitlari.length) {
+            showToast("Hata: Geçersiz servis kaydı.", "error");
+            return;
+        }
+        const servisToShip = servisKayitlari[index];
+        const user = sessionStorage.getItem("auth_user") || "(bilinmiyor)";
+        
+        servisSevkEdilenler.push({ 
+            ...servisToShip, 
+            sevkEdildi: formatDateTime_TR(new Date()), 
+            kullanici: user 
+        });
+        window.dataStore['servisSevkEdilenler'] = servisSevkEdilenler;
+        window.pushData('servisSevkEdilenler');
+        
+        logAction(servisToShip.no, "Teknik servis kaydı sevk edildi");
+        servisKayitlari.splice(index, 1);
+        window.dataStore['servisKayitlari'] = servisKayitlari;
+        window.pushData('servisKayitlari');
+        
+        showToast(`${servisToShip.no} no'lu servis kaydı sevk edildi.`, "success");
+        renderServisList();
+        renderTeknikServisSevkList();
+    }
+
     function renderLogs() {
       logTable.innerHTML = "";
       logs.slice(0, 100).forEach(log => {
@@ -1256,10 +1311,12 @@ function initializeSiparisServisApp() {
         let bg = null;
         const isServisHazir = (s.durum || '').toUpperCase() === 'HAZIR';
 
+        // Öncelik: Sevk tarihine göre renklendirme (siparişlerdeki gibi)
         if (s.sevkTarihi) {
             bg = getRowBgByDue(s.sevkTarihi, isServisHazir);
         }
         
+        // Sevk tarihi rengi yoksa, duruma göre renklendirme
         if (!bg) {
             bg = servisRowBg(s.durum);
         }
@@ -1299,11 +1356,15 @@ function initializeSiparisServisApp() {
       updateSortIndicators(servisTable.id, servisSort);
     }
     
+    // İYİLEŞTİRME: Servis durumu değiştiğinde log kaydı ekleniyor.
     function setServisDurum(i, val){
       const s = servisKayitlari[i];
       if (!s) return;
       const old = s.durum || "";
-      s.durum = (val || "").toUpperCase();
+      const newVal = (val || "").toUpperCase();
+      if(old === newVal) return;
+
+      s.durum = newVal;
       window.dataStore['servisKayitlari'] = servisKayitlari;
       window.pushData('servisKayitlari');
       logAction(s.no || "(servis)", `Teknik servis durumu değişti: ${old} -> ${s.durum}`);
@@ -1409,6 +1470,7 @@ function initializeSiparisServisApp() {
       };
     }
     
+    // İYİLEŞTİRME: Sayısal alanlar için sıkı veri doğrulama eklendi.
     function makeEditable(el, index, field, type){
       const originalIndex = index;
       const current = orders[originalIndex] ? orders[originalIndex][field] : '';
@@ -1421,7 +1483,10 @@ function initializeSiparisServisApp() {
         input = document.createElement('input');
         input.type = type === 'number' ? 'number' : 'text';
         input.className = `px-2 py-1 border rounded-md w-full ${type==='number' ? 'text-right' : ''}`;
-        if (type === 'number') input.min = 0;
+        if (type === 'number') {
+            input.min = 0;
+            input.step = "any";
+        }
         input.value = current ?? '';
       }
       td.innerHTML = '';
@@ -1429,14 +1494,28 @@ function initializeSiparisServisApp() {
       input.focus();
       
       const commit = () => {
-        let val = input.value;
+        let val = input.value.trim().replace(',', '.');
         if(type === 'date') {
           const date = parseDdMmYyyy(val);
           if(date) setSevkDate(originalIndex, date);
           else renderOrders(); 
         } else {
-          inlineUpdate(originalIndex, field, type==='number' ? (val===''? null : Number(val)) : val);
-          renderOrders();
+            let finalValue = val;
+            if (type === 'number') {
+                if (val === '') {
+                    finalValue = null;
+                } else {
+                    const numVal = parseFloat(val);
+                    if (!Number.isFinite(numVal) || numVal < 0) {
+                        showToast("Lütfen geçerli bir pozitif sayı girin.", "error");
+                        renderOrders(); 
+                        return;
+                    }
+                    finalValue = numVal;
+                }
+            }
+            inlineUpdate(originalIndex, field, finalValue);
+            renderOrders();
         }
       };
       
@@ -1455,15 +1534,29 @@ function initializeSiparisServisApp() {
       let input;
 
       const commitAndRender = () => {
-        const val = input.value;
-        if (type === 'number'){ s[field] = (val === '' ? null : Number(val)); }
-        else if (type === 'date') {
+        let val = input.value.trim().replace(',', '.');
+        let finalValue = val;
+        
+        if (type === 'number') {
+            if (val === '') {
+                finalValue = null;
+            } else {
+                 const numVal = parseFloat(val);
+                 if (!Number.isFinite(numVal) || numVal < 0) {
+                     showToast("Lütfen geçerli bir pozitif sayı girin.", "error");
+                     renderServisList();
+                     return;
+                 }
+                 finalValue = numVal;
+            }
+        } else if (type === 'date') {
             const date = parseDdMmYyyy(val);
             if(date) setServisSevkDate(index, date);
             else renderServisList();
             return; 
-        } else { s[field] = val; }
-        
+        }
+
+        s[field] = finalValue;
         window.dataStore['servisKayitlari'] = servisKayitlari;
         window.pushData('servisKayitlari');
         logAction(s.no || "(servis)", `Alan güncellendi: ${field}`);
@@ -1486,7 +1579,10 @@ function initializeSiparisServisApp() {
         input = document.createElement('input');
         input.type = (type === 'date') ? 'text' : (type === 'number' ? 'number' : 'text');
         input.className = `px-2 py-1 border rounded-md w-full ${type==='number' ? 'text-right' : ''}`;
-        if (type === 'number') input.min = 0;
+        if (type === 'number') {
+            input.min = 0;
+            input.step = "any";
+        }
         input.value = (type === 'date') ? formatDate_TR(s[field]) : (s[field] ?? '');
         
         input.addEventListener('keydown', e => { if (e.key === 'Enter') commitAndRender(); if (e.key === 'Escape') renderServisList(); });
@@ -1642,7 +1738,7 @@ function initializeSiparisServisApp() {
 
       window.dataStore['servisKayitlari'] = servisKayitlari;
       window.pushData('servisKayitlari');
-      resetServisForm();
+      resetServisForm(); // İYİLEŞTİRME: Formu temizle
       renderServisList();
     });
     
@@ -1913,7 +2009,7 @@ function initializeSiparisServisApp() {
 
             if (action === 'delete-servis') deleteServis(no);
             else if (action === 'edit-servis') editServis(index);
-            else if (action === 'sevk-et-servis') markServisAsSevk(index);
+            else if (action === 'sevk-et-servis') markServisAsSevk(index); // DÜZELTME: Çalışmayan sevk etme özelliği eklendi.
             else if (action === 'edit-desc-servis') openDescEditor('servis', index);
         });
 
@@ -1963,6 +2059,8 @@ function initializeStokTakipApp() {
     const CATEGORY_LABEL={'stator':'Stator','rotor':'Rotor','mil':'Mil','rotorluMil':'Rotorlu Mil','taslanmisMil':'Taşlanmış Mil','sargiliPaket':'Sargılı Paket','paketliGovde':'Paketli Gövde','motor':'Motor','kapak':'Kapak','islenmisKapak':'İşlenmiş Kapak','taslanmisKapak':'Taşlanmış Kapak', 'rulman':'Rulman', 'aluminyum_govde':'Alüminyum Gövde', 'bakir_tel':'Bakır Tel',  'yardimci_parcalar':'Yardımcı Parçalar'};
 
     let state={products:[],logs:[], suppliers: []};
+    let tuketimChart; 
+
     const uuid=()=> (crypto?.randomUUID?.() || 'id-'+Math.random().toString(36).slice(2)+Date.now());
 
     function load(){ 
@@ -2036,13 +2134,41 @@ function initializeStokTakipApp() {
     function render(){
         renderProductList();
         renderLogList();
-        renderAnalysisReports();
+        if (document.querySelector('#stok_tabContent_analiz:not(.hidden)')) {
+            renderAnalysisReports();
+        }
         renderSupplierList();
         authManager.updateUIVisibility();
     }
     
     function renderProductList() {
-        let list=window.ensureArray(state.products);
+        // Tükenme tahmini için son 90 günlük logları önceden alalım
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        const recentLogs = state.logs.filter(l => l.type === 'out' && new Date(l.ts) > ninetyDaysAgo);
+
+        function calculateStockoutPrediction(product) {
+            const productLogs = recentLogs.filter(l => l.productId === product.id);
+            if (productLogs.length === 0) return null;
+            
+            const totalConsumption = productLogs.reduce((sum, l) => sum + Number(l.amount || 0), 0);
+            const avgDailyConsumption = totalConsumption / 90;
+            
+            if (avgDailyConsumption <= 0) return null;
+            
+            const currentQty = Number(product.qty || 0);
+            const daysLeft = Math.floor(currentQty / avgDailyConsumption);
+            
+            if (daysLeft < 0) return "Tükendi";
+            if (daysLeft > 365) return "> 1 yıl";
+            return `~${daysLeft} gün`;
+        }
+
+        let list = window.ensureArray(state.products).map(p => ({
+            ...p,
+            stockOutPrediction: calculateStockoutPrediction(p)
+        }));
+
         const qRaw=$('#stok_search', appContainer).value.trim();
         const onlyLow=$('#stok_onlyLow', appContainer).checked;
         const filterKindVal = $('#stok_filterKind', appContainer).value;
@@ -2099,11 +2225,13 @@ function initializeStokTakipApp() {
             tr.className=low? 'bg-amber-50':'';
             tr.dataset.id = p.id;
             tr.innerHTML=`
-            <td class="px-3 py-2 align-top">${p.sku||'-'}</td><td class="px-3 py-2 align-top">${p.name||'-'}</td>
+            <td class="px-3 py-2 align-top">${p.sku||'-'}</td>
+            <td class="px-3 py-2 align-top">${p.name||'-'}</td>
             <td class="px-3 py-2 align-top">${kindBadge} ${catBadge}</td>
             <td class="px-3 py-2 align-top text-right font-medium ${low?'text-amber-700':''}"><span class="editable-qty" data-id="${p.id}">${fmt(p.qty||0)}${lowIcon}</span></td>
             <td class="px-3 py-2 align-top text-right">${fmt(p.min||0)}</td>
             <td class="px-3 py-2 align-top text-right hertz-muhasebe-only">${fmtCurrency(p.cost)}</td>
+            <td class="px-3 py-2 align-top text-center text-xs font-semibold ${p.stockOutPrediction === 'Tükendi' ? 'text-red-600' : 'text-slate-600'} hertz-only">${p.stockOutPrediction || '—'}</td>
             <td class="px-3 py-2 align-top text-slate-700">${specs(p)}</td>
             <td class="px-3 py-2 align-top text-slate-600 hertz-muhasebe-only">${supplier ? supplier.name : '-'}</td>
             <td class="px-3 py-2 align-top text-right">
@@ -2123,6 +2251,7 @@ function initializeStokTakipApp() {
                 <div class="min-w-0"><div class="text-sm text-slate-500">${p.sku||'-'}</div><div class="font-medium truncate">${p.name||'-'}</div><div class="mt-1 text-xs">${kindBadge} ${catBadge}</div><div class="mt-1 text-xs text-slate-600 truncate">${specs(p)}</div></div>
                 <div class="text-right"><div class="text-xs text-slate-500">Stok</div><div class="text-base font-semibold ${low?'text-amber-700':''}">${fmt(p.qty||0)}${lowIcon}</div><div class="text-xs text-slate-500">Min ${fmt(p.min||0)}</div></div>
             </div>
+            <div class="hertz-only text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">Tahmini Tükenme: <span class="font-medium ${p.stockOutPrediction === 'Tükendi' ? 'text-red-600' : ''}">${p.stockOutPrediction || '—'}</span></div>
             ${p.note?`<div class="mt-2 text-xs text-slate-600">${p.note}</div>`:''}
             <div class="mt-3 flex flex-wrap gap-1">
                 <button type="button" class="px-2 py-1 rounded-lg border border-slate-300 bg-white" data-act="move-in" data-id="${p.id}">Giriş</button>
@@ -2152,118 +2281,131 @@ function initializeStokTakipApp() {
         aktifBody.innerHTML = '<tr><td colspan="2" class="p-4 text-center text-slate-500">Rapor oluşturuluyor...</td></tr>';
         
         setTimeout(() => {
-            // En Aktif Ürünler
+            // --- Herkesin Görebileceği Analizler ---
             const aktifGun = parseInt($('#stok_analiz_aktif_gun', appContainer).value, 10);
-            const aktifThreshold = new Date();
-            aktifThreshold.setDate(aktifThreshold.getDate() - aktifGun);
+            const aktifThreshold = new Date(); aktifThreshold.setDate(aktifThreshold.getDate() - aktifGun);
             const hareketler = {};
-            state.logs.forEach(log => {
-                if (new Date(log.ts) > aktifThreshold && log.productId) {
-                    hareketler[log.productId] = (hareketler[log.productId] || 0) + 1;
-                }
-            });
-            const enAktif = Object.entries(hareketler)
-                .map(([productId, count]) => ({ product: findProduct(productId), count }))
-                .filter(item => item.product)
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 20);
-
+            state.logs.forEach(log => { if (new Date(log.ts) > aktifThreshold && log.productId) { hareketler[log.productId] = (hareketler[log.productId] || 0) + 1; }});
+            const enAktif = Object.entries(hareketler).map(([productId, count]) => ({ product: findProduct(productId), count })).filter(item => item.product).sort((a, b) => b.count - a.count).slice(0, 20);
             aktifBody.innerHTML = '';
-            enAktif.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td class="p-2 border-t border-slate-100">${item.product.name}</td><td class="p-2 border-t border-slate-100 text-right">${item.count}</td>`;
-                aktifBody.appendChild(tr);
-            });
+            enAktif.forEach(item => { const tr = document.createElement('tr'); tr.innerHTML = `<td class="p-2 border-t border-slate-100">${item.product.name}</td><td class="p-2 border-t border-slate-100 text-right">${item.count}</td>`; aktifBody.appendChild(tr);});
             if(enAktif.length === 0) aktifBody.innerHTML = '<tr><td colspan="2" class="p-2 text-slate-500 text-center">Veri bulunamadı.</td></tr>';
 
-            // Hareketsiz Ürünler
             const pasifGun = parseInt($('#stok_analiz_pasif_gun', appContainer).value, 10);
-            const pasifThreshold = new Date();
-            pasifThreshold.setDate(pasifThreshold.getDate() - pasifGun);
+            const pasifThreshold = new Date(); pasifThreshold.setDate(pasifThreshold.getDate() - pasifGun);
             const sonHareket = {};
-            state.logs.forEach(log => {
-                if (log.productId && (!sonHareket[log.productId] || new Date(log.ts) > sonHareket[log.productId])) {
-                    sonHareket[log.productId] = new Date(log.ts);
-                }
-            });
-            const hareketsiz = state.products
-                .filter(p => !sonHareket[p.id] || sonHareket[p.id] < pasifThreshold)
-                .sort((a, b) => (sonHareket[a.id] || 0) - (sonHareket[b.id] || 0));
-
+            state.logs.forEach(log => { if (log.productId && (!sonHareket[log.productId] || new Date(log.ts) > sonHareket[log.productId])) { sonHareket[log.productId] = new Date(log.ts); }});
+            const hareketsiz = state.products.filter(p => !sonHareket[p.id] || sonHareket[p.id] < pasifThreshold).sort((a, b) => (sonHareket[a.id] || 0) - (sonHareket[b.id] || 0));
             const pasifBody = $('#stok_analiz_pasif_body', appContainer);
             pasifBody.innerHTML = '';
-            hareketsiz.forEach(p => {
-                const tr = document.createElement('tr');
-                const sonTarih = sonHareket[p.id] ? sonHareket[p.id].toLocaleDateString('tr-TR') : 'Hiç';
-                tr.innerHTML = `<td class="p-2 border-t border-slate-100">${p.name}</td><td class="p-2 border-t border-slate-100">${sonTarih}</td><td class="p-2 border-t border-slate-100 text-right">${fmt(p.qty || 0)}</td>`;
-                pasifBody.appendChild(tr);
-            });
+            hareketsiz.forEach(p => { const tr = document.createElement('tr'); const sonTarih = sonHareket[p.id] ? sonHareket[p.id].toLocaleDateString('tr-TR') : 'Hiç'; tr.innerHTML = `<td class="p-2 border-t border-slate-100">${p.name}</td><td class="p-2 border-t border-slate-100">${sonTarih}</td><td class="p-2 border-t border-slate-100 text-right">${fmt(p.qty || 0)}</td>`; pasifBody.appendChild(tr);});
             if(hareketsiz.length === 0) pasifBody.innerHTML = '<tr><td colspan="3" class="p-2 text-slate-500 text-center">Veri bulunamadı.</td></tr>';
-
-            // Kullanıcı Aktivitesi
-            const kullaniciAktivite = {};
-            state.logs.forEach(log => {
-                if (log.user) {
-                    kullaniciAktivite[log.user] = (kullaniciAktivite[log.user] || 0) + 1;
-                }
-            });
-            const enAktifKullanicilar = Object.entries(kullaniciAktivite).sort((a, b) => b[1] - a[1]);
             
+            // --- 'hertz' Yetkisi Gerektiren Gelişmiş Analizler ---
+            if (!authManager.checkPermission('hertz')) {
+                 if (tuketimChart) { tuketimChart.destroy(); tuketimChart = null; }
+                 $$('#stok_tabContent_analiz .hertz-only').forEach(el => {
+                     if (el.querySelector('canvas')) {
+                         el.innerHTML = '<div class="p-4"><p class="text-center text-slate-500 p-4">Bu raporu görüntüleme yetkiniz yok.</p></div>';
+                     }
+                 });
+                 return;
+            }
+            
+            const kullaniciAktivite = {};
+            state.logs.forEach(log => { if (log.user) { kullaniciAktivite[log.user] = (kullaniciAktivite[log.user] || 0) + 1; }});
+            const enAktifKullanicilar = Object.entries(kullaniciAktivite).sort((a, b) => b[1] - a[1]);
             const kullaniciBody = $('#stok_analiz_kullanici_body', appContainer);
             kullaniciBody.innerHTML = '';
-            enAktifKullanicilar.forEach(([user, count]) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td class="p-2 border-t border-slate-100">${user}</td><td class="p-2 border-t border-slate-100 text-right">${count}</td>`;
-                kullaniciBody.appendChild(tr);
-            });
+            enAktifKullanicilar.forEach(([user, count]) => { const tr = document.createElement('tr'); tr.innerHTML = `<td class="p-2 border-t border-slate-100">${user}</td><td class="p-2 border-t border-slate-100 text-right">${count}</td>`; kullaniciBody.appendChild(tr);});
             if(enAktifKullanicilar.length === 0) kullaniciBody.innerHTML = '<tr><td colspan="2" class="p-2 text-slate-500 text-center">Veri bulunamadı.</td></tr>';
             
-            // ABC Analizi
+            const devirHiziGun = parseInt($('#stok_analiz_devir_hizi_gun', appContainer).value, 10);
+            const devirHiziThreshold = new Date(); devirHiziThreshold.setDate(devirHiziThreshold.getDate() - devirHiziGun);
+            const cogs = state.logs.filter(l => l.type === 'out' && new Date(l.ts) > devirHiziThreshold)
+                .reduce((sum, l) => {
+                    const p = findProduct(l.productId);
+                    return sum + (Number(l.amount) * (p?.cost || 0));
+                }, 0);
+            const totalInventoryValue = state.products.reduce((sum, p) => sum + (Number(p.qty || 0) * Number(p.cost || 0)), 0);
+            const turnoverRate = totalInventoryValue > 0 ? cogs / totalInventoryValue : 0;
+            const daysInStock = turnoverRate > 0 ? (365 / turnoverRate) : 0;
+            const devirHiziBody = $('#stok_analiz_devir_hizi_body', appContainer);
+            devirHiziBody.innerHTML = `
+                <div><div class="text-2xl font-bold text-slate-800">${turnoverRate.toFixed(2)}</div><div class="text-xs text-slate-500">Stok Devir Hızı</div></div>
+                <div><div class="text-2xl font-bold text-slate-800">${daysInStock.toFixed(1)} gün</div><div class="text-xs text-slate-500">Ort. Stokta Kalma Süresi</div></div>`;
+
+            renderConsumptionTrendAnalysis();
+
             const abcBody = $('#stok_analiz_abc_body', appContainer);
-            const oneYearAgo = new Date();
-            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-
+            const oneYearAgo = new Date(); oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
             const consumption = {};
-            state.logs.forEach(log => {
-                if (log.type === 'out' && new Date(log.ts) > oneYearAgo && log.productId) {
-                    consumption[log.productId] = (consumption[log.productId] || 0) + Number(log.amount || 0);
-                }
-            });
-            
-            let productsWithValue = state.products
-                .map(p => ({
-                    ...p,
-                    annualConsumption: consumption[p.id] || 0,
-                    annualValue: (consumption[p.id] || 0) * (Number(p.cost) || 0)
-                }))
-                .filter(p => p.annualValue > 0)
-                .sort((a, b) => b.annualValue - a.annualValue);
-
+            state.logs.forEach(log => { if (log.type === 'out' && new Date(log.ts) > oneYearAgo && log.productId) { consumption[log.productId] = (consumption[log.productId] || 0) + Number(log.amount || 0); }});
+            let productsWithValue = state.products.map(p => ({ ...p, annualConsumption: consumption[p.id] || 0, annualValue: (consumption[p.id] || 0) * (Number(p.cost) || 0) })).filter(p => p.annualValue > 0).sort((a, b) => b.annualValue - a.annualValue);
             const totalAnnualValue = productsWithValue.reduce((sum, p) => sum + p.annualValue, 0);
-            
             let cumulativeValue = 0;
             abcBody.innerHTML = '';
             productsWithValue.forEach(p => {
                 cumulativeValue += p.annualValue;
                 const cumulativePercent = totalAnnualValue > 0 ? (cumulativeValue / totalAnnualValue) * 100 : 0;
                 let group = 'C';
-                if (cumulativePercent <= 80) group = 'A';
-                else if (cumulativePercent <= 95) group = 'B';
-                
+                if (cumulativePercent <= 80) group = 'A'; else if (cumulativePercent <= 95) group = 'B';
                 const groupColor = group === 'A' ? 'bg-red-100 text-red-800' : (group === 'B' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800');
-
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="p-2 border-t border-slate-100">${p.name} <span class="text-slate-500">(${p.sku})</span></td>
-                    <td class="p-2 border-t border-slate-100 text-center"><span class="px-2 py-1 text-xs font-semibold rounded-full ${groupColor}">${group}</span></td>
-                    <td class="p-2 border-t border-slate-100 text-right">${fmtCurrency(p.annualValue)}</td>
-                    <td class="p-2 border-t border-slate-100 text-right">${cumulativePercent.toFixed(2)}%</td>
-                `;
+                tr.innerHTML = `<td class="p-2 border-t border-slate-100">${p.name} <span class="text-slate-500">(${p.sku})</span></td><td class="p-2 border-t border-slate-100 text-center"><span class="px-2 py-1 text-xs font-semibold rounded-full ${groupColor}">${group}</span></td><td class="p-2 border-t border-slate-100 text-right">${fmtCurrency(p.annualValue)}</td><td class="p-2 border-t border-slate-100 text-right">${cumulativePercent.toFixed(2)}%</td>`;
                 abcBody.appendChild(tr);
             });
             if (productsWithValue.length === 0) abcBody.innerHTML = '<tr><td colspan="4" class="p-2 text-slate-500 text-center">Yeterli veri (maliyet ve stok çıkışı) bulunamadı.</td></tr>';
+
         }, 10);
     }
+
+    function renderConsumptionTrendAnalysis() {
+        if (!authManager.checkPermission('hertz')) return;
+
+        const select = $('#stok_analiz_tuketim_urun', appContainer);
+        const productId = select.value;
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+        
+        const monthlyConsumption = Array(12).fill(0);
+        const labels = [];
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            labels.push(d.toLocaleDateString('tr-TR', { month: 'short', year: '2-digit' }));
+        }
+
+        if (productId) {
+            state.logs.forEach(log => {
+                const logDate = new Date(log.ts);
+                if (log.type === 'out' && log.productId === productId && logDate > twelveMonthsAgo) {
+                    const monthDiff = (new Date().getFullYear() - logDate.getFullYear()) * 12 + (new Date().getMonth() - logDate.getMonth());
+                    if (monthDiff >= 0 && monthDiff < 12) {
+                        monthlyConsumption[11 - monthDiff] += Number(log.amount || 0);
+                    }
+                }
+            });
+        }
+        
+        if (tuketimChart) tuketimChart.destroy();
+        tuketimChart = new Chart($('#stok_analiz_tuketim_chart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Aylık Tüketim',
+                    data: monthlyConsumption,
+                    borderColor: 'rgb(var(--brand))',
+                    backgroundColor: 'rgba(var(--brand), 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
 
     function renderSupplierList() {
         const listEl = $('#stok_supplierList', appContainer);
@@ -2386,6 +2528,7 @@ function initializeStokTakipApp() {
     function setupTabListeners() {
         const tabs = $$('.stok-tab', appContainer);
         const contents = $$('.stok-tab-content', appContainer);
+        let analysisTabInitialized = false;
         
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -2399,6 +2542,20 @@ function initializeStokTakipApp() {
                 if (activeContent) activeContent.classList.remove('hidden');
                 
                 if (target === 'analiz') {
+                    if (!analysisTabInitialized) {
+                        const productSelect = $('#stok_analiz_tuketim_urun');
+                        productSelect.innerHTML = '<option value="">-- Ürün Seç --</option>';
+                        state.products
+                            .slice()
+                            .sort((a,b) => (a.name || '').localeCompare(b.name || ''))
+                            .forEach(p => {
+                                const opt = document.createElement('option');
+                                opt.value = p.id;
+                                opt.textContent = `${p.name} (${p.sku})`;
+                                productSelect.appendChild(opt);
+                            });
+                        analysisTabInitialized = true;
+                    }
                     renderAnalysisReports();
                 }
             });
@@ -2437,8 +2594,10 @@ function initializeStokTakipApp() {
     const debouncedRenderProductList = debounce(renderProductList);
     $$('#stok_search, #stok_onlyLow, #stok_filterKind, #stok_filterCategory', appContainer)
         .forEach(el => el.addEventListener('input', debouncedRenderProductList));
+    
+    // Analiz filtreleri için event listener'lar
+    $$('#stok_analiz_aktif_gun, #stok_analiz_pasif_gun, #stok_analiz_devir_hizi_gun, #stok_analiz_tuketim_urun', appContainer).forEach(el => el.addEventListener('change', renderAnalysisReports));
 
-    $$('#stok_analiz_aktif_gun, #stok_analiz_pasif_gun', appContainer).forEach(el => el.addEventListener('change', renderAnalysisReports));
     $('#stok_btnClearFilters', appContainer).addEventListener('click', () => {
         $('#stok_search', appContainer).value = '';
         $('#stok_onlyLow', appContainer).checked = false;
@@ -2468,6 +2627,7 @@ function initializeStokTakipApp() {
         else if(act === 'move-out') openMoveDialog(p, 'out');
     });
     
+    // İYİLEŞTİRME: Satır içi düzenlemede sayısal doğrulama eklendi.
     delegate($('#stok_tbodyDesktop', appContainer), '.editable-qty', 'dblclick', (td) => {
         const pId = td.dataset.id;
         const p = findProduct(pId);
@@ -2480,9 +2640,18 @@ function initializeStokTakipApp() {
         input.select();
 
         const commitChange = () => {
-            const newValue = Number(input.value);
-            if (!Number.isFinite(newValue) || newValue === originalValue) {
-                render(); return;
+            const rawValue = input.value.trim().replace(',', '.');
+            const newValue = parseFloat(rawValue);
+
+            if (!Number.isFinite(newValue) || newValue < 0) {
+                showToast("Lütfen geçerli bir pozitif sayı girin.", "error");
+                render(); 
+                return;
+            }
+
+            if (newValue === originalValue) {
+                render();
+                return;
             }
             
             p.qty = newValue;
@@ -2650,8 +2819,8 @@ function initializeStokTakipApp() {
 
 <!-- === Firebase RTDB Bridge === -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAyx_HVYwckqw2bYl_sdu57XPUP_tdDsxA",
@@ -2761,4 +2930,3 @@ function initializeStokTakipApp() {
 
 </body>
 </html>
-
