@@ -510,15 +510,17 @@ const SIPARIS_SERVIS_HTML = `
         <button class="ss_btnClearAll w-full px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-sm admin-only col-span-2">Tüm Veriyi Sil</button>
     </div>
     <section id="ss_pageSiparis">
-        <form class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4 mb-6 bg-white p-4 rounded-xl shadow" id="ss_orderForm">
-            <input class="px-3 py-2 border rounded-xl col-span-1 sm:col-span-2 md:col-span-2" name="musteri" placeholder="Müşteri" required>
-            <input class="px-3 py-2 border rounded-xl col-span-1 sm:col-span-2 md:col-span-1" name="urun" placeholder="Ürün" required>
-            <input class="px-3 py-2 border rounded-xl col-span-1 sm:col-span-2 md:col-span-1" name="milKod" placeholder="Mil Kodu" required>
+        <form class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-8 gap-4 mb-6 bg-white p-4 rounded-xl shadow" id="ss_orderForm">
+            <input class="px-3 py-2 border rounded-xl md:col-span-2" name="musteri" placeholder="Müşteri" required>
+            <input class="px-3 py-2 border rounded-xl md:col-span-2" name="urun" placeholder="Ürün" required>
+            <input class="px-3 py-2 border rounded-xl" name="milKod" placeholder="Mil Kodu" required>
+            <select class="px-3 py-2 border rounded-xl" name="kapak"><option value="">Kapak</option><option value="AK">AK</option><option value="CK">CK</option></select>
+            <select class="px-3 py-2 border rounded-xl" name="rulman"><option value="">Rulman</option><option value="1R">1R</option><option value="2R">2R</option><option value="CR">CR</option></select>
             <input class="px-3 py-2 border rounded-xl" name="kw" placeholder="kW" required step="any" type="number" min="0">
             <input class="px-3 py-2 border rounded-xl" name="rpm" placeholder="RPM" required type="number" min="0">
             <input class="px-3 py-2 border rounded-xl" name="volt" placeholder="Voltaj" required type="number" min="0">
-            <input class="sevk-picker date-input px-3 py-2 border rounded-xl col-span-1 sm:col-span-2" id="ss_sevkTarihi" name="sevkTarihi" placeholder="gg/aa/yyyy" type="text">
-            <button class="btn-brand px-4 py-2 rounded-xl col-span-1 sm:col-span-2 md:col-span-6">Ekle</button>
+            <input class="sevk-picker date-input px-3 py-2 border rounded-xl md:col-span-2" id="ss_sevkTarihi" name="sevkTarihi" placeholder="gg/aa/yyyy" type="text">
+            <button class="btn-brand px-4 py-2 rounded-xl md:col-span-3">Ekle</button>
         </form>
         <div class="overflow-auto rounded-xl shadow mb-8">
             <table class="w-full text-sm bg-white responsive-table">
@@ -528,6 +530,8 @@ const SIPARIS_SERVIS_HTML = `
                         <th class="sortable text-left px-3 py-2" data-sort-key="musteri" data-sort-type="string">Müşteri<span class="sort-indicator"></span></th>
                         <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
                         <th class="sortable text-left px-3 py-2" data-sort-key="milKod" data-sort-type="string">Mil Kodu<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="kapak" data-sort-type="string">Kapak<span class="sort-indicator"></span></th>
+                        <th class="sortable text-left px-3 py-2" data-sort-key="rulman" data-sort-type="string">Rulman<span class="sort-indicator"></span></th>
                         <th class="sortable text-right px-3 py-2" data-sort-key="kw" data-sort-type="number">kW<span class="sort-indicator"></span></th>
                         <th class="sortable text-right px-3 py-2" data-sort-key="rpm" data-sort-type="number">RPM<span class="sort-indicator"></span></th>
                         <th class="sortable text-right px-3 py-2" data-sort-key="volt" data-sort-type="number">Voltaj<span class="sort-indicator"></span></th>
@@ -578,6 +582,8 @@ const SIPARIS_SERVIS_HTML = `
                             <th class="sortable text-left px-3 py-2" data-sort-key="musteri" data-sort-type="string">Müşteri<span class="sort-indicator"></span></th>
                             <th class="sortable text-left px-3 py-2" data-sort-key="urun" data-sort-type="string">Ürün<span class="sort-indicator"></span></th>
                             <th class="sortable text-left px-3 py-2" data-sort-key="milKod" data-sort-type="string">Mil Kodu<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="kapak" data-sort-type="string">Kapak<span class="sort-indicator"></span></th>
+                            <th class="sortable text-left px-3 py-2" data-sort-key="rulman" data-sort-type="string">Rulman<span class="sort-indicator"></span></th>
                             <th class="sortable text-right px-3 py-2" data-sort-key="kw" data-sort-type="number">kW<span class="sort-indicator"></span></th>
                             <th class="sortable text-right px-3 py-2" data-sort-key="rpm" data-sort-type="number">RPM<span class="sort-indicator"></span></th>
                             <th class="sortable text-right px-3 py-2" data-sort-key="volt" data-sort-type="number">Voltaj<span class="sort-indicator"></span></th>
@@ -955,7 +961,6 @@ function initializeSiparisServisApp() {
     let teknikServisSevkSort = { key: 'sevkEdildi', direction: 'desc' };
     let chartInstances = {};
 
-
     const allPages = $$("section[id^='ss_page']", appContainer);
     const allTabs = $$(".tab-btn", appContainer);
     const table = $('#ss_orderTable', appContainer);
@@ -978,6 +983,14 @@ function initializeSiparisServisApp() {
     
     let orders, logs, sevkEdilenler, servisKayitlari, servisSevkEdilenler;
 
+    // YENİ: Boşluk engelleme fonksiyonu
+    const preventSpaces = (e) => {
+        e.target.value = e.target.value.replace(/\s/g, '');
+    };
+    $$('input[name="urun"], input[name="milKod"], input[name="milTipi"]', appContainer).forEach(input => {
+        input.addEventListener('input', preventSpaces);
+    });
+    
     function loadDataFromStorage() {
         orders = window.dataStore['siparisler'] || [];
         logs = window.dataStore['siparisLog'] || [];
@@ -1223,6 +1236,8 @@ function initializeSiparisServisApp() {
           <td data-label="Müşteri">${span(o.musteri, 'musteri', 'text')}</td>
           <td data-label="Ürün">${span(o.urun, 'urun', 'text')}</td>
           <td data-label="Mil Kodu">${span(o.milKod, 'milKod', 'text')}</td>
+          <td data-label="Kapak">${span(o.kapak, 'kapak', 'select-kapak')}</td>
+          <td data-label="Rulman">${span(o.rulman, 'rulman', 'select-rulman')}</td>
           <td data-label="kW">${span(o.kw, 'kw', 'number','text-right')}</td>
           <td data-label="RPM">${span(o.rpm, 'rpm', 'number','text-right')}</td>
           <td data-label="Voltaj">${span(o.volt, 'volt', 'number','text-right')}</td>
@@ -1310,6 +1325,8 @@ function initializeSiparisServisApp() {
           <td data-label="Müşteri">${o.musteri || ""}</td>
           <td data-label="Ürün">${o.urun || ""}</td>
           <td data-label="Mil Kodu">${o.milKod || ""}</td>
+          <td data-label="Kapak">${o.kapak || ""}</td>
+          <td data-label="Rulman">${o.rulman || ""}</td>
           <td data-label="kW">${o.kw || ""}</td>
           <td data-label="RPM">${o.rpm || ""}</td>
           <td data-label="Voltaj">${o.volt || ""}</td>
@@ -1448,6 +1465,13 @@ function initializeSiparisServisApp() {
     function inlineUpdate(index, field, value){
       if (!orders[index]) return;
       const oldVal = orders[index][field];
+      
+      // YENİ: Büyük harf dönüşümü
+      const fieldsToUppercase = ['musteri', 'urun', 'milKod'];
+      if (fieldsToUppercase.includes(field) && typeof value === 'string') {
+          value = value.toLocaleUpperCase('tr-TR');
+      }
+
       orders[index][field] = value;
       window.dataStore['siparisler'] = orders;
       window.pushData('siparisler');
@@ -1513,30 +1537,20 @@ function initializeSiparisServisApp() {
       const current = orders[originalIndex] ? orders[originalIndex][field] : '';
       const td = el.parentElement;
       let input;
-      if (type === 'date'){
-        input = document.createElement('input');
-        input.className = 'sevk-picker date-input px-2 py-1 border rounded-md bg-white w-[160px]';
-      } else {
-        input = document.createElement('input');
-        input.type = type === 'number' ? 'number' : 'text';
-        input.className = `px-2 py-1 border rounded-md w-full ${type==='number' ? 'text-right' : ''}`;
-        if (type === 'number') {
-            input.min = 0;
-            input.step = "any";
-        }
-        input.value = current ?? '';
-      }
-      td.innerHTML = '';
-      td.appendChild(input);
-      input.focus();
-      
+
       const commit = () => {
-        let val = input.value.trim().replace(',', '.');
-        if(type === 'date') {
-          const date = parseDdMmYyyy(val);
-          if(date) setSevkDate(originalIndex, date);
-          else renderOrders(); 
+        let val;
+        if (type.startsWith('select')) {
+            val = input.value;
+            inlineUpdate(originalIndex, field, val);
+            renderOrders();
+        } else if (type === 'date') {
+            val = input.value.trim();
+            const date = parseDdMmYyyy(val);
+            if (date) setSevkDate(originalIndex, date);
+            else renderOrders();
         } else {
+            val = input.value.trim().replace(',', '.');
             let finalValue = val;
             if (type === 'number') {
                 if (val === '') {
@@ -1545,7 +1559,7 @@ function initializeSiparisServisApp() {
                     const numVal = parseFloat(val);
                     if (!Number.isFinite(numVal) || numVal < 0) {
                         showToast("Lütfen geçerli bir pozitif sayı girin.", "error");
-                        renderOrders(); 
+                        renderOrders();
                         return;
                     }
                     finalValue = numVal;
@@ -1555,12 +1569,41 @@ function initializeSiparisServisApp() {
             renderOrders();
         }
       };
-      
-      input.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') renderOrders(); });
-      input.addEventListener('blur', commit);
 
       if (type === 'date'){
+        input = document.createElement('input');
+        input.className = 'sevk-picker date-input px-2 py-1 border rounded-md bg-white w-[160px]';
+        td.innerHTML = '';
+        td.appendChild(input);
+        input.focus();
         flatpickr(input, { ...getFPBaseOptions(), defaultDate: parseAnyDate(current) || undefined, onClose: (sel) => { if (sel && sel[0]) setSevkDate(originalIndex, sel[0]); else renderOrders(); } }).open();
+      } else if (type === 'select-kapak' || type === 'select-rulman') {
+        input = document.createElement('select');
+        input.className = 'px-2 py-1 border rounded-md bg-white w-full';
+        const options = type === 'select-kapak' ? ["", "AK", "CK"] : ["", "1R", "2R", "CR"];
+        options.forEach(opt => {
+            const o = document.createElement('option');
+            o.value = opt;
+            o.textContent = opt || '(Seçiniz)';
+            if (current === opt) o.selected = true;
+            input.appendChild(o);
+        });
+        td.innerHTML = '';
+        td.appendChild(input);
+        input.focus();
+        input.addEventListener('change', commit);
+        input.addEventListener('blur', () => renderOrders()); 
+      } else {
+        input = document.createElement('input');
+        input.type = type === 'number' ? 'number' : 'text';
+        input.className = `px-2 py-1 border rounded-md w-full ${type==='number' ? 'text-right' : ''}`;
+        if (type === 'number') { input.min = 0; input.step = "any"; }
+        input.value = current ?? '';
+        td.innerHTML = '';
+        td.appendChild(input);
+        input.focus();
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') renderOrders(); });
+        input.addEventListener('blur', commit);
       }
     }
 
@@ -1574,10 +1617,15 @@ function initializeSiparisServisApp() {
         let val = input.value.trim().replace(',', '.');
         let finalValue = val;
         
+        // YENİ: Büyük harf dönüşümü
+        const fieldsToUppercase = ['firma', 'urun', 'ariza', 'milTipi', 'iletisim', 'kargoTipi', 'durum'];
+        if (fieldsToUppercase.includes(field) && typeof finalValue === 'string') {
+            finalValue = finalValue.toLocaleUpperCase('tr-TR');
+        }
+
         if (type === 'number') {
-            if (val === '') {
-                finalValue = null;
-            } else {
+            if (val === '') { finalValue = null; } 
+            else {
                  const numVal = parseFloat(val);
                  if (!Number.isFinite(numVal) || numVal < 0) {
                      showToast("Lütfen geçerli bir pozitif sayı girin.", "error");
@@ -1616,10 +1664,7 @@ function initializeSiparisServisApp() {
         input = document.createElement('input');
         input.type = (type === 'date') ? 'text' : (type === 'number' ? 'number' : 'text');
         input.className = `px-2 py-1 border rounded-md w-full ${type==='number' ? 'text-right' : ''}`;
-        if (type === 'number') {
-            input.min = 0;
-            input.step = "any";
-        }
+        if (type === 'number') { input.min = 0; input.step = "any"; }
         input.value = (type === 'date') ? formatDate_TR(s[field]) : (s[field] ?? '');
         
         input.addEventListener('keydown', e => { if (e.key === 'Enter') commitAndRender(); if (e.key === 'Escape') renderServisList(); });
@@ -1716,6 +1761,14 @@ function initializeSiparisServisApp() {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(form).entries());
       
+      // YENİ: Büyük harf dönüşümü
+      const fieldsToUppercase = ['musteri', 'urun', 'milKod'];
+      for (const key in data) {
+          if (fieldsToUppercase.includes(key) && typeof data[key] === 'string') {
+              data[key] = data[key].toLocaleUpperCase('tr-TR');
+          }
+      }
+
       const fieldsToValidate = ['kw', 'rpm', 'volt'];
       for (const field of fieldsToValidate) {
           if (data[field] && (isNaN(Number(data[field])) || Number(data[field]) < 0)) {
@@ -1750,6 +1803,15 @@ function initializeSiparisServisApp() {
     servisForm.addEventListener('submit', function(e){
       e.preventDefault();
       const data = Object.fromEntries(new FormData(servisForm).entries());
+      
+      // YENİ: Büyük harf dönüşümü
+      const fieldsToUppercase = ['firma', 'urun', 'ariza', 'milTipi', 'iletisim', 'kargoTipi'];
+      for (const key in data) {
+          if (fieldsToUppercase.includes(key) && typeof data[key] === 'string') {
+              data[key] = data[key].toLocaleUpperCase('tr-TR');
+          }
+      }
+      
       const adet = data.adet ? parseInt(data.adet, 10) : null;
       if (adet !== null && (isNaN(adet) || adet < 1)) {
           showToast("Adet geçerli bir pozitif sayı olmalıdır.", "error");
@@ -1856,8 +1918,8 @@ function initializeSiparisServisApp() {
     $$('.ss_btnExportJSON', document).forEach(btn => btn.onclick = exportAction);
     
     const exportCSVAction = () => downloadCSV("siparisler.csv", [
-      ["No", "Müşteri", "Ürün", "Mil Kodu", "kW", "RPM", "Voltaj", "Sevk Tarihi", "Hazır", "Sevke Hazır", "Kullanıcı"],
-      ...orders.map(o => [o.no, o.musteri, o.urun, o.milKod, o.kw, o.rpm, o.volt, formatDate_TR(o.sevkTarihi), o.hazir?"Evet":"Hayır", o.sevkeHazir?"Evet":"Hayır", o.kullanici])
+      ["No", "Müşteri", "Ürün", "Mil Kodu", "Kapak", "Rulman", "kW", "RPM", "Voltaj", "Sevk Tarihi", "Hazır", "Sevke Hazır", "Kullanıcı"],
+      ...orders.map(o => [o.no, o.musteri, o.urun, o.milKod, o.kapak, o.rulman, o.kw, o.rpm, o.volt, formatDate_TR(o.sevkTarihi), o.hazir?"Evet":"Hayır", o.sevkeHazir?"Evet":"Hayır", o.kullanici])
     ]);
     $$('.ss_btnExportCSV', document).forEach(btn => btn.onclick = exportCSVAction);
 
