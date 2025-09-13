@@ -270,10 +270,6 @@ function hideLoadingOverlay() {
     document.getElementById('loading-overlay').style.display = 'none';
 }
 
-// OPTIMIZASYON: Debounce fonksiyonu eklendi.
-// Bu fonksiyon, bir olayın (örneğin klavyeden yazı yazma) çok sık tetiklenmesini engelleyerek
-// sadece kullanıcı duraksadığında işlem yapılmasını sağlar. Bu, arama ve filtreleme
-// işlemlerinde performansı ciddi şekilde artırır.
 function debounce(func, delay = 300) {
     let timeoutId;
     return function(...args) {
@@ -488,6 +484,7 @@ const SIPARIS_SERVIS_HTML = `
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabSiparis">📦 Siparişler</button>
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabSevk">🚚 Sevk Listesi</button>
         <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabServis">🛠️ Teknik Servis</button>
+        <button class="tab-btn px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 text-sm whitespace-nowrap" id="ss_tabAnaliz">📈 Analiz</button>
     </div>
     <div class="grid grid-cols-2 gap-2 mb-4" id="siparis-mobile-buttons">
         <button class="ss_btnImportJSON w-full px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-sm">İçe aktar</button>
@@ -643,6 +640,25 @@ const SIPARIS_SERVIS_HTML = `
                 </thead>
                 <tbody class="divide-y divide-slate-100 md:divide-y-0" id="ss_servisTable"></tbody>
             </table>
+        </div>
+    </section>
+    <section class="hidden" id="ss_pageAnaliz">
+        <div class="bg-white p-4 rounded-xl shadow mb-6">
+            <h2 class="text-lg font-semibold mb-3 text-slate-700">Müşteri Bazında Tüketim Tahminlemesi</h2>
+            <div class="max-w-md">
+                <label for="ss_customerForecastSelect" class="text-sm font-medium text-slate-600 block mb-1">Analiz Edilecek Müşteriyi Seçin:</label>
+                <select id="ss_customerForecastSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white">
+                    <option value="">-- Müşteri Seç --</option>
+                </select>
+            </div>
+            <div id="ss_customerForecastResult" class="mt-4"></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">En Çok Sipariş Veren Müşteriler</h3><div class="min-h-[300px]"><canvas id="ss_chartMusteri"></canvas></div></div>
+            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">En Çok Sipariş Edilen Ürünler</h3><div class="min-h-[300px]"><canvas id="ss_chartUrun"></canvas></div></div>
+            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">Sipariş Termin Performansı</h3><div class="min-h-[300px] flex justify-center items-center"><div class="max-w-[280px] w-full"><canvas id="ss_chartTermin"></canvas></div></div></div>
+            <div class="bg-white p-4 rounded-xl shadow"><h3 class="font-semibold text-slate-800 mb-3 text-center">En Sık Görülen Arıza Tipleri</h3><div class="min-h-[300px]"><canvas id="ss_chartAriza"></canvas></div></div>
         </div>
     </section>
 </div>
@@ -828,7 +844,6 @@ const STOK_TAKIP_HTML = `
             </div>
             <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 hertz-only">
                  <h3 class="font-semibold text-slate-800 mb-3">ABC Analizi (Yıllık Tüketim Değerine Göre)</h3>
-                 <!-- İYİLEŞTİRME: ABC Analizi için bilgilendirme notu eklendi -->
                  <p class="text-xs text-slate-500 mb-2 px-2">Not: Bu analiz, yalnızca birim maliyeti girilmiş olan ürünlerin tüketim verilerine dayanmaktadır.</p>
                  <div class="overflow-auto max-h-96">
                      <table class="w-full text-xs">
@@ -919,6 +934,8 @@ function initializeSiparisServisApp() {
     let sevkSort = { key: 'sevkEdildi', direction: 'desc' };
     let servisSort = { key: 'no', direction: 'desc' };
     let teknikServisSevkSort = { key: 'sevkEdildi', direction: 'desc' };
+    let musteriChartInstance, urunChartInstance, terminChartInstance, arizaChartInstance;
+
 
     const allPages = $$("section[id^='ss_page']", appContainer);
     const allTabs = $$(".tab-btn", appContainer);
@@ -937,6 +954,7 @@ function initializeSiparisServisApp() {
     const teknikSevkSearch = $('#ss_teknikSevkSearch', appContainer);
     const teknikSevkDateFrom = $('#ss_teknikSevkDateFrom', appContainer);
     const teknikSevkDateTo = $('#ss_teknikSevkDateTo', appContainer);
+    const customerForecastSelect = $('#ss_customerForecastSelect', appContainer);
     
     let orders, logs, sevkEdilenler, servisKayitlari, servisSevkEdilenler;
 
@@ -951,7 +969,7 @@ function initializeSiparisServisApp() {
     function formatDate_TR(input) {
       if (!input) return "";
       const dt = (input instanceof Date) ? input : parseAnyDate(input);
-      if (!dt) return "";
+      if (!dt || isNaN(dt)) return "";
       const d = String(dt.getDate()).padStart(2,"0");
       const m = String(dt.getMonth()+1).padStart(2,"0");
       const y = dt.getFullYear();
@@ -984,6 +1002,7 @@ function initializeSiparisServisApp() {
     function todayLocal(){ const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
     function formatDateTime_TR(input) {
       const dt = (input instanceof Date) ? input : new Date(input);
+      if(!dt || isNaN(dt)) return "";
       const d = String(dt.getDate()).padStart(2,"0");
       const m = String(dt.getMonth()+1).padStart(2,"0");
       const y = dt.getFullYear();
@@ -1014,7 +1033,7 @@ function initializeSiparisServisApp() {
         return mixHex(Y_LIGHT, Y_FULL, t); 
       }
       
-      return null; // Diğer durumlar için özel renk yok
+      return null;
     }
     
     function getNextSiparisNo() {
@@ -1076,10 +1095,10 @@ function initializeSiparisServisApp() {
     function setTab(tabId){
       currentTab = tabId;
       const pageMap = {
-          siparis: '#ss_pageSiparis', sevk: '#ss_pageSevk', servis: '#ss_pageServis'
+          siparis: '#ss_pageSiparis', sevk: '#ss_pageSevk', servis: '#ss_pageServis', analiz: '#ss_pageAnaliz'
       };
       const tabMap = {
-          siparis: '#ss_tabSiparis', sevk: '#ss_tabSevk', servis: '#ss_tabServis'
+          siparis: '#ss_tabSiparis', sevk: '#ss_tabSevk', servis: '#ss_tabServis', analiz: '#ss_tabAnaliz'
       };
 
       allPages.forEach(p => p.classList.add("hidden"));
@@ -1094,8 +1113,11 @@ function initializeSiparisServisApp() {
       if (tabId === 'sevk') {
         renderSevkList();
         renderTeknikServisSevkList();
+      } else if (tabId === 'servis') {
+        renderServisList();
+      } else if (tabId === 'analiz') {
+        renderAnalysisPage();
       }
-      if (tabId === 'servis') renderServisList();
     }
 
     allTabs.forEach(tab => {
@@ -1120,7 +1142,6 @@ function initializeSiparisServisApp() {
       if (currentTab === "sevk") renderTeknikServisSevkList();
     }
 
-    // YENİ EKLENDİ: Çalışmayan sevk etme özelliğini düzelten fonksiyon.
     function markServisAsSevk(index) {
         if (index < 0 || index >= servisKayitlari.length) {
             showToast("Hata: Geçersiz servis kaydı.", "error");
@@ -1311,12 +1332,10 @@ function initializeSiparisServisApp() {
         let bg = null;
         const isServisHazir = (s.durum || '').toUpperCase() === 'HAZIR';
 
-        // Öncelik: Sevk tarihine göre renklendirme (siparişlerdeki gibi)
         if (s.sevkTarihi) {
             bg = getRowBgByDue(s.sevkTarihi, isServisHazir);
         }
         
-        // Sevk tarihi rengi yoksa, duruma göre renklendirme
         if (!bg) {
             bg = servisRowBg(s.durum);
         }
@@ -1356,7 +1375,6 @@ function initializeSiparisServisApp() {
       updateSortIndicators(servisTable.id, servisSort);
     }
     
-    // İYİLEŞTİRME: Servis durumu değiştiğinde log kaydı ekleniyor.
     function setServisDurum(i, val){
       const s = servisKayitlari[i];
       if (!s) return;
@@ -1470,7 +1488,6 @@ function initializeSiparisServisApp() {
       };
     }
     
-    // İYİLEŞTİRME: Sayısal alanlar için sıkı veri doğrulama eklendi.
     function makeEditable(el, index, field, type){
       const originalIndex = index;
       const current = orders[originalIndex] ? orders[originalIndex][field] : '';
@@ -1738,7 +1755,7 @@ function initializeSiparisServisApp() {
 
       window.dataStore['servisKayitlari'] = servisKayitlari;
       window.pushData('servisKayitlari');
-      resetServisForm(); // İYİLEŞTİRME: Formu temizle
+      resetServisForm(); 
       renderServisList();
     });
     
@@ -1955,6 +1972,205 @@ function initializeSiparisServisApp() {
         renderTeknikServisSevkList();
     }
     
+    // --- Analiz Sayfası Fonksiyonları ---
+    function renderAnalysisPage() {
+        populateCustomerForecastDropdown();
+        renderCustomerForecast(); // Müşteri seçilmemiş haliyle boş tablo çizer
+
+        renderMusteriChart();
+        renderUrunChart();
+        renderTerminChart();
+        renderArizaChart();
+    }
+
+    function populateCustomerForecastDropdown() {
+        const allOrders = [...orders, ...sevkEdilenler];
+        const customerNames = [...new Set(allOrders.map(o => o.musteri).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'tr'));
+        
+        customerForecastSelect.innerHTML = '<option value="">-- Müşteri Seç --</option>';
+        customerNames.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            customerForecastSelect.appendChild(option);
+        });
+    }
+
+    function renderCustomerForecast() {
+        const customerName = customerForecastSelect.value;
+        const resultContainer = $('#ss_customerForecastResult', appContainer);
+
+        if (!customerName) {
+            resultContainer.innerHTML = '<p class="text-sm text-slate-500 italic">Lütfen analiz için bir müşteri seçin.</p>';
+            return;
+        }
+
+        const allCustomerOrders = [...orders, ...sevkEdilenler]
+            .filter(o => o.musteri === customerName && o.sevkEdildi)
+            .sort((a,b) => parseAnyDate(a.sevkEdildi) - parseAnyDate(b.sevkEdildi));
+
+        if (allCustomerOrders.length === 0) {
+            resultContainer.innerHTML = '<p class="text-sm text-slate-500 italic">Seçilen müşteriye ait sevk edilmiş sipariş bulunamadı.</p>';
+            return;
+        }
+
+        const groupedByConfig = new Map();
+        allCustomerOrders.forEach(order => {
+            const configKey = `${order.urun || ''}-${order.milKod || ''}-${order.kw || ''}-${order.rpm || ''}-${order.volt || ''}`;
+            if (!groupedByConfig.has(configKey)) {
+                groupedByConfig.set(configKey, {
+                    config: { urun: order.urun, milKod: order.milKod, kw: order.kw, rpm: order.rpm, volt: order.volt },
+                    dates: []
+                });
+            }
+            groupedByConfig.get(configKey).dates.push(parseAnyDate(order.sevkEdildi));
+        });
+
+        const analysisResults = [];
+        for (const [key, value] of groupedByConfig.entries()) {
+            const { config, dates } = value;
+            const totalOrders = dates.length;
+            const lastOrderDate = dates[dates.length - 1];
+            let avgInterval = null;
+            let nextOrderDate = null;
+
+            if (totalOrders > 1) {
+                let totalDiff = 0;
+                for (let i = 1; i < dates.length; i++) {
+                    const diff = (dates[i].getTime() - dates[i-1].getTime()) / (1000 * 3600 * 24);
+                    totalDiff += diff;
+                }
+                avgInterval = Math.round(totalDiff / (totalOrders - 1));
+                if (avgInterval > 0) {
+                    nextOrderDate = new Date(lastOrderDate);
+                    nextOrderDate.setDate(nextOrderDate.getDate() + avgInterval);
+                }
+            }
+            analysisResults.push({ config, totalOrders, avgInterval, lastOrderDate, nextOrderDate });
+        }
+
+        // Render table
+        let tableHTML = `
+            <div class="overflow-x-auto rounded-lg border">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-100">
+                        <tr>
+                            <th class="text-left p-2">Ürün Konfigürasyonu</th>
+                            <th class="text-center p-2">Toplam Sipariş</th>
+                            <th class="text-center p-2">Ort. Sipariş Aralığı (Gün)</th>
+                            <th class="text-center p-2">Son Sipariş Tarihi</th>
+                            <th class="text-center p-2">Tahmini Sonraki Sipariş</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        analysisResults.sort((a,b) => b.totalOrders - a.totalOrders).forEach(res => {
+            const configText = [res.config.urun, res.config.milKod, res.config.kw ? `${res.config.kw}kW` : '', res.config.rpm ? `${res.config.rpm}rpm` : '', res.config.volt ? `${res.config.volt}V` : ''].filter(Boolean).join(' - ');
+            
+            let rowClass = '';
+            if (res.nextOrderDate) {
+                const diff = (res.nextOrderDate - new Date()) / (1000 * 3600 * 24);
+                if (diff < 7) rowClass = 'bg-red-100 font-semibold';
+                else if (diff < 30) rowClass = 'bg-yellow-100';
+            }
+
+            tableHTML += `
+                <tr class="border-t ${rowClass}">
+                    <td class="p-2">${configText}</td>
+                    <td class="text-center p-2">${res.totalOrders}</td>
+                    <td class="text-center p-2">${res.avgInterval !== null ? res.avgInterval : 'N/A'}</td>
+                    <td class="text-center p-2">${formatDate_TR(res.lastOrderDate)}</td>
+                    <td class="text-center p-2">${res.nextOrderDate ? formatDate_TR(res.nextOrderDate) : 'N/A'}</td>
+                </tr>
+            `;
+        });
+
+        tableHTML += `</tbody></table></div>`;
+        resultContainer.innerHTML = tableHTML;
+    }
+
+    function renderMusteriChart() {
+        if (musteriChartInstance) musteriChartInstance.destroy();
+        const allOrders = [...orders, ...sevkEdilenler];
+        const counts = allOrders.reduce((acc, o) => {
+            if(o.musteri) acc[o.musteri] = (acc[o.musteri] || 0) + 1;
+            return acc;
+        }, {});
+        const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 10);
+        
+        musteriChartInstance = new Chart($('#ss_chartMusteri').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: sorted.map(item => item[0]),
+                datasets: [{ label: 'Toplam Sipariş Sayısı', data: sorted.map(item => item[1]), backgroundColor: 'rgba(var(--brand), 0.7)' }]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    function renderUrunChart() {
+        if (urunChartInstance) urunChartInstance.destroy();
+        const allOrders = [...orders, ...sevkEdilenler];
+        const counts = allOrders.reduce((acc, o) => {
+            const configKey = `${o.urun || ''} - ${o.milKod || ''}`;
+            if(o.urun) acc[configKey] = (acc[configKey] || 0) + 1;
+            return acc;
+        }, {});
+        const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+        urunChartInstance = new Chart($('#ss_chartUrun').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: sorted.map(item => item[0]),
+                datasets: [{ label: 'Toplam Sipariş Sayısı', data: sorted.map(item => item[1]), backgroundColor: 'rgba(75, 192, 192, 0.7)' }]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    function renderTerminChart() {
+        if (terminChartInstance) terminChartInstance.destroy();
+        let onTime = 0, late = 0;
+        sevkEdilenler.forEach(o => {
+            const plan = parseAnyDate(o.sevkTarihi);
+            const actual = parseAnyDate(o.sevkEdildi);
+            if(plan && actual) {
+                if (atLocalMidnight(actual) <= atLocalMidnight(plan)) onTime++;
+                else late++;
+            }
+        });
+
+        terminChartInstance = new Chart($('#ss_chartTermin').getContext('2d'), {
+            type: 'pie',
+            data: {
+                labels: ['Zamanında Sevk', 'Geç Sevk'],
+                datasets: [{ data: [onTime, late], backgroundColor: ['#22c55e', '#ef4444'] }]
+            },
+            options: { responsive: true, maintainAspectRatio: true }
+        });
+    }
+
+    function renderArizaChart() {
+        if (arizaChartInstance) arizaChartInstance.destroy();
+        const allServis = [...servisKayitlari, ...servisSevkEdilenler];
+        const counts = allServis.reduce((acc, s) => {
+            if(s.ariza) acc[s.ariza] = (acc[s.ariza] || 0) + 1;
+            return acc;
+        }, {});
+        const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+        arizaChartInstance = new Chart($('#ss_chartAriza').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: sorted.map(item => item[0]),
+                datasets: [{ label: 'Arıza Sayısı', data: sorted.map(item => item[1]), backgroundColor: 'rgba(255, 159, 64, 0.7)' }]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    // --- Olay Dinleyicileri ---
     function setupEventListeners() {
         table.addEventListener('click', e => {
             const target = e.target.closest('[data-action]');
@@ -2009,7 +2225,7 @@ function initializeSiparisServisApp() {
 
             if (action === 'delete-servis') deleteServis(no);
             else if (action === 'edit-servis') editServis(index);
-            else if (action === 'sevk-et-servis') markServisAsSevk(index); // DÜZELTME: Çalışmayan sevk etme özelliği eklendi.
+            else if (action === 'sevk-et-servis') markServisAsSevk(index);
             else if (action === 'edit-desc-servis') openDescEditor('servis', index);
         });
 
@@ -2022,6 +2238,8 @@ function initializeSiparisServisApp() {
                 makeEditableServis(target, index, target.dataset.field, target.dataset.type);
             }
         });
+
+        customerForecastSelect.addEventListener('change', renderCustomerForecast);
     }
 
     loadDataFromStorage();
@@ -2044,6 +2262,9 @@ function initializeSiparisServisApp() {
     window.setSiparisServisRefresher(() => {
         loadDataFromStorage();
         renderAllTables();
+        if(currentTab === 'analiz') {
+            renderAnalysisPage();
+        }
     });
 }
 
@@ -2142,7 +2363,6 @@ function initializeStokTakipApp() {
     }
     
     function renderProductList() {
-        // Tükenme tahmini için son 90 günlük logları önceden alalım
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
         const recentLogs = state.logs.filter(l => l.type === 'out' && new Date(l.ts) > ninetyDaysAgo);
@@ -2281,7 +2501,6 @@ function initializeStokTakipApp() {
         aktifBody.innerHTML = '<tr><td colspan="2" class="p-4 text-center text-slate-500">Rapor oluşturuluyor...</td></tr>';
         
         setTimeout(() => {
-            // --- Herkesin Görebileceği Analizler ---
             const aktifGun = parseInt($('#stok_analiz_aktif_gun', appContainer).value, 10);
             const aktifThreshold = new Date(); aktifThreshold.setDate(aktifThreshold.getDate() - aktifGun);
             const hareketler = {};
@@ -2300,8 +2519,7 @@ function initializeStokTakipApp() {
             pasifBody.innerHTML = '';
             hareketsiz.forEach(p => { const tr = document.createElement('tr'); const sonTarih = sonHareket[p.id] ? sonHareket[p.id].toLocaleDateString('tr-TR') : 'Hiç'; tr.innerHTML = `<td class="p-2 border-t border-slate-100">${p.name}</td><td class="p-2 border-t border-slate-100">${sonTarih}</td><td class="p-2 border-t border-slate-100 text-right">${fmt(p.qty || 0)}</td>`; pasifBody.appendChild(tr);});
             if(hareketsiz.length === 0) pasifBody.innerHTML = '<tr><td colspan="3" class="p-2 text-slate-500 text-center">Veri bulunamadı.</td></tr>';
-            
-            // --- 'hertz' Yetkisi Gerektiren Gelişmiş Analizler ---
+
             if (!authManager.checkPermission('hertz')) {
                  if (tuketimChart) { tuketimChart.destroy(); tuketimChart = null; }
                  $$('#stok_tabContent_analiz .hertz-only').forEach(el => {
@@ -2516,7 +2734,7 @@ function initializeStokTakipApp() {
     
     function populateFilters() {
         const catSelect = $('#stok_filterCategory', appContainer);
-        catSelect.innerHTML = '<option value="">Tüm Çeşitler</option>'; // Reset
+        catSelect.innerHTML = '<option value="">Tüm Çeşitler</option>';
         Object.entries(CATEGORY_LABEL).forEach(([key, label]) => {
             const option = document.createElement('option');
             option.value = key;
@@ -2595,7 +2813,6 @@ function initializeStokTakipApp() {
     $$('#stok_search, #stok_onlyLow, #stok_filterKind, #stok_filterCategory', appContainer)
         .forEach(el => el.addEventListener('input', debouncedRenderProductList));
     
-    // Analiz filtreleri için event listener'lar
     $$('#stok_analiz_aktif_gun, #stok_analiz_pasif_gun, #stok_analiz_devir_hizi_gun, #stok_analiz_tuketim_urun', appContainer).forEach(el => el.addEventListener('change', renderAnalysisReports));
 
     $('#stok_btnClearFilters', appContainer).addEventListener('click', () => {
@@ -2627,7 +2844,6 @@ function initializeStokTakipApp() {
         else if(act === 'move-out') openMoveDialog(p, 'out');
     });
     
-    // İYİLEŞTİRME: Satır içi düzenlemede sayısal doğrulama eklendi.
     delegate($('#stok_tbodyDesktop', appContainer), '.editable-qty', 'dblclick', (td) => {
         const pId = td.dataset.id;
         const p = findProduct(pId);
@@ -2687,12 +2903,12 @@ function initializeStokTakipApp() {
             return;
         }
 
-        if (data.id) { // Düzenleme
+        if (data.id) { 
             const supplier = findSupplier(data.id);
             if (supplier) {
                 Object.assign(supplier, data);
             }
-        } else { // Yeni ekleme
+        } else { 
             const { id, ...supplierData } = data;
             state.suppliers.push({ id: uuid(), ...supplierData });
         }
